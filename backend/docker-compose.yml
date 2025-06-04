@@ -3,11 +3,11 @@ version: '3.8'
 services:
   mysql:
     image: mysql:8.0
-    container_name: textrpg-mysql
+    container_name: webpos-mysql
     environment:
       MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: textrpg
-      MYSQL_USER: textrpg
+      MYSQL_DATABASE: webpos
+      MYSQL_USER: webpos
       MYSQL_PASSWORD: password
     ports:
       - "3306:3306"
@@ -21,7 +21,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: textrpg-redis
+    container_name: webpos-redis
     ports:
       - "6379:6379"
     volumes:
@@ -35,7 +35,7 @@ services:
 
   elasticsearch:
     image: elasticsearch:8.11.0
-    container_name: textrpg-elasticsearch
+    container_name: webpos-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -53,7 +53,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: textrpg-kafka
+    container_name: webpos-kafka
     depends_on:
       - zookeeper
     ports:
@@ -70,7 +70,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: textrpg-zookeeper
+    container_name: webpos-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -90,4 +90,4 @@ volumes:
 
 networks:
   default:
-    name: textrpg-network
+    name: webpos-network

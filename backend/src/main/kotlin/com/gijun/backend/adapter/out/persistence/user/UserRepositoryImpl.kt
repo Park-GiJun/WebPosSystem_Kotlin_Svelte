@@ -1,5 +1,7 @@
-package com.gijun.backend.adapter.out.persistence
+package com.gijun.backend.adapter.out.persistence.user
 
+import com.gijun.backend.application.port.out.UserRepository
+import com.gijun.backend.domain.user.User
 import org.springframework.stereotype.Component
 
 @Component
