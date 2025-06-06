@@ -27,11 +27,27 @@ class AuthService(
 
         validateUserDoesNotExist(command)
 
-        val user = createUser(command)
+        // 첫 번째 사용자인지 확인
+        val userCount = userRepository.count()
+        val isFirstUser = userCount == 0L
+
+        val user = createUser(command, isFirstUser)
         val savedUser = userRepository.save(user)
 
-        logger.info("User registered successfully: ${savedUser.id}")
-        return savedUser
+        // 첫 번째 사용자가 아닌 경우에만 created_by를 업데이트
+        val finalUser = if (!isFirstUser && savedUser.createdBy == null) {
+            val updatedUser = savedUser.copy(
+                createdBy = savedUser.id, // 자기 자신을 생성자로 설정
+                updatedBy = savedUser.id,
+                version = savedUser.version + 1
+            )
+            userRepository.save(updatedUser)
+        } else {
+            savedUser
+        }
+
+        logger.info("User registered successfully: ${finalUser.id}")
+        return finalUser
     }
 
     override suspend fun login(command: LoginCommand): AuthResult {
@@ -130,16 +146,16 @@ class AuthService(
         }
     }
 
-    private fun createUser(command: RegisterCommand): User {
+    private suspend fun createUser(command: RegisterCommand, isFirstUser: Boolean = false): User {
         val passwordHash = passwordEncoder.encode(command.password)
 
         return User(
             username = command.username,
             email = command.email,
             passwordHash = passwordHash,
-            roles = setOf(UserRole.USER),
-            userStatus = UserStatus.PENDING_VERIFICATION, // 이메일 인증 필요
-            createdBy = command.username // 자기 자신이 생성
+            roles = if (isFirstUser) setOf(UserRole.SUPER_ADMIN) else setOf(UserRole.USER),
+            userStatus = if (isFirstUser) UserStatus.ACTIVE else UserStatus.PENDING_VERIFICATION,
+            createdBy = null // 일단 null로 설정하고 나중에 업데이트
         )
     }
 }
