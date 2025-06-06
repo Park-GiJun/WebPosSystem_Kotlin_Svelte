@@ -30,7 +30,7 @@
             on:click={() => switchTab(tab.id)}
           >
             <span class="flex items-center space-x-2">
-              <span>{tab.title}</span>
+              <span title="ID: {tab.id}">{tab.title || 'Untitled'}</span>
               {#if tab.closeable}
                 <button
                   type="button"

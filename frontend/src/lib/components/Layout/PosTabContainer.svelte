@@ -106,7 +106,9 @@
           >
             <div class="flex items-center space-x-2 px-4 py-2.5">
               <!-- 탭 제목 -->
-              <span class="font-medium text-sm">{tab.title}</span>
+              <span class="font-medium text-sm" title="ID: {tab.id}">
+                {tab.title || 'Untitled'}
+              </span>
               
               <!-- 주문 수량 배지 -->
               {#if tab.orderCount}

@@ -84,7 +84,9 @@
               {/if}
               
               <!-- 탭 제목 -->
-              <span class="font-medium text-sm">{tab.title}</span>
+              <span class="font-medium text-sm" title="ID: {tab.id}">
+                {tab.title || 'Untitled'}
+              </span>
               
               <!-- 보안 아이콘 -->
               {#if tab.secure}

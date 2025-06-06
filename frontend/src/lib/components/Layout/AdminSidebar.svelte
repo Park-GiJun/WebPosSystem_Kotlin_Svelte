@@ -10,13 +10,31 @@
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
   
-  // 슈퍼어드민 전용 메뉴만 필터링 (DB에서 불러온 실제 데이터만 사용)
+  // 슈퍼어드민 전용 메뉴만 필터링 (실제 API 응답 구조에 맞게)
   $: allMenus = $authStore.menus || [];
   $: adminMenus = allMenus.filter(menu => 
-    menu.menu_code?.startsWith('ADMIN') || 
-    menu.parent_menu_id === 'menu-admin' ||
-    menu.menu_id === 'menu-admin'
+    menu.menuCode?.startsWith('ADMIN') || 
+    menu.parentMenuId === 'menu-admin' ||
+    menu.menuId === 'menu-admin'
   );
+
+  // 디버깅 로그 추가
+  $: {
+    console.log('🔐 AdminSidebar 메뉴 디버깅:', {
+      allMenusCount: allMenus.length,
+      adminMenusCount: adminMenus.length,
+      firstMenu: allMenus[0],
+      adminMenuCodes: adminMenus.map(m => m.menuCode),
+      sampleMenuStructure: allMenus.length > 0 ? {
+        menuId: allMenus[0]?.menuId,
+        menuCode: allMenus[0]?.menuCode,
+        menuName: allMenus[0]?.menuName,
+        menuPath: allMenus[0]?.menuPath,
+        parentMenuId: allMenus[0]?.parentMenuId,
+        menuType: allMenus[0]?.menuType
+      } : 'No menus'
+    });
+  }
 
   // Lucide 아이콘 매핑 (실제 DB의 icon_name에 맞게)
   const iconMap = {
@@ -37,24 +55,22 @@
     'adjustments': Settings
   };
 
-  // 메뉴를 계층 구조로 정리 (실제 DB 구조에 맞게)
+  // 메뉴를 계층 구조로 정리 (실제 API 응답 구조에 맞게)
   function organizeMenus(menus) {
     if (!menus || menus.length === 0) return [];
     
     const menuMap = new Map();
     const rootMenus = [];
 
-    // 활성화된 메뉴만 처리
-    const activeMenus = menus.filter(menu => menu.is_active === 1);
-
-    activeMenus.forEach(menu => {
-      menuMap.set(menu.menu_id, { ...menu, children: [] });
+    // 모든 메뉴 처리 (is_active 체크 제거)
+    menus.forEach(menu => {
+      menuMap.set(menu.menuId, { ...menu, children: [] });
     });
 
-    activeMenus.forEach(menu => {
-      const menuItem = menuMap.get(menu.menu_id);
-      if (menu.parent_menu_id) {
-        const parent = menuMap.get(menu.parent_menu_id);
+    menus.forEach(menu => {
+      const menuItem = menuMap.get(menu.menuId);
+      if (menu.parentMenuId) {
+        const parent = menuMap.get(menu.parentMenuId);
         if (parent) {
           parent.children.push(menuItem);
         }
@@ -64,7 +80,7 @@
     });
 
     const sortMenus = (menus) => {
-      return menus.sort((a, b) => a.display_order - b.display_order)
+      return menus.sort((a, b) => a.displayOrder - b.displayOrder)
         .map(menu => ({
           ...menu,
           children: sortMenus(menu.children)
@@ -76,6 +92,18 @@
 
   $: organizedMenus = organizeMenus(adminMenus);
 
+  // 조직화된 메뉴 디버깅
+  $: {
+    if (organizedMenus.length > 0) {
+      console.log('🔐 AdminSidebar 조직화된 메뉴:', {
+        organizedMenus,
+        firstMenu: organizedMenus[0],
+        firstMenuChildren: organizedMenus[0]?.children,
+        menuSample: organizedMenus[0]?.children?.[0]
+      });
+    }
+  }
+
   function isActive(menuPath) {
     return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
   }
@@ -83,13 +111,20 @@
   function hasActiveChild(menu) {
     if (menu.children) {
       return menu.children.some(child => 
-        isActive(child.menu_path) || hasActiveChild(child)
+        isActive(child.menuPath) || hasActiveChild(child)
       );
     }
     return false;
   }
 
   function handleMenuClick(menu) {
+    console.log('🔐 AdminSidebar에서 전달된 메뉴 데이터:', {
+      menu,
+      type: typeof menu,
+      isObject: menu && typeof menu === 'object',
+      keys: menu ? Object.keys(menu) : 'menu is null/undefined'
+    });
+    
     dispatch('menu-click', menu);
   }
 
@@ -179,44 +214,44 @@
       {:else}
         {#each organizedMenus as menu}
           <div class="menu-group">
-            {#if menu.menu_type === 'CATEGORY'}
+            {#if menu.menuType === 'CATEGORY'}
               <!-- 카테고리 메뉴 -->
               <div class="mb-3">
                 <button
                   type="button"
                   class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-red-200 uppercase tracking-wider hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20"
-                  on:click={() => toggleCategory(menu.menu_id)}
+                  on:click={() => toggleCategory(menu.menuId)}
                 >
                   <div class="flex items-center">
-                    {#if menu.icon_name && iconMap[menu.icon_name]}
-                      {@const IconComponent = iconMap[menu.icon_name]}
+                    {#if menu.iconName && iconMap[menu.iconName]}
+                      {@const IconComponent = iconMap[menu.iconName]}
                       <IconComponent size="14" class="mr-2" />
                     {/if}
-                    {menu.menu_name}
+                    {menu.menuName}
                   </div>
                   
-                  {#if expandedCategories.has(menu.menu_id)}
+                  {#if expandedCategories.has(menu.menuId)}
                     <ChevronDown size="14" class="transition-transform" />
                   {:else}
                     <ChevronRight size="14" class="transition-transform" />
                   {/if}
                 </button>
                 
-                {#if menu.children && menu.children.length > 0 && expandedCategories.has(menu.menu_id)}
+                {#if menu.children && menu.children.length > 0 && expandedCategories.has(menu.menuId)}
                   <div class="space-y-0.5 ml-3 border-l-2 border-red-400/30 pl-3">
                     {#each menu.children as subMenu}
                       <button
                         type="button"
                         class="admin-sidebar-item group"
-                        class:active={isActive(subMenu.menu_path) || hasActiveChild(subMenu)}
+                        class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
                         on:click={() => handleMenuClick(subMenu)}
                       >
                         <div class="flex items-center">
-                          {#if subMenu.icon_name && iconMap[subMenu.icon_name]}
-                            {@const IconComponent = iconMap[subMenu.icon_name]}
+                          {#if subMenu.iconName && iconMap[subMenu.iconName]}
+                            {@const IconComponent = iconMap[subMenu.iconName]}
                             <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
                           {/if}
-                          <span class="text-sm font-medium">{subMenu.menu_name}</span>
+                          <span class="text-sm font-medium">{subMenu.menuName}</span>
                         </div>
                         
                         {#if subMenu.children && subMenu.children.length > 0}
@@ -225,17 +260,17 @@
                       </button>
                       
                       <!-- 3레벨 메뉴가 있는 경우 -->
-                      {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menu_path) || hasActiveChild(subMenu))}
+                      {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
                         <div class="ml-6 space-y-0.5 border-l border-red-400/50 pl-3">
                           {#each subMenu.children as subSubMenu}
                             <button
                               type="button"
                               class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200"
-                              class:text-white={isActive(subSubMenu.menu_path)}
-                              class:bg-red-500={isActive(subSubMenu.menu_path)}
+                              class:text-white={isActive(subSubMenu.menuPath)}
+                              class:bg-red-500={isActive(subSubMenu.menuPath)}
                               on:click={() => handleMenuClick(subSubMenu)}
                             >
-                              • {subSubMenu.menu_name}
+                              • {subSubMenu.menuName}
                             </button>
                           {/each}
                         </div>
@@ -249,15 +284,15 @@
               <button
                 type="button"
                 class="admin-sidebar-item group"
-                class:active={isActive(menu.menu_path)}
+                class:active={isActive(menu.menuPath)}
                 on:click={() => handleMenuClick(menu)}
               >
                 <div class="flex items-center">
-                  {#if menu.icon_name && iconMap[menu.icon_name]}
-                    {@const IconComponent = iconMap[menu.icon_name]}
+                  {#if menu.iconName && iconMap[menu.iconName]}
+                    {@const IconComponent = iconMap[menu.iconName]}
                     <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
                   {/if}
-                  <span class="text-sm font-medium">{menu.menu_name}</span>
+                  <span class="text-sm font-medium">{menu.menuName}</span>
                 </div>
               </button>
             {/if}

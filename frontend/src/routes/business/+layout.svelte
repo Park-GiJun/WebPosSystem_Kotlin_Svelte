@@ -40,15 +40,28 @@
   });
 
   function handleMenuClick(menu) {
-    tabStore.openTab({
-      id: `business-${menu.menuPath}`,
-      title: menu.menuName,
-      path: menu.menuPath,
+    console.log('🏢 Business 메뉴 클릭 상세 정보:', {
+      fullMenu: menu,
+      menuCode: menu?.menuCode,
+      menuName: menu?.menuName,
+      menuPath: menu?.menuPath,
+      menuType: menu?.menuType,
+      allProperties: Object.keys(menu || {})
+    });
+    
+    const tabData = {
+      id: `business-${menu?.menuCode || 'unknown'}`,
+      title: menu?.menuName || 'Unknown Menu',
+      path: menu?.menuPath || '/business',
       system: 'business',
       closeable: true,
       starred: false,
       modified: false
-    });
+    };
+    
+    console.log('🏢 생성될 탭 데이터:', tabData);
+    
+    tabStore.openTab(tabData);
   }
 
   function handleTabSwitch(event) {

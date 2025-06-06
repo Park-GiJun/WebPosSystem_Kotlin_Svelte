@@ -40,16 +40,29 @@
   });
 
   function handleMenuClick(menu) {
-    tabStore.openTab({
-      id: `pos-${menu.menuPath}`,
-      title: menu.menuName,
-      path: menu.menuPath,
+    console.log('🛒 POS 메뉴 클릭 상세 정보:', {
+      fullMenu: menu,
+      menuCode: menu?.menuCode,
+      menuName: menu?.menuName,
+      menuPath: menu?.menuPath,
+      menuType: menu?.menuType,
+      allProperties: Object.keys(menu || {})
+    });
+    
+    const tabData = {
+      id: `pos-${menu?.menuCode || 'unknown'}`,
+      title: menu?.menuName || 'Unknown Menu',
+      path: menu?.menuPath || '/pos',
       system: 'pos',
       closeable: true,
-      orderCount: menu.menuCode === 'POS_SALES' ? Math.floor(Math.random() * 5) + 1 : 0,
+      orderCount: menu?.menuCode === 'POS_SALES' ? Math.floor(Math.random() * 5) + 1 : 0,
       timestamp: Date.now(),
-      printable: menu.menuCode === 'POS_SALES'
-    });
+      printable: menu?.menuCode === 'POS_SALES'
+    };
+    
+    console.log('🛒 생성될 탭 데이터:', tabData);
+    
+    tabStore.openTab(tabData);
   }
 
   function handleTabSwitch(event) {

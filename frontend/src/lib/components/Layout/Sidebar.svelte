@@ -10,6 +10,24 @@
   $: user = $authStore.user;
   $: menus = $authStore.menus || [];
 
+  // 디버깅 로그
+  $: {
+    console.log('🎨 Sidebar 렌더링:', {
+      currentPath,
+      user: user?.username,
+      menusCount: menus.length,
+      isAuthenticated: $authStore.isAuthenticated,
+      authState: {
+        token: $authStore.token ? 'exists' : 'none',
+        permissions: $authStore.permissions?.length || 0
+      }
+    });
+    
+    if (menus.length > 0) {
+      console.log('📋 Sidebar 메뉴 데이터:', menus.slice(0, 3));
+    }
+  }
+
   // 아이콘 매핑 (이모지 사용)
   const iconMap = {
     'shield': '🛡️',
@@ -65,6 +83,13 @@
 
   $: organizedMenus = organizeMenus(menus);
 
+  // 조직화된 메뉴 디버깅
+  $: {
+    if (organizedMenus.length > 0) {
+      console.log('🗂️ 조직화된 메뉴:', organizedMenus);
+    }
+  }
+
   function isActive(menuPath) {
     return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
   }
@@ -108,6 +133,16 @@
 
   <!-- 메뉴 영역 -->
   <nav class="p-4 space-y-2">
+    <!-- 디버깅 정보 표시 -->
+    {#if menus.length === 0}
+      <div class="text-sm text-gray-500 p-4 bg-yellow-50 rounded-lg border">
+        <p>⚠️ 메뉴 데이터가 없습니다</p>
+        <p>인증 상태: {$authStore.isAuthenticated ? '✅' : '❌'}</p>
+        <p>토큰 존재: {$authStore.token ? '✅' : '❌'}</p>
+        <p>권한 개수: {$authStore.permissions?.length || 0}</p>
+      </div>
+    {/if}
+    
     {#each organizedMenus as menu}
       <div class="menu-group">
         {#if menu.menuType === 'CATEGORY'}
@@ -118,6 +153,7 @@
                 <span class="mr-2">{iconMap[menu.iconName]}</span>
               {/if}
               {menu.menuName}
+              <span class="ml-auto text-xs text-gray-400">({menu.children?.length || 0})</span>
             </div>
             
             {#if menu.children && menu.children.length > 0}

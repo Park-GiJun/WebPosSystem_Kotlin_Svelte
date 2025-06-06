@@ -7,8 +7,8 @@
   import Header from '$lib/components/Layout/Header.svelte';
   import TabContainer from '$lib/components/Layout/TabContainer.svelte';
 
-  $: tabs = $tabStore.tabs;
-  $: activeTabId = $tabStore.activeTabId;
+  $: tabs = $tabStore;
+  $: activeTabId = $tabStore.find(tab => tab.active)?.id;
 
   onMount(() => {
     // 인증 확인
@@ -24,11 +24,14 @@
   function handleMenuClick(event) {
     const menu = event.detail;
     
-    // 탭 추가
-    tabStore.addTab({
+    console.log('🎯 Dashboard 메뉴 클릭:', menu);
+    
+    // 탭 열기 (addTab -> openTab으로 변경)
+    tabStore.openTab({
       id: menu.menuCode,
       title: menu.menuName,
       path: menu.menuPath,
+      system: 'dashboard',
       closeable: true
     });
 
@@ -47,7 +50,7 @@
 
   function handleTabClose(event) {
     const { tabId } = event.detail;
-    tabStore.removeTab(tabId);
+    tabStore.closeTab(tabId);
   }
 </script>
 

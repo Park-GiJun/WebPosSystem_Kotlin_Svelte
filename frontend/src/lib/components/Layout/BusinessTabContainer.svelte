@@ -124,7 +124,9 @@
               
               <!-- 탭 제목 -->
               <div class="flex items-center space-x-1.5">
-                <span class="font-medium text-sm">{tab.title}</span>
+                <span class="font-medium text-sm" title="ID: {tab.id}">
+                  {tab.title || 'Untitled'}
+                </span>
                 
                 <!-- 수정됨 표시 -->
                 {#if tab.modified}

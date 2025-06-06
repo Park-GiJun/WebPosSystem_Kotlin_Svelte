@@ -37,15 +37,28 @@
   });
 
   function handleMenuClick(menu) {
-    tabStore.openTab({
-      id: `admin-${menu.menuPath}`,
-      title: menu.menuName,
-      path: menu.menuPath,
+    console.log('🔐 Admin 메뉴 클릭 상세 정보:', {
+      fullMenu: menu,
+      menuCode: menu?.menuCode,
+      menuName: menu?.menuName,
+      menuPath: menu?.menuPath,
+      menuType: menu?.menuType,
+      allProperties: Object.keys(menu || {})
+    });
+    
+    const tabData = {
+      id: `admin-${menu?.menuCode || 'unknown'}`,
+      title: menu?.menuName || 'Unknown Menu',
+      path: menu?.menuPath || '/admin',
       system: 'admin',
       closeable: true,
       secure: true,
-      priority: menu.menuCode.includes('USERS') ? 'HIGH' : 'MEDIUM'
-    });
+      priority: menu?.menuCode?.includes('USERS') ? 'HIGH' : 'MEDIUM'
+    };
+    
+    console.log('🔐 생성될 탭 데이터:', tabData);
+    
+    tabStore.openTab(tabData);
   }
 
   function handleTabSwitch(event) {
