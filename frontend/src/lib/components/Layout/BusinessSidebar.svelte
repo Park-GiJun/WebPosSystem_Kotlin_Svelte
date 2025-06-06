@@ -8,7 +8,55 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
-  $: menus = $authStore.menus || [];
+  $: menus = $authStore.menus || getDefaultBusinessMenus();
+
+  // 기본 영업정보시스템 메뉴 (메뉴 정보가 로드되지 않았을 때)
+  function getDefaultBusinessMenus() {
+    return [
+      {
+        menuId: 'business-stores-cat',
+        menuName: '매장 관리',
+        menuType: 'CATEGORY',
+        iconName: 'building-storefront',
+        displayOrder: 1,
+        children: [
+          {
+            menuId: 'business-stores',
+            menuName: '매장 현황',
+            menuPath: '/business/stores',
+            menuCode: 'BUSINESS_STORES',
+            iconName: 'building-storefront',
+            displayOrder: 1
+          }
+        ]
+      },
+      {
+        menuId: 'business-system-cat',
+        menuName: '시스템 관리',
+        menuType: 'CATEGORY',
+        iconName: 'cog-6-tooth',
+        displayOrder: 2,
+        children: [
+          {
+            menuId: 'business-hq-stores',
+            menuName: '본사 매장 관리',
+            menuPath: '/business/headquarters/stores',
+            menuCode: 'BUSINESS_HEADQUARTERS',
+            iconName: 'building-office',
+            displayOrder: 1
+          },
+          {
+            menuId: 'business-pos',
+            menuName: 'POS 관리',
+            menuPath: '/business/pos',
+            menuCode: 'BUSINESS_POS',
+            iconName: 'computer-desktop',
+            displayOrder: 2
+          }
+        ]
+      }
+    ];
+  }
 
   // 영업정보시스템 전용 아이콘 매핑
   const iconMap = {
@@ -216,16 +264,27 @@
 
 <style>
   .business-sidebar-item {
-    @apply flex items-center w-full px-4 py-3 text-gray-700 hover:text-blue-700 rounded-lg transition-all duration-200 border border-transparent;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    color: rgb(55 65 81);
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
   }
 
   .business-sidebar-item:hover {
+    color: rgb(29 78 216);
     background-color: rgb(239 246 255);
     border-color: rgb(191 219 254);
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
   }
 
   .business-sidebar-item.active {
-    @apply text-blue-700 bg-blue-100 border-blue-200 shadow-sm;
+    color: rgb(29 78 216);
+    background-color: rgb(219 234 254);
+    border-color: rgb(191 219 254);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   }
 </style>

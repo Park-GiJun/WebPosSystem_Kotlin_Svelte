@@ -59,7 +59,17 @@
   }
 
   function selectSystem(system) {
-    goto(system.path);
+    try {
+      goto(system.path);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // 라우팅 에러 발생 시 대체 경로로 이동
+      if (system.id === 'pos') {
+        goto('/pos/sales');
+      } else {
+        goto(system.path);
+      }
+    }
   }
 
   function logout() {

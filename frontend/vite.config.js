@@ -5,6 +5,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
 		port: 3000,
+		host: true,
 		proxy: {
 			'/api': {
 				target: 'http://localhost:8080',
@@ -16,6 +17,11 @@ export default defineConfig({
 		noExternal: ['lucide-svelte']
 	},
 	optimizeDeps: {
-		include: ['lucide-svelte']
+		include: ['lucide-svelte'],
+		exclude: []
+	},
+	build: {
+		target: 'esnext',
+		sourcemap: false
 	}
 });

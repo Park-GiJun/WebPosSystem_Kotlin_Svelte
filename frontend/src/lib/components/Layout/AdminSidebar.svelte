@@ -8,7 +8,55 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
-  $: menus = $authStore.menus || [];
+  $: menus = $authStore.menus || getDefaultAdminMenus();
+
+  // 기본 슈퍼어드민 메뉴 (메뉴 정보가 로드되지 않았을 때)
+  function getDefaultAdminMenus() {
+    return [
+      {
+        menuId: 'admin-user-cat',
+        menuName: '사용자 관리',
+        menuType: 'CATEGORY',
+        iconName: 'users',
+        displayOrder: 1,
+        children: [
+          {
+            menuId: 'admin-users',
+            menuName: '사용자',
+            menuPath: '/admin/users',
+            menuCode: 'ADMIN_USERS',
+            iconName: 'users',
+            displayOrder: 1
+          }
+        ]
+      },
+      {
+        menuId: 'admin-system-cat',
+        menuName: '시스템 관리',
+        menuType: 'CATEGORY',
+        iconName: 'cog',
+        displayOrder: 2,
+        children: [
+          {
+            menuId: 'admin-orgs',
+            menuName: '조직 관리',
+            menuPath: '/admin/organizations',
+            menuCode: 'ADMIN_ORGANIZATIONS',
+            iconName: 'building-office',
+            displayOrder: 1
+          },
+          {
+            menuId: 'admin-perms',
+            menuName: '권한 관리',
+            menuPath: '/admin/permissions',
+            menuCode: 'ADMIN_PERMISSIONS',
+            iconName: 'key',
+            displayOrder: 2
+          }
+        ]
+      }
+    ];
+  }
 
   // 슈퍼어드민 전용 아이콘 매핑
   const iconMap = {
@@ -193,17 +241,29 @@
 
 <style>
   .admin-sidebar-item {
-    @apply flex items-center w-full px-4 py-3 text-left text-red-100 hover:text-white rounded-lg transition-all duration-200 border border-transparent;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    color: rgb(254 202 202);
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
     background-color: transparent;
   }
 
   .admin-sidebar-item:hover {
+    color: white;
     background-color: rgba(239, 68, 68, 0.3);
     border-color: rgba(248, 113, 113, 0.5);
     transform: translateX(2px);
   }
 
   .admin-sidebar-item.active {
-    @apply text-white bg-red-500 border-red-400 shadow-lg;
+    color: white;
+    background-color: rgb(239 68 68);
+    border-color: rgb(248 113 113);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 </style>

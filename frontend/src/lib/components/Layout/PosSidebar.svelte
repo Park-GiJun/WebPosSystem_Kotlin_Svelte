@@ -8,7 +8,55 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
-  $: menus = $authStore.menus || [];
+  $: menus = $authStore.menus || getDefaultPosMenus();
+
+  // 기본 POS 메뉴 (메뉴 정보가 로드되지 않았을 때)
+  function getDefaultPosMenus() {
+    return [
+      {
+        menuId: 'pos-sales-cat',
+        menuName: '판매 관리',
+        menuType: 'CATEGORY',
+        iconName: 'shopping-cart',
+        displayOrder: 1,
+        children: [
+          {
+            menuId: 'pos-sales',
+            menuName: '판매',
+            menuPath: '/pos/sales',
+            menuCode: 'POS_SALES',
+            iconName: 'shopping-cart',
+            displayOrder: 1
+          }
+        ]
+      },
+      {
+        menuId: 'pos-system-cat',
+        menuName: '시스템 관리',
+        menuType: 'CATEGORY',
+        iconName: 'cog',
+        displayOrder: 2,
+        children: [
+          {
+            menuId: 'pos-system',
+            menuName: '시스템 설정',
+            menuPath: '/pos/system',
+            menuCode: 'POS_SYSTEM',
+            iconName: 'computer-desktop',
+            displayOrder: 1
+          },
+          {
+            menuId: 'pos-staff',
+            menuName: '직원 관리',
+            menuPath: '/pos/staff',
+            menuCode: 'POS_STAFF',
+            iconName: 'users',
+            displayOrder: 2
+          }
+        ]
+      }
+    ];
+  }
 
   // POS 시스템 전용 아이콘 매핑
   const iconMap = {
@@ -237,19 +285,34 @@
 
 <style>
   .pos-sidebar-item {
-    @apply flex items-center w-full px-3 py-2 text-green-100 hover:text-white rounded transition-all duration-200;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    color: rgb(220 252 231);
+    border-radius: 0.375rem;
+    transition: all 0.2s ease-in-out;
   }
 
   .pos-sidebar-item:hover {
+    color: white;
     background-color: rgba(34, 197, 94, 0.3);
   }
 
   .pos-sidebar-item.active {
-    @apply text-white bg-green-500 shadow-lg;
+    color: white;
+    background-color: rgb(34 197 94);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 
   .pos-quick-btn {
-    @apply flex flex-col items-center justify-center p-2 rounded transition-colors duration-200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: colors 0.2s ease-in-out;
     background-color: rgba(34, 197, 94, 0.3);
     border: 1px solid rgba(74, 222, 128, 0.5);
   }

@@ -140,18 +140,24 @@
   }
 
   .pos-tab {
-    @apply px-3 py-2 text-sm text-green-100 hover:text-white transition-all duration-200 border-r relative;
-    border-color: rgba(34, 197, 94, 0.3);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: rgb(220 252 231);
+    transition: all 0.2s ease-in-out;
+    border-right: 1px solid rgba(34, 197, 94, 0.3);
+    position: relative;
   }
 
   .pos-tab:hover {
+    color: white;
     background-color: rgba(34, 197, 94, 0.3);
     transform: translateY(-1px);
   }
 
   .pos-tab.active {
-    @apply text-white shadow-inner;
+    color: white;
     background-color: rgba(34, 197, 94, 0.5);
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
   }
 
   .pos-tab.active::after {
@@ -165,7 +171,9 @@
   }
 
   .pos-action-btn {
-    @apply p-2 rounded transition-colors duration-200;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: colors 0.2s ease-in-out;
     background-color: rgba(34, 197, 94, 0.3);
     border: 1px solid rgba(74, 222, 128, 0.5);
   }
