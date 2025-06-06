@@ -19,9 +19,9 @@ class PermissionService(
 ) {
     private val logger = logger()
 
-    suspend fun getUserMenus(userId: String): List<UserMenuPermission> {
-        val user = userRepository.findById(userId)
-            ?: throw IllegalArgumentException("User not found: $userId")
+    suspend fun getUserMenus(username: String): List<UserMenuPermission> {
+        val user = userRepository.findByUsername(username)
+            ?: throw IllegalArgumentException("User not found: $username")
 
         val allMenus = menuRepository.findActiveMenus()
         val userPermissions = getUserEffectivePermissions(user)
@@ -53,8 +53,8 @@ class PermissionService(
         )
     }
 
-    suspend fun checkUserPermission(userId: String, menuCode: String, requiredPermission: PermissionType): Boolean {
-        val user = userRepository.findById(userId)
+    suspend fun checkUserPermission(username: String, menuCode: String, requiredPermission: PermissionType): Boolean {
+        val user = userRepository.findByUsername(username)
             ?: return false
 
         val menu = menuRepository.findByCode(menuCode)

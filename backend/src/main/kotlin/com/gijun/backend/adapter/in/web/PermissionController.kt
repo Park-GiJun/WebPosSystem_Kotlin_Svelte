@@ -1,13 +1,16 @@
 package com.gijun.backend.adapter.`in`.web
 
+import com.gijun.backend.application.service.PermissionService
 import com.gijun.backend.configuration.JwtUtil
+import com.gijun.backend.domain.permission.entities.PermissionType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/permissions")
 class PermissionController(
-    private val jwtUtil: JwtUtil
+    private val jwtUtil: JwtUtil,
+    private val permissionService: PermissionService
 ) {
 
     @GetMapping("/my-menus")
@@ -19,140 +22,33 @@ class PermissionController(
         try {
             val username = jwtUtil.getUsernameFromToken(token)
             
-            // 임시 메뉴 데이터 (실제로는 사용자 권한에 따라 동적으로 생성)
-            val menus = listOf(
+            // 실제 데이터베이스에서 사용자 메뉴 권한 조회
+            val userMenuPermissions = permissionService.getUserMenus(username)
+            
+            val menus = userMenuPermissions.map { userMenuPermission ->
                 MenuDto(
-                    menuId = "menu-admin",
-                    menuCode = "ADMIN",
-                    menuName = "슈퍼어드민",
-                    menuPath = "/admin",
-                    parentMenuId = null,
-                    menuLevel = 1,
-                    displayOrder = 10,
-                    iconName = "shield",
-                    menuType = "CATEGORY"
-                ),
-                MenuDto(
-                    menuId = "menu-admin-users",
-                    menuCode = "ADMIN_USERS",
-                    menuName = "사용자 관리",
-                    menuPath = "/admin/users",
-                    parentMenuId = "menu-admin",
-                    menuLevel = 2,
-                    displayOrder = 10,
-                    iconName = "users",
-                    menuType = "MENU"
-                ),
-                MenuDto(
-                    menuId = "menu-admin-permissions",
-                    menuCode = "ADMIN_PERMISSIONS",
-                    menuName = "권한 관리",
-                    menuPath = "/admin/permissions",
-                    parentMenuId = "menu-admin",
-                    menuLevel = 2,
-                    displayOrder = 20,
-                    iconName = "key",
-                    menuType = "MENU"
-                ),
-                MenuDto(
-                    menuId = "menu-business",
-                    menuCode = "BUSINESS",
-                    menuName = "영업정보시스템",
-                    menuPath = "/business",
-                    parentMenuId = null,
-                    menuLevel = 1,
-                    displayOrder = 20,
-                    iconName = "building-office",
-                    menuType = "CATEGORY"
-                ),
-                MenuDto(
-                    menuId = "menu-business-stores",
-                    menuCode = "BUSINESS_STORES",
-                    menuName = "매장 관리",
-                    menuPath = "/business/stores",
-                    parentMenuId = "menu-business",
-                    menuLevel = 2,
-                    displayOrder = 20,
-                    iconName = "building-storefront",
-                    menuType = "MENU"
-                ),
-                MenuDto(
-                    menuId = "menu-business-pos",
-                    menuCode = "BUSINESS_POS",
-                    menuName = "POS 관리",
-                    menuPath = "/business/pos",
-                    parentMenuId = "menu-business",
-                    menuLevel = 2,
-                    displayOrder = 30,
-                    iconName = "computer-desktop",
-                    menuType = "MENU"
-                ),
-                MenuDto(
-                    menuId = "menu-pos",
-                    menuCode = "POS",
-                    menuName = "POS시스템",
-                    menuPath = "/pos",
-                    parentMenuId = null,
-                    menuLevel = 1,
-                    displayOrder = 30,
-                    iconName = "computer-desktop",
-                    menuType = "CATEGORY"
-                ),
-                MenuDto(
-                    menuId = "menu-pos-sales",
-                    menuCode = "POS_SALES",
-                    menuName = "판매",
-                    menuPath = "/pos/sales",
-                    parentMenuId = "menu-pos",
-                    menuLevel = 2,
-                    displayOrder = 10,
-                    iconName = "shopping-cart",
-                    menuType = "MENU"
+                    menuId = userMenuPermission.menuId,
+                    menuCode = userMenuPermission.menuCode,
+                    menuName = userMenuPermission.menuName,
+                    menuPath = userMenuPermission.menuPath,
+                    parentMenuId = userMenuPermission.parentMenuId,
+                    menuLevel = userMenuPermission.menuLevel,
+                    displayOrder = userMenuPermission.displayOrder,
+                    iconName = userMenuPermission.iconName,
+                    menuType = userMenuPermission.menuType
                 )
-            )
+            }
 
-            val permissions = listOf(
+            val permissions = userMenuPermissions.map { userMenuPermission ->
                 PermissionDto(
-                    menuCode = "ADMIN_USERS",
-                    permissionType = "ADMIN",
-                    hasRead = true,
-                    hasWrite = true,
-                    hasDelete = true,
-                    hasAdmin = true
-                ),
-                PermissionDto(
-                    menuCode = "ADMIN_PERMISSIONS",
-                    permissionType = "ADMIN",
-                    hasRead = true,
-                    hasWrite = true,
-                    hasDelete = true,
-                    hasAdmin = true
-                ),
-                PermissionDto(
-                    menuCode = "BUSINESS_STORES",
-                    permissionType = "WRITE",
-                    hasRead = true,
-                    hasWrite = true,
-                    hasDelete = false,
-                    hasAdmin = false
-                ),
-                PermissionDto(
-                    menuCode = "BUSINESS_POS",
-                    permissionType = "WRITE",
-                    hasRead = true,
-                    hasWrite = true,
-                    hasDelete = false,
-                    hasAdmin = false
-                ),
-                PermissionDto(
-                    menuCode = "POS_SALES",
-                    permissionType = "WRITE",
-                    hasRead = true,
-                    hasWrite = true,
-                    hasDelete = false,
-                    hasAdmin = false
+                    menuCode = userMenuPermission.menuCode,
+                    permissionType = userMenuPermission.permissionType,
+                    hasRead = userMenuPermission.hasReadPermission,
+                    hasWrite = userMenuPermission.hasWritePermission,
+                    hasDelete = userMenuPermission.hasDeletePermission,
+                    hasAdmin = userMenuPermission.hasAdminPermission
                 )
-            )
+            }
             
             val response = MyMenusResponse(menus, permissions)
             return ResponseEntity.ok(response)
@@ -166,8 +62,22 @@ class PermissionController(
         @RequestHeader("Authorization") authorization: String,
         @RequestBody request: CheckPermissionRequest
     ): ResponseEntity<CheckPermissionResponse> {
-        // 임시로 모든 권한을 허용
-        return ResponseEntity.ok(CheckPermissionResponse(true))
+        val token = authorization.removePrefix("Bearer ")
+        
+        try {
+            val username = jwtUtil.getUsernameFromToken(token)
+            val requiredPermission = PermissionType.valueOf(request.requiredPermission)
+            
+            val hasPermission = permissionService.checkUserPermission(
+                username, 
+                request.menuCode, 
+                requiredPermission
+            )
+            
+            return ResponseEntity.ok(CheckPermissionResponse(hasPermission))
+        } catch (e: Exception) {
+            return ResponseEntity.status(401).build()
+        }
     }
 }
 
