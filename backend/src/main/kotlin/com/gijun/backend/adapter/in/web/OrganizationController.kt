@@ -89,10 +89,15 @@ class HeadquartersController(
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.READ)
     suspend fun getMyStores(
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<StoreListResponse> {
+    ): ResponseEntity<HeadquartersStoreListResponse> {
         val token = authorization.removePrefix("Bearer ")
         val stores = organizationService.getStoresByHeadquarters(token)
-        return ResponseEntity.ok(StoreListResponse(stores = stores))
+        return ResponseEntity.ok(HeadquartersStoreListResponse(
+            stores = stores,
+            totalCount = stores.size.toLong(),
+            page = 0,
+            size = stores.size
+        ))
     }
 }
 
@@ -130,6 +135,9 @@ data class OrganizationListResponse(
     val individualStores: List<StoreResponse>
 )
 
-data class StoreListResponse(
-    val stores: List<StoreResponse>
+data class HeadquartersStoreListResponse(
+    val stores: List<StoreResponse>,
+    val totalCount: Long,
+    val page: Int,
+    val size: Int
 )

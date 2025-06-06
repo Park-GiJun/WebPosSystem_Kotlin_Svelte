@@ -26,6 +26,13 @@ data class UserEntity(
     @Column("user_status")
     val userStatus: String,
 
+    // 조직 소속 정보 (조직 ID와 타입 추가)
+    @Column("organization_id")
+    val organizationId: String? = null,
+
+    @Column("organization_type")
+    val organizationType: String? = null,
+
     // Security & Login tracking
     @Column("last_login_at")
     val lastLoginAt: LocalDateTime? = null,
