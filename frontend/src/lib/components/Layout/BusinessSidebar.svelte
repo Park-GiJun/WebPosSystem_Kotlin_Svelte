@@ -127,6 +127,15 @@
   function handleMenuClick(menu) {
     dispatch('menu-click', menu);
   }
+
+  function getMenuDescription(menuCode) {
+    const descriptions = {
+      'BUSINESS_HEADQUARTERS': '본사 운영 정보',
+      'BUSINESS_STORES': '매장 관리 및 운영',
+      'BUSINESS_POS': 'POS 설정 관리'
+    };
+    return descriptions[menuCode] || '';
+  }
 </script>
 
 <aside class="w-72 bg-white border-r-2 border-blue-200 h-full shadow-sm">
@@ -250,17 +259,6 @@
     {/each}
   </nav>
 </aside>
-
-<script>
-  function getMenuDescription(menuCode) {
-    const descriptions = {
-      'BUSINESS_HEADQUARTERS': '본사 운영 정보',
-      'BUSINESS_STORES': '매장 관리 및 운영',
-      'BUSINESS_POS': 'POS 설정 관리'
-    };
-    return descriptions[menuCode] || '';
-  }
-</script>
 
 <style>
   .business-sidebar-item {

@@ -89,17 +89,25 @@
   }
 
   .admin-tab {
-    @apply px-4 py-2 text-sm text-red-200 hover:text-white transition-all duration-200 border-r relative;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: rgb(254 202 202);
+    transition: all 0.2s;
+    border-right: 1px solid;
     border-color: rgba(239, 68, 68, 0.3);
+    position: relative;
   }
 
   .admin-tab:hover {
+    color: white;
     background-color: rgba(239, 68, 68, 0.3);
     transform: translateY(-1px);
   }
 
   .admin-tab.active {
-    @apply text-white shadow-inner;
+    color: white;
+    box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
     background-color: rgba(239, 68, 68, 0.5);
   }
 
