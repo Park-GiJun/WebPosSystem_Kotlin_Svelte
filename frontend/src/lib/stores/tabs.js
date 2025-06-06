@@ -1,85 +1,105 @@
 import { writable } from 'svelte/store';
 
 function createTabStore() {
-  const { subscribe, update } = writable({
-    tabs: [],
-    activeTabId: null
-  });
+  const { subscribe, update } = writable([]);
 
   return {
     subscribe,
     
-    // 탭 추가
-    addTab(tab) {
-      update(state => {
+    // 탭 열기
+    openTab(tab) {
+      update(tabs => {
         // 이미 존재하는 탭인지 확인
-        const existingTab = state.tabs.find(t => t.id === tab.id);
-        if (existingTab) {
+        const existingTabIndex = tabs.findIndex(t => t.id === tab.id);
+        
+        if (existingTabIndex !== -1) {
           // 기존 탭을 활성화
-          return {
-            ...state,
-            activeTabId: tab.id
-          };
+          return tabs.map((t, index) => ({
+            ...t,
+            active: index === existingTabIndex
+          }));
         }
 
-        // 새 탭 추가
-        return {
-          tabs: [...state.tabs, tab],
-          activeTabId: tab.id
-        };
+        // 모든 탭을 비활성화하고 새 탭 추가
+        const newTabs = tabs.map(t => ({ ...t, active: false }));
+        return [...newTabs, { ...tab, active: true }];
       });
     },
 
-    // 탭 제거
-    removeTab(tabId) {
-      update(state => {
-        const newTabs = state.tabs.filter(t => t.id !== tabId);
-        let newActiveTabId = state.activeTabId;
+    // 탭 닫기
+    closeTab(tabId) {
+      update(tabs => {
+        const tabIndex = tabs.findIndex(t => t.id === tabId);
+        if (tabIndex === -1) return tabs;
 
-        // 활성 탭이 제거된 경우
-        if (state.activeTabId === tabId) {
-          if (newTabs.length > 0) {
-            // 제거된 탭의 인덱스 찾기
-            const removedIndex = state.tabs.findIndex(t => t.id === tabId);
-            // 다음 탭 또는 이전 탭을 활성화
-            const nextIndex = Math.min(removedIndex, newTabs.length - 1);
-            newActiveTabId = newTabs[nextIndex]?.id || null;
-          } else {
-            newActiveTabId = null;
-          }
+        const newTabs = tabs.filter(t => t.id !== tabId);
+        
+        // 닫힌 탭이 활성 탭이었다면 다른 탭을 활성화
+        if (tabs[tabIndex].active && newTabs.length > 0) {
+          const nextIndex = Math.min(tabIndex, newTabs.length - 1);
+          newTabs[nextIndex].active = true;
         }
 
-        return {
-          tabs: newTabs,
-          activeTabId: newActiveTabId
-        };
+        return newTabs;
       });
     },
 
-    // 활성 탭 변경
+    // 활성 탭 설정
     setActiveTab(tabId) {
-      update(state => ({
-        ...state,
-        activeTabId: tabId
-      }));
+      update(tabs => 
+        tabs.map(t => ({
+          ...t,
+          active: t.id === tabId
+        }))
+      );
     },
 
-    // 모든 탭 제거
-    clearTabs() {
-      update(() => ({
-        tabs: [],
-        activeTabId: null
-      }));
+    // 탭 즐겨찾기 토글
+    toggleStarTab(tabId) {
+      update(tabs => 
+        tabs.map(t => 
+          t.id === tabId ? { ...t, starred: !t.starred } : t
+        )
+      );
+    },
+
+    // 탭 수정 상태 변경
+    setTabModified(tabId, modified = true) {
+      update(tabs => 
+        tabs.map(t => 
+          t.id === tabId ? { ...t, modified } : t
+        )
+      );
     },
 
     // 탭 업데이트
     updateTab(tabId, updates) {
-      update(state => ({
-        ...state,
-        tabs: state.tabs.map(tab => 
-          tab.id === tabId ? { ...tab, ...updates } : tab
+      update(tabs => 
+        tabs.map(t => 
+          t.id === tabId ? { ...t, ...updates } : t
         )
-      }));
+      );
+    },
+
+    // 특정 시스템의 모든 탭 닫기
+    closeSystemTabs(system) {
+      update(tabs => tabs.filter(t => t.system !== system));
+    },
+
+    // 모든 탭 닫기
+    clearAllTabs() {
+      update(() => []);
+    },
+
+    // 닫을 수 있는 모든 탭 닫기
+    closeAllCloseableTabs() {
+      update(tabs => {
+        const remainingTabs = tabs.filter(t => !t.closeable);
+        if (remainingTabs.length > 0) {
+          remainingTabs[0].active = true;
+        }
+        return remainingTabs;
+      });
     }
   };
 }
