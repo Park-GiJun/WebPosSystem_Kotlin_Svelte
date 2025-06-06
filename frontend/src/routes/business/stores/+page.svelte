@@ -2,13 +2,16 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
-  import { Plus, Search, MapPin, Phone, Calendar, Building2, Store, Users } from 'lucide-svelte';
+  import { toastStore } from '$lib/stores/toast.js';
+  import { Plus, Search, MapPin, Phone, Calendar, Building2, Store, Users, Edit, Eye, Trash2 } from 'lucide-svelte';
+  import CreateStoreModal from '$lib/components/Business/CreateStoreModal.svelte';
 
   let stores = [];
   let loading = true;
   let searchTerm = '';
   let filterStatus = 'all';
   let filterType = 'all';
+  let showCreateModal = false;
 
   // 탭 활성화
   onMount(() => {
@@ -17,6 +20,7 @@
   });
 
   async function loadStores() {
+    loading = true;
     try {
       const response = await fetch('/api/v1/business/stores', {
         headers: {
@@ -30,6 +34,7 @@
       }
     } catch (error) {
       console.error('Failed to load stores:', error);
+      toastStore.error('매장 목록을 불러오는데 실패했습니다.');
     } finally {
       loading = false;
     }
@@ -38,7 +43,8 @@
   // 필터링된 매장 목록
   $: filteredStores = stores.filter(store => {
     const matchesSearch = store.storeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         store.ownerName.toLowerCase().includes(searchTerm.toLowerCase());
+                         store.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         store.storeId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || store.storeStatus === filterStatus;
     const matchesType = filterType === 'all' || store.storeType === filterType;
     
@@ -54,6 +60,15 @@
     return colors[status] || 'bg-gray-100 text-gray-800';
   }
 
+  function getStatusText(status) {
+    const texts = {
+      'ACTIVE': '운영중',
+      'INACTIVE': '운영중지',
+      'CLOSED': '폐점'
+    };
+    return texts[status] || status;
+  }
+
   function getTypeColor(type) {
     const colors = {
       'CHAIN': 'bg-blue-100 text-blue-800',
@@ -62,12 +77,67 @@
     return colors[type] || 'bg-gray-100 text-gray-800';
   }
 
-  function viewStore(store) {
-    console.log('View store:', store);
+  function getTypeText(type) {
+    const texts = {
+      'CHAIN': '체인점',
+      'INDIVIDUAL': '개인매장'
+    };
+    return texts[type] || type;
   }
 
-  function createStore() {
-    console.log('Create store');
+  function getOperationTypeText(type) {
+    const texts = {
+      'DIRECT': '직영점',
+      'FRANCHISE': '가맹점'
+    };
+    return texts[type] || type;
+  }
+
+  async function viewStore(store) {
+    // TODO: 매장 상세 보기 페이지로 이동
+    console.log('View store:', store);
+    toastStore.info('매장 상세 보기 기능은 준비 중입니다.');
+  }
+
+  async function editStore(store) {
+    // TODO: 매장 편집 모달 구현
+    console.log('Edit store:', store);
+    toastStore.info('매장 편집 기능은 준비 중입니다.');
+  }
+
+  async function deleteStore(store) {
+    if (!confirm(`정말로 "${store.storeName}" 매장을 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/v1/business/stores/${store.storeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${$authStore.token}`
+        }
+      });
+
+      if (response.ok) {
+        stores = stores.filter(s => s.storeId !== store.storeId);
+        toastStore.success('매장이 삭제되었습니다.');
+      } else {
+        throw new Error('삭제 실패');
+      }
+    } catch (error) {
+      console.error('Delete store error:', error);
+      toastStore.error('매장 삭제에 실패했습니다.');
+    }
+  }
+
+  function handleStoreCreated(event) {
+    const newStore = event.detail;
+    stores = [newStore, ...stores];
+    toastStore.success('새 매장이 생성되었습니다.');
+  }
+
+  function openCreateModal() {
+    showCreateModal = true;
   }
 </script>
 
@@ -85,7 +155,7 @@
     <button 
       type="button" 
       class="btn btn-primary"
-      on:click={createStore}
+      on:click={openCreateModal}
     >
       <Plus size="16" class="mr-2" />
       매장 추가
@@ -157,7 +227,7 @@
         <Search size="20" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          placeholder="매장명 또는 점주명 검색..."
+          placeholder="매장명, 점주명, 매장ID 검색..."
           bind:value={searchTerm}
           class="input pl-10"
         />
@@ -181,95 +251,145 @@
   </div>
 
   <!-- 매장 목록 -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+  <div class="card overflow-hidden">
     {#if loading}
-      {#each Array(6) as _}
-        <div class="card p-6 animate-pulse">
-          <div class="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
-          <div class="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
-          <div class="h-4 bg-gray-300 rounded w-2/3"></div>
-        </div>
-      {/each}
+      <div class="p-12 text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+        <p class="mt-4 text-gray-600">로딩 중...</p>
+      </div>
     {:else if filteredStores.length === 0}
-      <div class="col-span-full">
-        <div class="card p-12 text-center">
-          <Store class="mx-auto h-12 w-12 text-gray-400" />
-          <p class="mt-4 text-gray-500">매장이 없습니다.</p>
-        </div>
+      <div class="p-12 text-center">
+        <Store class="mx-auto h-12 w-12 text-gray-400" />
+        <p class="mt-4 text-gray-500">조건에 맞는 매장이 없습니다.</p>
       </div>
     {:else}
-      {#each filteredStores as store}
-        <div class="card p-6 hover:shadow-md transition-shadow cursor-pointer" on:click={() => viewStore(store)}>
-          <!-- 매장 헤더 -->
-          <div class="flex items-start justify-between mb-4">
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-gray-900 mb-1">{store.storeName}</h3>
-              <p class="text-sm text-gray-600">{store.storeNumber}</p>
-            </div>
-            <div class="flex flex-col items-end space-y-2">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(store.storeStatus)}">
-                {store.storeStatus}
-              </span>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getTypeColor(store.storeType)}">
-                {store.storeType}
-              </span>
-            </div>
-          </div>
-
-          <!-- 매장 정보 -->
-          <div class="space-y-3">
-            <!-- 점주 정보 -->
-            <div class="flex items-center text-sm text-gray-600">
-              <Users size="16" class="mr-2" />
-              <span>{store.ownerName}</span>
-            </div>
-
-            <!-- 전화번호 -->
-            {#if store.phoneNumber}
-              <div class="flex items-center text-sm text-gray-600">
-                <Phone size="16" class="mr-2" />
-                <span>{store.phoneNumber}</span>
-              </div>
-            {/if}
-
-            <!-- 주소 -->
-            {#if store.address}
-              <div class="flex items-start text-sm text-gray-600">
-                <MapPin size="16" class="mr-2 mt-0.5 flex-shrink-0" />
-                <span class="line-clamp-2">{store.address}</span>
-              </div>
-            {/if}
-
-            <!-- 개점일 -->
-            <div class="flex items-center text-sm text-gray-600">
-              <Calendar size="16" class="mr-2" />
-              <span>{new Date(store.openingDate).toLocaleDateString('ko-KR')}</span>
-            </div>
-
-            <!-- 본사 정보 (체인점인 경우) -->
-            {#if store.storeType === 'CHAIN' && store.hqName}
-              <div class="flex items-center text-sm text-gray-600">
-                <Building2 size="16" class="mr-2" />
-                <span>{store.hqName}</span>
-              </div>
-            {/if}
-          </div>
-
-          <!-- 매장 통계 -->
-          <div class="mt-4 pt-4 border-t border-gray-200">
-            <div class="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p class="text-xs text-gray-500">POS 수</p>
-                <p class="text-lg font-semibold text-gray-900">{store.posCount || 0}</p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-500">직원 수</p>
-                <p class="text-lg font-semibold text-gray-900">{store.employeeCount || 0}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      {/each}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                매장 정보
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                타입/운영형태
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                상태
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                연락처/주소
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                POS/직원
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                작업
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {#each filteredStores as store}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+                      <Store size="20" class="text-white" />
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">{store.storeName}</div>
+                      <div class="text-sm text-gray-500">{store.storeId}</div>
+                      <div class="text-xs text-gray-400">점주: {store.ownerName}</div>
+                      {#if store.hqName}
+                        <div class="text-xs text-blue-600">{store.hqName}</div>
+                      {/if}
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="space-y-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getTypeColor(store.storeType)}">
+                      {getTypeText(store.storeType)}
+                    </span>
+                    {#if store.operationType}
+                      <div class="text-xs text-gray-500">{getOperationTypeText(store.operationType)}</div>
+                    {/if}
+                    <div class="text-xs text-gray-400">{store.regionName}</div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(store.storeStatus)}">
+                    {getStatusText(store.storeStatus)}
+                  </span>
+                  <div class="text-xs text-gray-500 mt-1 flex items-center">
+                    <Calendar size="12" class="mr-1" />
+                    개점: {new Date(store.openingDate).toLocaleDateString('ko-KR')}
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="space-y-1">
+                    {#if store.phoneNumber}
+                      <div class="text-sm text-gray-900 flex items-center">
+                        <Phone size="12" class="mr-1" />
+                        {store.phoneNumber}
+                      </div>
+                    {/if}
+                    {#if store.address}
+                      <div class="text-xs text-gray-500 flex items-start">
+                        <MapPin size="12" class="mr-1 mt-0.5 flex-shrink-0" />
+                        <span class="line-clamp-2">{store.address}</span>
+                      </div>
+                    {/if}
+                    {#if store.businessLicense}
+                      <div class="text-xs text-gray-400">사업자: {store.businessLicense}</div>
+                    {/if}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-center">
+                    <div class="text-sm font-medium text-gray-900">POS: {store.posCount}</div>
+                    <div class="text-sm text-gray-500">직원: {store.employeeCount}</div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      class="text-blue-600 hover:text-blue-900"
+                      on:click={() => viewStore(store)}
+                      title="상세 보기"
+                    >
+                      <Eye size="16" />
+                    </button>
+                    <button
+                      type="button"
+                      class="text-indigo-600 hover:text-indigo-900"
+                      on:click={() => editStore(store)}
+                      title="편집"
+                    >
+                      <Edit size="16" />
+                    </button>
+                    <button
+                      type="button"
+                      class="text-red-600 hover:text-red-900"
+                      on:click={() => deleteStore(store)}
+                      title="삭제"
+                    >
+                      <Trash2 size="16" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     {/if}
   </div>
 </div>
+
+<!-- 매장 생성 모달 -->
+<CreateStoreModal
+  bind:open={showCreateModal}
+  on:store-created={handleStoreCreated}
+  on:close={() => showCreateModal = false}
+/>

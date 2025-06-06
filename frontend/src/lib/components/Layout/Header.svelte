@@ -42,9 +42,7 @@
   <div class="flex items-center justify-between h-16 px-6">
     <!-- 좌측: 페이지 제목 영역 -->
     <div class="flex items-center">
-      <h1 class="text-lg font-semibold text-gray-900">
-        <slot name="title">대시보드</slot>
-      </h1>
+      <h1 class="text-lg font-semibold text-gray-900">WebPos 시스템</h1>
     </div>
 
     <!-- 우측: 사용자 메뉴 영역 -->

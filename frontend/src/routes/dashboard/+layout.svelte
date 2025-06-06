@@ -62,9 +62,7 @@
   <!-- 메인 콘텐츠 영역 -->
   <div class="flex-1 flex flex-col overflow-hidden">
     <!-- 헤더 -->
-    <Header>
-      <span slot="title">대시보드</span>
-    </Header>
+    <Header />
     
     <!-- 탭 컨테이너 -->
     <TabContainer 

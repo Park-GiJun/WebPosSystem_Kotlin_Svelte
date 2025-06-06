@@ -73,33 +73,44 @@ function createAuthStore() {
     // 사용자 프로필 및 권한 정보 로드
     async loadUserProfile(token) {
       try {
-        const [profileResponse, permissionsResponse] = await Promise.all([
-          fetch('/api/v1/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }),
-          fetch('/api/v1/permissions/my-menus', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          })
-        ]);
+        const profileResponse = await fetch('/api/v1/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-        if (!profileResponse.ok || !permissionsResponse.ok) {
+        if (!profileResponse.ok) {
           throw new Error('사용자 정보를 불러올 수 없습니다.');
         }
 
         const profile = await profileResponse.json();
-        const permissions = await permissionsResponse.json();
+        let permissions = [];
+        let menus = [];
+
+        // 권한 정보는 선택적으로 로드 (실패해도 로그인은 유지)
+        try {
+          const permissionsResponse = await fetch('/api/v1/permissions/my-menus', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (permissionsResponse.ok) {
+            const permissionData = await permissionsResponse.json();
+            permissions = permissionData.permissions || [];
+            menus = permissionData.menus || [];
+          }
+        } catch (permError) {
+          console.warn('Failed to load permissions:', permError);
+        }
 
         update(state => ({
           ...state,
           isAuthenticated: true,
           user: profile,
           token,
-          permissions: permissions.permissions || [],
-          menus: permissions.menus || []
+          permissions: permissions,
+          menus: menus
         }));
 
       } catch (error) {

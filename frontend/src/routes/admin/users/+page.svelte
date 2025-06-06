@@ -2,13 +2,16 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
-  import { Plus, Search, Filter, Edit, Trash2, Shield } from 'lucide-svelte';
+  import { toastStore } from '$lib/stores/toast.js';
+  import { Plus, Search, Filter, Edit, Trash2, Shield, Unlock, UserCheck } from 'lucide-svelte';
+  import CreateUserModal from '$lib/components/Admin/CreateUserModal.svelte';
 
   let users = [];
   let loading = true;
   let searchTerm = '';
   let filterStatus = 'all';
   let filterRole = 'all';
+  let showCreateModal = false;
 
   // 탭 활성화
   onMount(() => {
@@ -30,6 +33,7 @@
       }
     } catch (error) {
       console.error('Failed to load users:', error);
+      toastStore.error('사용자 목록을 불러오는데 실패했습니다.');
     } finally {
       loading = false;
     }
@@ -68,19 +72,90 @@
     return colors[status] || 'bg-gray-100 text-gray-800';
   }
 
-  function editUser(user) {
-    // TODO: 사용자 편집 모달 또는 페이지로 이동
+  function getStatusText(status) {
+    const texts = {
+      'ACTIVE': '활성',
+      'INACTIVE': '비활성',
+      'SUSPENDED': '정지',
+      'PENDING_VERIFICATION': '인증대기',
+      'LOCKED': '잠김'
+    };
+    return texts[status] || status;
+  }
+
+  function getRoleText(role) {
+    const texts = {
+      'SUPER_ADMIN': '최고관리자',
+      'SYSTEM_ADMIN': '시스템관리자',
+      'HQ_MANAGER': '본사관리자',
+      'STORE_MANAGER': '매장관리자',
+      'AREA_MANAGER': '지역관리자',
+      'USER': '일반사용자'
+    };
+    return texts[role] || role;
+  }
+
+  async function editUser(user) {
+    // TODO: 사용자 편집 모달 구현
     console.log('Edit user:', user);
+    toastStore.info('사용자 편집 기능은 준비 중입니다.');
   }
 
-  function deleteUser(user) {
-    // TODO: 사용자 삭제 확인 모달
-    console.log('Delete user:', user);
+  async function deleteUser(user) {
+    if (!confirm(`정말로 "${user.username}" 사용자를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/v1/admin/users/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${$authStore.token}`
+        }
+      });
+
+      if (response.ok) {
+        users = users.filter(u => u.id !== user.id);
+        toastStore.success('사용자가 삭제되었습니다.');
+      } else {
+        throw new Error('삭제 실패');
+      }
+    } catch (error) {
+      console.error('Delete user error:', error);
+      toastStore.error('사용자 삭제에 실패했습니다.');
+    }
   }
 
-  function createUser() {
-    // TODO: 사용자 생성 모달 또는 페이지로 이동
-    console.log('Create user');
+  async function unlockUser(user) {
+    try {
+      const response = await fetch(`/api/v1/admin/users/${user.id}/unlock`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${$authStore.token}`
+        }
+      });
+
+      if (response.ok) {
+        // 사용자 목록 새로고침
+        await loadUsers();
+        toastStore.success('사용자 잠금이 해제되었습니다.');
+      } else {
+        throw new Error('잠금 해제 실패');
+      }
+    } catch (error) {
+      console.error('Unlock user error:', error);
+      toastStore.error('사용자 잠금 해제에 실패했습니다.');
+    }
+  }
+
+  function handleUserCreated(event) {
+    const newUser = event.detail;
+    users = [newUser, ...users];
+    toastStore.success('새 사용자가 생성되었습니다.');
+  }
+
+  function openCreateModal() {
+    showCreateModal = true;
   }
 </script>
 
@@ -98,11 +173,68 @@
     <button 
       type="button" 
       class="btn btn-primary"
-      on:click={createUser}
+      on:click={openCreateModal}
     >
       <Plus size="16" class="mr-2" />
       사용자 추가
     </button>
+  </div>
+
+  <!-- 통계 카드 -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-blue-100">
+          <Shield class="h-6 w-6 text-blue-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">총 사용자</p>
+          <p class="text-2xl font-bold text-gray-900">{users.length}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-green-100">
+          <UserCheck class="h-6 w-6 text-green-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">활성 사용자</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {users.filter(u => u.userStatus === 'ACTIVE').length}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-orange-100">
+          <Unlock class="h-6 w-6 text-orange-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">관리자</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {users.filter(u => u.roles.some(r => r.includes('ADMIN'))).length}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-yellow-100">
+          <Filter class="h-6 w-6 text-yellow-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">인증 대기</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {users.filter(u => u.userStatus === 'PENDING_VERIFICATION').length}
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 검색 및 필터 -->
@@ -132,8 +264,8 @@
       <!-- 역할 필터 -->
       <select bind:value={filterRole} class="input">
         <option value="all">모든 역할</option>
-        <option value="SUPER_ADMIN">슈퍼어드민</option>
-        <option value="SYSTEM_ADMIN">시스템어드민</option>
+        <option value="SUPER_ADMIN">최고관리자</option>
+        <option value="SYSTEM_ADMIN">시스템관리자</option>
         <option value="HQ_MANAGER">본사관리자</option>
         <option value="STORE_MANAGER">매장관리자</option>
         <option value="AREA_MANAGER">지역관리자</option>
@@ -151,7 +283,8 @@
       </div>
     {:else if filteredUsers.length === 0}
       <div class="p-12 text-center">
-        <p class="text-gray-500">사용자가 없습니다.</p>
+        <Shield class="mx-auto h-12 w-12 text-gray-400" />
+        <p class="mt-4 text-gray-500">조건에 맞는 사용자가 없습니다.</p>
       </div>
     {:else}
       <div class="overflow-x-auto">
@@ -191,6 +324,15 @@
                     <div class="ml-4">
                       <div class="text-sm font-medium text-gray-900">{user.username}</div>
                       <div class="text-sm text-gray-500">{user.email}</div>
+                      {#if user.isEmailVerified}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                          인증완료
+                        </span>
+                      {:else}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+                          인증대기
+                        </span>
+                      {/if}
                     </div>
                   </div>
                 </td>
@@ -198,15 +340,25 @@
                   <div class="flex flex-wrap gap-1">
                     {#each user.roles as role}
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getRoleColor(role)}">
-                        {role}
+                        {getRoleText(role)}
                       </span>
                     {/each}
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(user.userStatus)}">
-                    {user.userStatus}
+                    {getStatusText(user.userStatus)}
                   </span>
+                  {#if user.isLocked}
+                    <div class="text-xs text-red-600 mt-1">
+                      {user.lockedUntil ? `잠김 (${new Date(user.lockedUntil).toLocaleString('ko-KR')})` : '잠김'}
+                    </div>
+                  {/if}
+                  {#if user.failedLoginAttempts > 0}
+                    <div class="text-xs text-orange-600 mt-1">
+                      로그인 실패: {user.failedLoginAttempts}회
+                    </div>
+                  {/if}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString('ko-KR') : '없음'}
@@ -216,6 +368,16 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div class="flex justify-end space-x-2">
+                    {#if user.isLocked}
+                      <button
+                        type="button"
+                        class="text-green-600 hover:text-green-900"
+                        on:click={() => unlockUser(user)}
+                        title="잠금 해제"
+                      >
+                        <Unlock size="16" />
+                      </button>
+                    {/if}
                     <button
                       type="button"
                       class="text-indigo-600 hover:text-indigo-900"
@@ -242,3 +404,10 @@
     {/if}
   </div>
 </div>
+
+<!-- 사용자 생성 모달 -->
+<CreateUserModal
+  bind:open={showCreateModal}
+  on:user-created={handleUserCreated}
+  on:close={() => showCreateModal = false}
+/>
