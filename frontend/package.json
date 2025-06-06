@@ -29,7 +29,6 @@
   },
   "type": "module",
   "dependencies": {
-    "@heroicons/svelte": "^2.0.0",
-    "lucide-svelte": "^0.294.0"
+    "svelte-icons": "^2.1.0"
   }
 }

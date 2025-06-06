@@ -5,18 +5,18 @@ import com.gijun.backend.application.port.`in`.AuthUseCase
 import com.gijun.backend.application.port.`in`.LoginCommand
 import com.gijun.backend.application.port.`in`.RegisterCommand
 import com.gijun.backend.application.service.AuthService
+import com.gijun.backend.configuration.JwtUtil
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(
     private val authUseCase: AuthUseCase,
-    private val authService: AuthService
+    private val authService: AuthService,
+    private val jwtUtil: JwtUtil
 ) {
 
     @PostMapping("/register")
@@ -96,9 +96,10 @@ class AuthController(
     @PostMapping("/change-password")
     suspend fun changePassword(
         @Valid @RequestBody request: ChangePasswordRequest,
-        @AuthenticationPrincipal userDetails: UserDetails
+        @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<String> {
-        val user = authUseCase.validateToken(userDetails.username)
+        val token = authorization.removePrefix("Bearer ")
+        val user = authUseCase.validateToken(token)
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
 
         authService.changePassword(
@@ -122,9 +123,10 @@ class AuthController(
     @PostMapping("/unlock/{userId}")
     suspend fun unlockUser(
         @PathVariable userId: String,
-        @AuthenticationPrincipal userDetails: UserDetails
+        @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<String> {
-        val currentUser = authUseCase.validateToken(userDetails.username)
+        val token = authorization.removePrefix("Bearer ")
+        val currentUser = authUseCase.validateToken(token)
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
 
         if (!currentUser.isAdmin()) {

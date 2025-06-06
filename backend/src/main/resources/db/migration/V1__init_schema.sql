@@ -1,169 +1,162 @@
--- ========================================
--- V2 DATABASE SCHEMA
--- User & Store Management System
--- ========================================
-
--- ========================================
--- 1. REGION & LOCATION TABLES
--- ========================================
+-- V1 DATABASE SCHEMA
+-- User & Store Management System with Menu & Permission
 
 -- 지역 코드 테이블
-CREATE TABLE IF NOT EXISTS region_codes
-(
+CREATE TABLE IF NOT EXISTS region_codes (
     region_code   VARCHAR(3) PRIMARY KEY,
     region_name   VARCHAR(50) NOT NULL,
     parent_region VARCHAR(3),
-    display_order INT       DEFAULT 0,
-    is_active     BOOLEAN   DEFAULT TRUE,
+    display_order INT DEFAULT 0,
+    is_active     BOOLEAN DEFAULT TRUE,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
     INDEX idx_parent_region (parent_region),
     INDEX idx_is_active (is_active)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
--- ========================================
--- 2. USER MANAGEMENT TABLES
--- ========================================
-
--- Users table (V2 - Enhanced)
-CREATE TABLE IF NOT EXISTS users
-(
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
     id                    VARCHAR(36) PRIMARY KEY,
-    username              VARCHAR(50)  NOT NULL UNIQUE,
+    username              VARCHAR(50) NOT NULL UNIQUE,
     email                 VARCHAR(320) NOT NULL UNIQUE,
     password_hash         VARCHAR(255) NOT NULL,
-    roles                 JSON         NOT NULL                                                      DEFAULT ('["USER"]'),
+    roles                 JSON NOT NULL DEFAULT ('["USER"]'),
     user_status           ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION', 'LOCKED') DEFAULT 'ACTIVE',
-
-    -- Security & Login tracking
-    last_login_at         TIMESTAMP    NULL,
-    failed_login_attempts INT                                                                        DEFAULT 0,
-    locked_until          TIMESTAMP    NULL,
-    email_verified_at     TIMESTAMP    NULL,
-
-    -- Audit fields
-    is_active             BOOLEAN      NOT NULL                                                      DEFAULT TRUE,
-    created_at            TIMESTAMP    NOT NULL                                                      DEFAULT CURRENT_TIMESTAMP,
+    last_login_at         TIMESTAMP NULL,
+    failed_login_attempts INT DEFAULT 0,
+    locked_until          TIMESTAMP NULL,
+    email_verified_at     TIMESTAMP NULL,
+    is_active             BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by            VARCHAR(36),
-    updated_at            TIMESTAMP    NOT NULL                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by            VARCHAR(36),
-    deleted_at            TIMESTAMP    NULL,
+    deleted_at            TIMESTAMP NULL,
     deleted_by            VARCHAR(36),
-
-    -- Version for optimistic locking
-    version               BIGINT                                                                     DEFAULT 0,
-
+    version               BIGINT DEFAULT 0,
     INDEX idx_username (username),
     INDEX idx_email (email),
     INDEX idx_user_status (user_status),
     INDEX idx_is_active (is_active),
     INDEX idx_created_at (created_at),
     INDEX idx_email_verified (email_verified_at),
-    INDEX idx_last_login (last_login_at),
+    INDEX idx_last_login (last_login_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-    -- Foreign key constraints
-    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (deleted_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
+-- 시스템 사용자는 애플리케이션에서 동적으로 생성하므로 여기서는 제거
+-- INSERT INTO users 구문을 주석 처리함
 
 -- User login history table
-CREATE TABLE IF NOT EXISTS user_login_history
-(
+CREATE TABLE IF NOT EXISTS user_login_history (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id        VARCHAR(36) NOT NULL,
     login_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ip_address     VARCHAR(45),
     user_agent     TEXT,
-    success        BOOLEAN     NOT NULL,
+    success        BOOLEAN NOT NULL,
     failure_reason VARCHAR(100),
-
     INDEX idx_user_id (user_id),
     INDEX idx_login_at (login_at),
-    INDEX idx_success (success),
+    INDEX idx_success (success)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
+-- 메뉴 테이블
+CREATE TABLE IF NOT EXISTS menus (
+    menu_id        VARCHAR(36) PRIMARY KEY,
+    menu_code      VARCHAR(50) NOT NULL UNIQUE,
+    menu_name      VARCHAR(100) NOT NULL,
+    menu_path      VARCHAR(200) NOT NULL,
+    parent_menu_id VARCHAR(36) NULL,
+    menu_level     INT DEFAULT 1,
+    display_order  INT DEFAULT 0,
+    icon_name      VARCHAR(50) NULL,
+    description    VARCHAR(200) NULL,
+    menu_type      ENUM ('CATEGORY', 'MENU', 'FUNCTION') DEFAULT 'MENU',
+    is_active      BOOLEAN DEFAULT TRUE,
+    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by     VARCHAR(36),
+    updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by     VARCHAR(36),
+    deleted_at     TIMESTAMP NULL,
+    deleted_by     VARCHAR(36),
+    INDEX idx_menu_code (menu_code),
+    INDEX idx_parent_menu (parent_menu_id),
+    INDEX idx_menu_level (menu_level),
+    INDEX idx_display_order (display_order),
+    INDEX idx_menu_type (menu_type),
+    INDEX idx_is_active (is_active)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
--- ========================================
--- 3. HEADQUARTERS MANAGEMENT
--- ========================================
+-- 권한 테이블
+CREATE TABLE IF NOT EXISTS permissions (
+    permission_id   VARCHAR(100) PRIMARY KEY,
+    menu_id         VARCHAR(36) NOT NULL,
+    target_type     ENUM ('USER', 'STORE', 'HEADQUARTERS', 'ROLE') NOT NULL,
+    target_id       VARCHAR(50) NOT NULL,
+    permission_type ENUM ('READ', 'WRITE', 'DELETE', 'ADMIN') NOT NULL,
+    granted_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    granted_by      VARCHAR(36) NULL,
+    expires_at      TIMESTAMP NULL,
+    is_active       BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_permission (menu_id, target_type, target_id, permission_type),
+    INDEX idx_menu_id (menu_id),
+    INDEX idx_target (target_type, target_id),
+    INDEX idx_permission_type (permission_type),
+    INDEX idx_granted_by (granted_by),
+    INDEX idx_expires_at (expires_at),
+    INDEX idx_is_active (is_active)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- 본사 정보 테이블
-CREATE TABLE IF NOT EXISTS headquarters
-(
+CREATE TABLE IF NOT EXISTS headquarters (
     hq_id                VARCHAR(10) PRIMARY KEY,
-    hq_code              VARCHAR(5)   NOT NULL UNIQUE,
+    hq_code              VARCHAR(5) NOT NULL UNIQUE,
     hq_name              VARCHAR(100) NOT NULL,
     business_license     VARCHAR(50),
     ceo_name             VARCHAR(50),
     headquarters_address VARCHAR(200),
     contact_phone        VARCHAR(20),
     website              VARCHAR(100),
-
-    -- Audit fields
-    is_active            BOOLEAN   DEFAULT TRUE,
+    is_active            BOOLEAN DEFAULT TRUE,
     created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by           VARCHAR(36),
     updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by           VARCHAR(36),
-    deleted_at           TIMESTAMP    NULL,
+    deleted_at           TIMESTAMP NULL,
     deleted_by           VARCHAR(36),
-    version              BIGINT    DEFAULT 0,
-
+    version              BIGINT DEFAULT 0,
     INDEX idx_hq_code (hq_code),
     INDEX idx_hq_name (hq_name),
-    INDEX idx_is_active (is_active),
-
-    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (deleted_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ========================================
--- 4. STORE MANAGEMENT
--- ========================================
+    INDEX idx_is_active (is_active)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- 매장 정보 테이블
-CREATE TABLE IF NOT EXISTS stores
-(
+CREATE TABLE IF NOT EXISTS stores (
     store_id         VARCHAR(20) PRIMARY KEY,
-    store_name       VARCHAR(100)                 NOT NULL,
+    store_name       VARCHAR(100) NOT NULL,
     store_type       ENUM ('CHAIN', 'INDIVIDUAL') NOT NULL,
     operation_type   ENUM ('DIRECT', 'FRANCHISE') NULL,
-    hq_id            VARCHAR(10)                  NULL,
-    region_code      VARCHAR(3)                   NOT NULL,
-    store_number     VARCHAR(3)                   NOT NULL,
+    hq_id            VARCHAR(10) NULL,
+    region_code      VARCHAR(3) NOT NULL,
+    store_number     VARCHAR(3) NOT NULL,
     business_license VARCHAR(50),
-    owner_name       VARCHAR(50)                  NOT NULL,
+    owner_name       VARCHAR(50) NOT NULL,
     phone_number     VARCHAR(20),
     address          VARCHAR(200),
     postal_code      VARCHAR(10),
     opening_date     DATE,
     store_status     ENUM ('ACTIVE', 'INACTIVE', 'CLOSED') DEFAULT 'ACTIVE',
-
-    -- Manager assignment
     manager_user_id  VARCHAR(36),
-
-    -- Audit fields
-    is_active        BOOLEAN                               DEFAULT TRUE,
-    created_at       TIMESTAMP                             DEFAULT CURRENT_TIMESTAMP,
+    is_active        BOOLEAN DEFAULT TRUE,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by       VARCHAR(36),
-    updated_at       TIMESTAMP                             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by       VARCHAR(36),
-    deleted_at       TIMESTAMP                    NULL,
+    deleted_at       TIMESTAMP NULL,
     deleted_by       VARCHAR(36),
-    version          BIGINT                                DEFAULT 0,
-
+    version          BIGINT DEFAULT 0,
     INDEX idx_store_name (store_name),
     INDEX idx_store_type (store_type),
     INDEX idx_operation_type (operation_type),
@@ -171,132 +164,79 @@ CREATE TABLE IF NOT EXISTS stores
     INDEX idx_store_status (store_status),
     INDEX idx_is_active (is_active),
     INDEX idx_manager (manager_user_id),
-    INDEX idx_region_code (region_code),
-
-    UNIQUE KEY unique_store_per_region (region_code, store_number, hq_id),
-
-    FOREIGN KEY (hq_id) REFERENCES headquarters (hq_id) ON DELETE SET NULL,
-    FOREIGN KEY (region_code) REFERENCES region_codes (region_code),
-    FOREIGN KEY (manager_user_id) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (deleted_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ========================================
--- 5. POS SYSTEM MANAGEMENT
--- ========================================
+    INDEX idx_region_code (region_code)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- POS 시스템 테이블
-CREATE TABLE IF NOT EXISTS pos_systems
-(
+CREATE TABLE IF NOT EXISTS pos_systems (
     pos_id                VARCHAR(20) PRIMARY KEY,
     store_id              VARCHAR(20) NOT NULL,
-    pos_number            INT         NOT NULL,
+    pos_number            INT NOT NULL,
     pos_name              VARCHAR(50),
-    pos_type              ENUM ('MAIN', 'SUB', 'MOBILE')             DEFAULT 'MAIN',
+    pos_type              ENUM ('MAIN', 'SUB', 'MOBILE') DEFAULT 'MAIN',
     ip_address            VARCHAR(15),
     mac_address           VARCHAR(17),
     serial_number         VARCHAR(50),
-    installed_date        DATE                                       DEFAULT (CURRENT_DATE),
-    last_maintenance_date DATE                                       DEFAULT (CURRENT_DATE),
+    installed_date        DATE DEFAULT (CURRENT_DATE),
+    last_maintenance_date DATE DEFAULT (CURRENT_DATE),
     pos_status            ENUM ('ACTIVE', 'INACTIVE', 'MAINTENANCE') DEFAULT 'ACTIVE',
-
-    -- Audit fields
-    is_active             BOOLEAN                                    DEFAULT TRUE,
-    created_at            TIMESTAMP                                  DEFAULT CURRENT_TIMESTAMP,
+    is_active             BOOLEAN DEFAULT TRUE,
+    created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by            VARCHAR(36),
-    updated_at            TIMESTAMP                                  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     updated_by            VARCHAR(36),
-    deleted_at            TIMESTAMP   NULL,
+    deleted_at            TIMESTAMP NULL,
     deleted_by            VARCHAR(36),
-    version               BIGINT                                     DEFAULT 0,
-
+    version               BIGINT DEFAULT 0,
     INDEX idx_store_pos (store_id, pos_number),
     INDEX idx_pos_type (pos_type),
     INDEX idx_pos_status (pos_status),
     INDEX idx_is_active (is_active),
     INDEX idx_ip_address (ip_address),
-    INDEX idx_serial_number (serial_number),
+    INDEX idx_serial_number (serial_number)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-    UNIQUE KEY unique_pos_per_store (store_id, pos_number),
-    UNIQUE KEY unique_serial_number (serial_number),
-
-    FOREIGN KEY (store_id) REFERENCES stores (store_id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (deleted_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ========================================
--- 6. USER-STORE RELATIONSHIPS
--- ========================================
-
--- 사용자-매장 관계 테이블 (권한 관리)
-CREATE TABLE IF NOT EXISTS user_store_permissions
-(
+-- 사용자-매장 관계 테이블
+CREATE TABLE IF NOT EXISTS user_store_permissions (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         VARCHAR(36)                     NOT NULL,
-    store_id        VARCHAR(20)                     NOT NULL,
-    permission_type ENUM ('READ', 'write', 'admin') NOT NULL,
+    user_id         VARCHAR(36) NOT NULL,
+    store_id        VARCHAR(20) NOT NULL,
+    permission_type ENUM ('read', 'WRITE', 'ADMIN') NOT NULL,
     granted_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     granted_by      VARCHAR(36),
-    expires_at      TIMESTAMP                       NULL,
-
-    -- Audit fields
-    is_active       BOOLEAN   DEFAULT TRUE,
+    expires_at      TIMESTAMP NULL,
+    is_active       BOOLEAN DEFAULT TRUE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    UNIQUE KEY unique_user_store_permission (user_id, store_id, permission_type),
     INDEX idx_user_id (user_id),
     INDEX idx_store_id (store_id),
     INDEX idx_permission_type (permission_type),
     INDEX idx_expires_at (expires_at),
-    INDEX idx_is_active (is_active),
-
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (store_id) REFERENCES stores (store_id) ON DELETE CASCADE,
-    FOREIGN KEY (granted_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ========================================
--- 7. AUDIT & EVENT TABLES
--- ========================================
+    INDEX idx_is_active (is_active)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- 도메인 이벤트 테이블
-CREATE TABLE IF NOT EXISTS domain_events
-(
+CREATE TABLE IF NOT EXISTS domain_events (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    event_id       VARCHAR(36)  NOT NULL UNIQUE,
+    event_id       VARCHAR(36) NOT NULL UNIQUE,
     event_type     VARCHAR(100) NOT NULL,
-    aggregate_type VARCHAR(50)  NOT NULL,
-    aggregate_id   VARCHAR(50)  NOT NULL,
-    event_data     JSON         NOT NULL,
-    event_version  INT       DEFAULT 1,
+    aggregate_type VARCHAR(50) NOT NULL,
+    aggregate_id   VARCHAR(50) NOT NULL,
+    event_data     JSON NOT NULL,
+    event_version  INT DEFAULT 1,
     occurred_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed_at   TIMESTAMP    NULL,
-
+    processed_at   TIMESTAMP NULL,
     INDEX idx_event_type (event_type),
     INDEX idx_aggregate (aggregate_type, aggregate_id),
     INDEX idx_occurred_at (occurred_at),
     INDEX idx_processed_at (processed_at)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- 감사 로그 테이블
-CREATE TABLE IF NOT EXISTS audit_logs
-(
+CREATE TABLE IF NOT EXISTS audit_logs (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    table_name     VARCHAR(50)                         NOT NULL,
-    record_id      VARCHAR(50)                         NOT NULL,
+    table_name     VARCHAR(50) NOT NULL,
+    record_id      VARCHAR(50) NOT NULL,
     action         ENUM ('INSERT', 'UPDATE', 'DELETE') NOT NULL,
     old_values     JSON,
     new_values     JSON,
@@ -305,20 +245,11 @@ CREATE TABLE IF NOT EXISTS audit_logs
     ip_address     VARCHAR(45),
     user_agent     TEXT,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
     INDEX idx_table_record (table_name, record_id),
     INDEX idx_action (action),
     INDEX idx_user_id (user_id),
-    INDEX idx_created_at (created_at),
-
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
-
--- ========================================
--- 8. INITIAL DATA
--- ========================================
+    INDEX idx_created_at (created_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- 기본 지역 코드 데이터
 INSERT INTO region_codes (region_code, region_name, parent_region, display_order)
@@ -341,116 +272,75 @@ VALUES ('001', '서울특별시', NULL, 1),
        ('017', '제주특별자치도', NULL, 17)
 ON DUPLICATE KEY UPDATE region_name = VALUES(region_name);
 
--- ========================================
--- 9. MIGRATION SCRIPTS (V1 -> V2)
--- ========================================
+-- 기본 메뉴 구조 생성
+INSERT INTO menus (menu_id, menu_code, menu_name, menu_path, parent_menu_id, menu_level, display_order, icon_name, menu_type, created_by)
+VALUES
+    ('menu-admin', 'ADMIN', '슈퍼어드민', '/admin', NULL, 1, 10, 'shield', 'CATEGORY', NULL),
+    ('menu-business', 'BUSINESS', '영업정보시스템', '/business', NULL, 1, 20, 'building-office', 'CATEGORY', NULL),
+    ('menu-pos', 'POS', 'POS시스템', '/pos', NULL, 1, 30, 'computer-desktop', 'CATEGORY', NULL),
+    ('menu-admin-users', 'ADMIN_USERS', '사용자 관리', '/admin/users', 'menu-admin', 2, 10, 'users', 'MENU', NULL),
+    ('menu-admin-permissions', 'ADMIN_PERMISSIONS', '권한 관리', '/admin/permissions', 'menu-admin', 2, 20, 'key', 'MENU', NULL),
+    ('menu-admin-system', 'ADMIN_SYSTEM', '시스템 설정', '/admin/system', 'menu-admin', 2, 30, 'cog', 'MENU', NULL),
+    ('menu-admin-audit', 'ADMIN_AUDIT', '감사 로그', '/admin/audit', 'menu-admin', 2, 40, 'document-text', 'MENU', NULL),
+    ('menu-business-hq', 'BUSINESS_HQ', '본사 관리', '/business/headquarters', 'menu-business', 2, 10, 'building-office-2', 'MENU', NULL),
+    ('menu-business-stores', 'BUSINESS_STORES', '매장 관리', '/business/stores', 'menu-business', 2, 20, 'building-storefront', 'MENU', NULL),
+    ('menu-business-reports', 'BUSINESS_REPORTS', '매출 분석', '/business/reports', 'menu-business', 2, 30, 'chart-bar', 'MENU', NULL),
+    ('menu-business-inventory', 'BUSINESS_INVENTORY', '재고 관리', '/business/inventory', 'menu-business', 2, 40, 'cube', 'MENU', NULL),
+    ('menu-pos-sales', 'POS_SALES', '판매', '/pos/sales', 'menu-pos', 2, 10, 'shopping-cart', 'MENU', NULL),
+    ('menu-pos-products', 'POS_PRODUCTS', '상품 관리', '/pos/products', 'menu-pos', 2, 20, 'cube', 'MENU', NULL),
+    ('menu-pos-customers', 'POS_CUSTOMERS', '고객 관리', '/pos/customers', 'menu-pos', 2, 30, 'user-group', 'MENU', NULL),
+    ('menu-pos-settings', 'POS_SETTINGS', 'POS 설정', '/pos/settings', 'menu-pos', 2, 40, 'adjustments', 'MENU', NULL)
+ON DUPLICATE KEY UPDATE menu_name = VALUES(menu_name);
 
--- V1 users 테이블에서 V2로 데이터 마이그레이션을 위한 스크립트
--- 주의: 실제 운영환경에서는 단계적으로 진행해야 함
+-- 기본 권한 설정 (시스템 권한)
+INSERT INTO permissions (permission_id, menu_id, target_type, target_id, permission_type, granted_by)
+SELECT 
+    CONCAT('perm-sa-', RIGHT(menu_id, 8)),
+    menu_id,
+    'ROLE',
+    'SUPER_ADMIN',
+    'ADMIN',
+    'system'
+FROM menus 
+WHERE is_active = TRUE
+ON DUPLICATE KEY UPDATE permission_type = VALUES(permission_type);
 
-/*
--- Step 1: V1 테이블 백업
-CREATE TABLE users_v1_backup AS SELECT * FROM users;
+INSERT INTO permissions (permission_id, menu_id, target_type, target_id, permission_type, granted_by)
+SELECT 
+    CONCAT('perm-sysadm-', RIGHT(menu_id, 8)),
+    menu_id,
+    'ROLE',
+    'SYSTEM_ADMIN',
+    'ADMIN',
+    'system'
+FROM menus 
+WHERE menu_code NOT LIKE 'ADMIN_%' AND is_active = TRUE
+ON DUPLICATE KEY UPDATE permission_type = VALUES(permission_type);
 
--- Step 2: 새 컬럼 추가 (NULL 허용으로 시작)
-ALTER TABLE users
-ADD COLUMN user_status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION', 'LOCKED') DEFAULT 'ACTIVE',
-ADD COLUMN last_login_at TIMESTAMP NULL,
-ADD COLUMN failed_login_attempts INT DEFAULT 0,
-ADD COLUMN locked_until TIMESTAMP NULL,
-ADD COLUMN email_verified_at TIMESTAMP NULL,
-ADD COLUMN created_by VARCHAR(36),
-ADD COLUMN updated_by VARCHAR(36),
-ADD COLUMN deleted_at TIMESTAMP NULL,
-ADD COLUMN deleted_by VARCHAR(36);
+INSERT INTO permissions (permission_id, menu_id, target_type, target_id, permission_type, granted_by)
+SELECT 
+    CONCAT('perm-hqmgr-', RIGHT(menu_id, 8)),
+    menu_id,
+    'ROLE',
+    'HQ_MANAGER',
+    'WRITE',
+    'system'
+FROM menus 
+WHERE menu_code LIKE 'BUSINESS_%' AND is_active = TRUE
+ON DUPLICATE KEY UPDATE permission_type = VALUES(permission_type);
 
--- Step 3: 기존 활성 사용자들을 이메일 인증 완료로 설정
-UPDATE users
-SET email_verified_at = created_at
-WHERE is_active = TRUE;
+INSERT INTO permissions (permission_id, menu_id, target_type, target_id, permission_type, granted_by)
+SELECT 
+    CONCAT('perm-storemgr-', RIGHT(menu_id, 8)),
+    menu_id,
+    'ROLE',
+    'STORE_MANAGER',
+    'WRITE',
+    'system'
+FROM menus 
+WHERE menu_code LIKE 'POS_%' AND is_active = TRUE
+ON DUPLICATE KEY UPDATE permission_type = VALUES(permission_type);
 
--- Step 4: 비활성 사용자들 상태 업데이트
-UPDATE users
-SET user_status = 'INACTIVE'
-WHERE is_active = FALSE;
-
--- Step 5: 이메일 컬럼 크기 확장
-ALTER TABLE users MODIFY COLUMN email VARCHAR(320) NOT NULL;
-
--- Step 6: 새 인덱스 추가
-CREATE INDEX idx_user_status ON users(user_status);
-CREATE INDEX idx_email_verified ON users(email_verified_at);
-CREATE INDEX idx_last_login ON users(last_login_at);
-*/
-
--- ========================================
--- 10. PERFORMANCE OPTIMIZATION
--- ========================================
-
--- 파티셔닝을 위한 테이블 (대용량 로그 데이터)
--- CREATE TABLE user_login_history_partitioned (
---     LIKE user_login_history
--- ) PARTITION BY RANGE (YEAR(login_at)) (
---     PARTITION p2024 VALUES LESS THAN (2025),
---     PARTITION p2025 VALUES LESS THAN (2026),
---     PARTITION p_future VALUES LESS THAN MAXVALUE
--- );
-
--- ========================================
--- 11. VIEWS FOR COMMON QUERIES
--- ========================================
-
--- 활성 매장 정보 뷰
-CREATE OR REPLACE VIEW active_stores AS
-SELECT s.store_id,
-       s.store_name,
-       s.store_type,
-       s.operation_type,
-       h.hq_name,
-       h.hq_code,
-       s.region_code,
-       rc.region_name,
-       s.owner_name,
-       s.phone_number,
-       s.address,
-       s.store_status,
-       u.username as manager_username,
-       s.created_at
-FROM stores s
-         LEFT JOIN headquarters h ON s.hq_id = h.hq_id
-         LEFT JOIN region_codes rc ON s.region_code = rc.region_code
-         LEFT JOIN users u ON s.manager_user_id = u.id
-WHERE s.is_active = TRUE
-  AND s.store_status != 'CLOSED';
-
--- 사용자 권한 정보 뷰
-CREATE OR REPLACE VIEW user_permissions AS
-SELECT u.id as user_id,
-       u.username,
-       u.email,
-       u.roles,
-       u.user_status,
-       usp.store_id,
-       s.store_name,
-       usp.permission_type,
-       usp.expires_at
-FROM users u
-         LEFT JOIN user_store_permissions usp ON u.id = usp.user_id AND usp.is_active = TRUE
-         LEFT JOIN stores s ON usp.store_id = s.store_id
-WHERE u.is_active = TRUE;
-
--- POS 시스템 현황 뷰
-CREATE OR REPLACE VIEW pos_system_status AS
-SELECT p.pos_id,
-       p.store_id,
-       s.store_name,
-       p.pos_number,
-       p.pos_name,
-       p.pos_type,
-       p.pos_status,
-       p.last_maintenance_date,
-       DATEDIFF(CURRENT_DATE, p.last_maintenance_date) as days_since_maintenance
-FROM pos_systems p
-         JOIN stores s ON p.store_id = s.store_id
-WHERE p.is_active = TRUE
-  AND s.is_active = TRUE;
+INSERT INTO permissions (permission_id, menu_id, target_type, target_id, permission_type, granted_by)
+VALUES ('perm-user-pos-sales-read', 'menu-pos-sales', 'ROLE', 'USER', 'READ', 'system')
+ON DUPLICATE KEY UPDATE permission_type = VALUES(permission_type);

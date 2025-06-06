@@ -15,7 +15,10 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 @Configuration
-@EnableR2dbcRepositories(basePackages = ["com.gijun.backend.adapter.out.persistence"])
+@EnableR2dbcRepositories(basePackages = [
+    "com.gijun.backend.adapter.out.persistence.user",
+    "com.gijun.backend.adapter.out.persistence.permission"
+])
 @EnableTransactionManagement
 class R2dbcConfiguration(
     private val connectionFactory: ConnectionFactory

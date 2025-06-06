@@ -1,7 +1,8 @@
 package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.application.service.PermissionService
-import com.gijun.backend.configuration.JwtUtil
+import com.gijun.backend.configuration.PermissionChecker
+import com.gijun.backend.domain.permission.entities.PermissionType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -9,19 +10,16 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/permissions")
 class PermissionController(
     private val permissionService: PermissionService,
-    private val jwtUtil: JwtUtil
+    private val permissionChecker: PermissionChecker
 ) {
 
     @GetMapping("/my-menus")
     suspend fun getMyMenus(
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<MyMenusResponse> {
-        val token = authorization.removePrefix("Bearer ")
-        val username = jwtUtil.getUsernameFromToken(token)
+        val userId = permissionChecker.extractUserIdFromToken(authorization)
         
-        // 사용자 ID를 username에서 가져와야 하는데, 실제로는 UserRepository에서 조회해야 함
-        // 여기서는 임시로 username을 ID로 사용
-        val userMenus = permissionService.getUserMenus(username)
+        val userMenus = permissionService.getUserMenus(userId)
         
         val response = MyMenusResponse(
             menus = userMenus.map { menu ->
@@ -57,13 +55,12 @@ class PermissionController(
         @RequestHeader("Authorization") authorization: String,
         @RequestBody request: CheckPermissionRequest
     ): ResponseEntity<CheckPermissionResponse> {
-        val token = authorization.removePrefix("Bearer ")
-        val username = jwtUtil.getUsernameFromToken(token)
+        val userId = permissionChecker.extractUserIdFromToken(authorization)
         
         val hasPermission = permissionService.checkUserPermission(
-            username, 
+            userId, 
             request.menuCode, 
-            com.gijun.backend.domain.permission.entities.PermissionType.valueOf(request.requiredPermission)
+            PermissionType.valueOf(request.requiredPermission)
         )
         
         return ResponseEntity.ok(CheckPermissionResponse(hasPermission))
