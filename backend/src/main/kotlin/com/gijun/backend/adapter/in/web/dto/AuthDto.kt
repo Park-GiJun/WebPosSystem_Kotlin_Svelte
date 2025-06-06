@@ -1,8 +1,11 @@
 package com.gijun.backend.adapter.`in`.web.dto
 
+import com.gijun.backend.domain.user.enums.UserRole
+import com.gijun.backend.domain.user.enums.UserStatus
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import java.time.LocalDateTime
 
 data class RegisterRequest(
     @field:NotBlank(message = "Username cannot be blank")
@@ -11,6 +14,7 @@ data class RegisterRequest(
 
     @field:NotBlank(message = "Email cannot be blank")
     @field:Email(message = "Invalid email format")
+    @field:Size(max = 320, message = "Email cannot exceed 320 characters")
     val email: String,
 
     @field:NotBlank(message = "Password cannot be blank")
@@ -31,6 +35,44 @@ data class AuthResponse(
     val username: String,
     val email: String,
     val roles: List<String>,
+    val userStatus: String,
+    val isEmailVerified: Boolean,
+    val lastLoginAt: LocalDateTime?,
     val token: String? = null,
     val expiresIn: Long? = null
+)
+
+// New DTOs for V2 features
+data class UserProfileResponse(
+    val id: String,
+    val username: String,
+    val email: String,
+    val roles: List<String>,
+    val userStatus: String,
+    val isEmailVerified: Boolean,
+    val lastLoginAt: LocalDateTime?,
+    val failedLoginAttempts: Int,
+    val isLocked: Boolean,
+    val lockedUntil: LocalDateTime?,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime
+)
+
+data class ChangePasswordRequest(
+    @field:NotBlank(message = "Current password cannot be blank")
+    val currentPassword: String,
+
+    @field:NotBlank(message = "New password cannot be blank")
+    @field:Size(min = 6, message = "New password must be at least 6 characters")
+    val newPassword: String
+)
+
+data class UpdateUserStatusRequest(
+    @field:NotBlank(message = "User status is required")
+    val userStatus: String,
+    val reason: String? = null
+)
+
+data class AssignRoleRequest(
+    val roles: List<String>
 )

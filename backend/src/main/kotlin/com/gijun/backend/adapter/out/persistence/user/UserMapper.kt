@@ -2,8 +2,9 @@ package com.gijun.backend.adapter.out.persistence.user
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.gijun.backend.domain.user.User
-import com.gijun.backend.domain.user.UserRole
+import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.enums.UserRole
+import com.gijun.backend.domain.user.enums.UserStatus
 import org.springframework.stereotype.Component
 
 @Component
@@ -13,6 +14,7 @@ class UserMapper(
 
     fun toDomain(entity: UserEntity): User {
         val roles = parseRoles(entity.roles)
+        val userStatus = parseUserStatus(entity.userStatus)
 
         return User(
             id = entity.id,
@@ -20,9 +22,19 @@ class UserMapper(
             email = entity.email,
             passwordHash = entity.passwordHash,
             roles = roles,
+            userStatus = userStatus,
+            lastLoginAt = entity.lastLoginAt,
+            failedLoginAttempts = entity.failedLoginAttempts,
+            lockedUntil = entity.lockedUntil,
+            emailVerifiedAt = entity.emailVerifiedAt,
             isActive = entity.isActive,
             createdAt = entity.createdAt,
-            updatedAt = entity.updatedAt
+            createdBy = entity.createdBy,
+            updatedAt = entity.updatedAt,
+            updatedBy = entity.updatedBy,
+            deletedAt = entity.deletedAt,
+            deletedBy = entity.deletedBy,
+            version = entity.version
         )
     }
 
@@ -35,9 +47,19 @@ class UserMapper(
             email = domain.email,
             passwordHash = domain.passwordHash,
             roles = rolesJson,
+            userStatus = domain.userStatus.name,
+            lastLoginAt = domain.lastLoginAt,
+            failedLoginAttempts = domain.failedLoginAttempts,
+            lockedUntil = domain.lockedUntil,
+            emailVerifiedAt = domain.emailVerifiedAt,
             isActive = domain.isActive,
             createdAt = domain.createdAt,
-            updatedAt = domain.updatedAt
+            createdBy = domain.createdBy,
+            updatedAt = domain.updatedAt,
+            updatedBy = domain.updatedBy,
+            deletedAt = domain.deletedAt,
+            deletedBy = domain.deletedBy,
+            version = domain.version
         )
     }
 
@@ -52,6 +74,14 @@ class UserMapper(
             }.toSet()
         } catch (e: Exception) {
             setOf(UserRole.USER) // 기본값
+        }
+    }
+
+    private fun parseUserStatus(statusString: String): UserStatus {
+        return try {
+            UserStatus.valueOf(statusString)
+        } catch (e: IllegalArgumentException) {
+            UserStatus.ACTIVE // 기본값
         }
     }
 }

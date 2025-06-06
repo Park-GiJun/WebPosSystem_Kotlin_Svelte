@@ -23,15 +23,44 @@ data class UserEntity(
     @Column("roles")
     val roles: String, // JSON 형태로 저장
 
+    @Column("user_status")
+    val userStatus: String,
+
+    // Security & Login tracking
+    @Column("last_login_at")
+    val lastLoginAt: LocalDateTime? = null,
+
+    @Column("failed_login_attempts")
+    val failedLoginAttempts: Int = 0,
+
+    @Column("locked_until")
+    val lockedUntil: LocalDateTime? = null,
+
+    @Column("email_verified_at")
+    val emailVerifiedAt: LocalDateTime? = null,
+
+    // Audit fields
     @Column("is_active")
     val isActive: Boolean = true,
 
     @Column("created_at")
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
+    @Column("created_by")
+    val createdBy: String? = null,
+
     @Column("updated_at")
     val updatedAt: LocalDateTime = LocalDateTime.now(),
 
+    @Column("updated_by")
+    val updatedBy: String? = null,
+
+    @Column("deleted_at")
+    val deletedAt: LocalDateTime? = null,
+
+    @Column("deleted_by")
+    val deletedBy: String? = null,
+
     @Version
-    val version: Long? = null
+    val version: Long = 0
 )

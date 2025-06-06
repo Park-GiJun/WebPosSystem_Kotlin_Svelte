@@ -6,12 +6,12 @@ import com.gijun.backend.application.port.`in`.LoginCommand
 import com.gijun.backend.application.port.`in`.RegisterCommand
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.configuration.JwtUtil
-import com.gijun.backend.domain.user.User
-import com.gijun.backend.domain.user.UserRole
+import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.enums.UserRole
+import com.gijun.backend.domain.user.enums.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
-
 
 @Service
 class AuthService(
@@ -40,11 +40,22 @@ class AuthService(
         val user = userRepository.findByUsername(command.username)
             ?: throw AuthenticationException("Invalid username or password")
 
-        if (!user.isActive) {
-            throw AuthenticationException("Account is deactivated")
+        if (!user.canLogin()) {
+            val reason = when {
+                !user.isActive -> "Account is deactivated"
+                user.isLocked() -> "Account is locked until ${user.lockedUntil}"
+                user.userStatus == UserStatus.SUSPENDED -> "Account is suspended"
+                user.userStatus == UserStatus.PENDING_VERIFICATION -> "Please verify your email first"
+                else -> "Account is not available for login"
+            }
+            throw AuthenticationException(reason)
         }
 
-        if (!passwordEncoder.matches(command.password, user.passwordHash)) {
+        val loginSuccess = passwordEncoder.matches(command.password, user.passwordHash)
+        val updatedUser = user.recordLoginAttempt(loginSuccess, command.username)
+        userRepository.save(updatedUser)
+
+        if (!loginSuccess) {
             throw AuthenticationException("Invalid username or password")
         }
 
@@ -53,7 +64,7 @@ class AuthService(
 
         logger.info("User logged in successfully: ${user.id}")
         return AuthResult(
-            user = user,
+            user = updatedUser,
             token = token,
             expiresIn = 86400000L // 24시간
         )
@@ -66,11 +77,47 @@ class AuthService(
             }
 
             val username = jwtUtil.getUsernameFromToken(token)
-            userRepository.findByUsername(username)?.takeIf { it.isActive }
+            userRepository.findByUsername(username)?.takeIf { it.canLogin() }
         } catch (e: Exception) {
             logger.debug("Token validation failed", e)
             null
         }
+    }
+
+    // New methods for V2 features
+    suspend fun changePassword(userId: String, currentPassword: String, newPassword: String, updatedBy: String): User {
+        val user = userRepository.findById(userId)
+            ?: throw UserNotFoundException("User not found")
+
+        if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {
+            throw AuthenticationException("Current password is incorrect")
+        }
+
+        val newPasswordHash = passwordEncoder.encode(newPassword)
+        val updatedUser = user.copy(
+            passwordHash = newPasswordHash,
+            updatedAt = java.time.LocalDateTime.now(),
+            updatedBy = updatedBy,
+            version = user.version + 1
+        )
+
+        return userRepository.save(updatedUser)
+    }
+
+    suspend fun verifyEmail(userId: String): User {
+        val user = userRepository.findById(userId)
+            ?: throw UserNotFoundException("User not found")
+
+        val verifiedUser = user.verifyEmail(userId)
+        return userRepository.save(verifiedUser)
+    }
+
+    suspend fun unlockUser(userId: String, updatedBy: String): User {
+        val user = userRepository.findById(userId)
+            ?: throw UserNotFoundException("User not found")
+
+        val unlockedUser = user.unlock(updatedBy)
+        return userRepository.save(unlockedUser)
     }
 
     private suspend fun validateUserDoesNotExist(command: RegisterCommand) {
@@ -90,12 +137,14 @@ class AuthService(
             username = command.username,
             email = command.email,
             passwordHash = passwordHash,
-            roles = setOf(UserRole.USER)
+            roles = setOf(UserRole.USER),
+            userStatus = UserStatus.PENDING_VERIFICATION, // 이메일 인증 필요
+            createdBy = command.username // 자기 자신이 생성
         )
     }
 }
 
-// 인증 관련 예외
+// Exception classes
 class AuthenticationException(message: String) : RuntimeException(message)
 class UserAlreadyExistsException(message: String) : RuntimeException(message)
 class UserNotFoundException(message: String) : RuntimeException(message)

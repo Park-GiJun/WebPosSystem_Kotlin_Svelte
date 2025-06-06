@@ -18,5 +18,3 @@ CREATE TABLE IF NOT EXISTS users
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci;
-
--- Note: Default admin user will be created by application startup using environment variables

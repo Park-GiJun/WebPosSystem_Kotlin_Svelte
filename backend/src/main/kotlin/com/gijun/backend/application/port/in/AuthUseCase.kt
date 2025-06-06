@@ -1,6 +1,6 @@
 package com.gijun.backend.application.port.`in`
 
-import com.gijun.backend.domain.user.User
+import com.gijun.backend.domain.user.entity.User
 
 interface AuthUseCase {
 
