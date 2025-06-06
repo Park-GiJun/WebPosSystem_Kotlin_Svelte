@@ -12,6 +12,8 @@ interface UserRepository {
 
     suspend fun findByEmail(email: String): User?
 
+    suspend fun findAll(): List<User>
+
     suspend fun existsByUsername(username: String): Boolean
 
     suspend fun existsByEmail(email: String): Boolean

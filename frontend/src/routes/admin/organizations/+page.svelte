@@ -192,9 +192,7 @@
   <title>조직 관리 - WebPos</title>
 </svelte:head>
 
-<div slot="title">조직 관리</div>
-
-<div class="space-y-6">
+<div class="h-full flex flex-col space-y-6">
   <!-- 헤더 -->
   <div class="flex items-center justify-between">
     <div>
@@ -261,8 +259,8 @@
   </div>
 
   <!-- 탭 네비게이션 -->
-  <div class="card">
-    <div class="border-b border-gray-200">
+  <div class="card flex-1 flex flex-col min-h-0">
+    <div class="border-b border-gray-200 flex-shrink-0">
       <nav class="-mb-px flex">
         {#each tabs as tab}
           <button
@@ -278,7 +276,8 @@
       </nav>
     </div>
 
-    <div class="p-6">
+    <div class="flex-1 overflow-y-auto">
+      <div class="p-6">
       {#if loading}
         <div class="text-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
@@ -286,7 +285,7 @@
         </div>
       {:else if activeTab === 'headquarters'}
         <!-- 체인본부 탭 -->
-        <div class="space-y-6">
+        <div class="h-full flex flex-col space-y-6">
           {#if headquarters.length === 0}
             <div class="text-center py-12">
               <Building2 class="mx-auto h-12 w-12 text-gray-400" />
@@ -358,7 +357,7 @@
 
       {:else if activeTab === 'individual-stores'}
         <!-- 개인매장 탭 -->
-        <div class="space-y-6">
+        <div class="h-full flex flex-col space-y-6">
           {#if individualStores.length === 0}
             <div class="text-center py-12">
               <Store class="mx-auto h-12 w-12 text-gray-400" />
@@ -427,13 +426,15 @@
           {/if}
         </div>
       {/if}
+      </div>
     </div>
   </div>
 </div>
 
 <!-- 체인본부 생성 모달 -->
 <Modal bind:open={showCreateHqModal} title="체인본부 생성" size="lg">
-  <form on:submit|preventDefault={createHeadquarters} class="space-y-6">
+  <div class="max-h-[60vh] overflow-y-auto">
+    <form id="hq-form" on:submit|preventDefault={createHeadquarters} class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label for="hqCode" class="block text-sm font-medium text-gray-700">본사 코드 *</label>
@@ -556,8 +557,11 @@
         placeholder="비밀번호"
       />
     </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
+    </form>
+  </div>
+  
+  <div slot="footer" class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+    <div class="flex justify-end space-x-3">
       <button
         type="button"
         class="btn btn-secondary"
@@ -565,16 +569,21 @@
       >
         취소
       </button>
-      <button type="submit" class="btn btn-primary">
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        form="hq-form"
+      >
         체인본부 생성
       </button>
     </div>
-  </form>
+  </div>
 </Modal>
 
 <!-- 개인매장 생성 모달 -->
 <Modal bind:open={showCreateStoreModal} title="개인매장 생성" size="lg">
-  <form on:submit|preventDefault={createIndividualStore} class="space-y-6">
+  <div class="max-h-[60vh] overflow-y-auto">
+    <form id="store-form" on:submit|preventDefault={createIndividualStore} class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label for="storeName" class="block text-sm font-medium text-gray-700">매장명 *</label>
@@ -722,8 +731,11 @@
         placeholder="비밀번호"
       />
     </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
+    </form>
+  </div>
+  
+  <div slot="footer" class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+    <div class="flex justify-end space-x-3">
       <button
         type="button"
         class="btn btn-secondary"
@@ -731,9 +743,13 @@
       >
         취소
       </button>
-      <button type="submit" class="btn btn-primary">
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        form="store-form"
+      >
         개인매장 생성
       </button>
     </div>
-  </form>
+  </div>
 </Modal>

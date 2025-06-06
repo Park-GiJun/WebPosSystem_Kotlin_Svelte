@@ -95,12 +95,18 @@
   }
 
   function handleMenuClick(menu) {
-    console.log('🛒 PosSidebar에서 전달된 메뉴 데이터:', {
+    console.log('🛒 PosSidebar에서 메뉴 클릭:', {
       menu,
-      type: typeof menu,
-      isObject: menu && typeof menu === 'object',
-      keys: menu ? Object.keys(menu) : 'menu is null/undefined'
+      menuType: menu.menuType,
+      menuPath: menu.menuPath,
+      isCategory: menu.menuType === 'CATEGORY'
     });
+    
+    // 카테고리가 아닌 실제 메뉴인 경우에만 네비게이션
+    if (menu.menuType !== 'CATEGORY' && menu.menuPath) {
+      console.log('🔗 네비게이션 실행:', menu.menuPath);
+      goto(menu.menuPath);
+    }
     
     dispatch('menu-click', menu);
   }

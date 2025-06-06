@@ -2,6 +2,7 @@ package com.gijun.backend.adapter.out.persistence.user
 
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.domain.user.entity.User
+import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Component
 
 @Component
@@ -26,6 +27,10 @@ class UserRepositoryImpl(
 
     override suspend fun findByEmail(email: String): User? {
         return r2dbcRepository.findByEmail(email)?.let { userMapper.toDomain(it) }
+    }
+
+    override suspend fun findAll(): List<User> {
+        return r2dbcRepository.findAll().toList().map { userMapper.toDomain(it) }
     }
 
     override suspend fun existsByUsername(username: String): Boolean {

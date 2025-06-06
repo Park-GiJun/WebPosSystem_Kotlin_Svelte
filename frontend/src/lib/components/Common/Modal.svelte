@@ -41,14 +41,14 @@
 {#if open}
   <!-- 백드롭 -->
   <div 
-    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+    class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4"
     on:click={handleBackdropClick}
   >
     <!-- 모달 컨테이너 -->
-    <div class="relative top-20 mx-auto p-5 border w-11/12 {sizeClasses[size]} shadow-lg rounded-md bg-white">
+    <div class="relative w-full {sizeClasses[size]} max-h-[90vh] bg-white rounded-lg shadow-xl flex flex-col">
       <!-- 헤더 -->
       {#if title || closeable}
-        <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
           {#if title}
             <h3 class="text-lg font-semibold text-gray-900">{title}</h3>
           {:else}
@@ -68,12 +68,14 @@
       {/if}
 
       <!-- 콘텐츠 -->
-      <div class="p-4">
+      <div class="flex-1 overflow-y-auto p-4">
         <slot />
       </div>
 
       <!-- 푸터 -->
-      <slot name="footer" />
+      <div class="flex-shrink-0">
+        <slot name="footer" />
+      </div>
     </div>
   </div>
 {/if}

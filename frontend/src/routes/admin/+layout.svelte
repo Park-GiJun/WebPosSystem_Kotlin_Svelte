@@ -36,8 +36,9 @@
     };
   });
 
-  function handleMenuClick(menu) {
-    console.log('🔐 Admin 메뉴 클릭 상세 정보:', {
+  function handleMenuClick(event) {
+    const menu = event.detail;
+    console.log('🔐 Admin 레이아웃에서 메뉴 클릭 처리:', {
       fullMenu: menu,
       menuCode: menu?.menuCode,
       menuName: menu?.menuName,
@@ -46,19 +47,22 @@
       allProperties: Object.keys(menu || {})
     });
     
-    const tabData = {
-      id: `admin-${menu?.menuCode || 'unknown'}`,
-      title: menu?.menuName || 'Unknown Menu',
-      path: menu?.menuPath || '/admin',
-      system: 'admin',
-      closeable: true,
-      secure: true,
-      priority: menu?.menuCode?.includes('USERS') ? 'HIGH' : 'MEDIUM'
-    };
-    
-    console.log('🔐 생성될 탭 데이터:', tabData);
-    
-    tabStore.openTab(tabData);
+    // 카테고리가 아닌 메뉴만 탭으로 생성
+    if (menu && menu.menuType !== 'CATEGORY') {
+      const tabData = {
+        id: `admin-${menu.menuCode || 'unknown'}`,
+        title: menu.menuName || 'Unknown Menu',
+        path: menu.menuPath || '/admin',
+        system: 'admin',
+        closeable: true,
+        secure: true,
+        priority: menu.menuCode?.includes('USERS') ? 'HIGH' : 'MEDIUM'
+      };
+      
+      console.log('🔐 생성될 탭 데이터:', tabData);
+      
+      tabStore.openTab(tabData);
+    }
   }
 
   function handleTabSwitch(event) {
@@ -110,33 +114,38 @@
     
     <!-- 그라디언트 오버레이 -->
     <div class="absolute inset-0 bg-gradient-to-tr from-red-500/5 via-transparent to-rose-500/5"></div>
-    <Header 
-      title="슈퍼어드민 시스템"
-      subtitle="시스템 전체 관리 및 보안"
-      systemType="admin"
-      showNotificationsMenu={true}
-    />
     
-    <div class="flex min-h-screen ">
-      <AdminSidebar on:menu-click={handleMenuClick} />
+    <div class="relative z-10 flex flex-col h-screen">
+      <Header 
+        title="슈퍼어드민 시스템"
+        subtitle="시스템 전체 관리 및 보안"
+        systemType="admin"
+        showNotificationsMenu={true}
+      />
       
-      <main class="flex-1 flex flex-col">
-        <AdminTabContainer 
-          tabs={adminTabs}
-          {activeTabId}
-          on:tab-switch={handleTabSwitch}
-          on:tab-close={handleTabClose}
-          on:close-all-tabs={handleCloseAllTabs}
-        />
+      <div class="flex flex-1 min-h-0">
+        <AdminSidebar on:menu-click={handleMenuClick} />
         
-        <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-red-200/50 shadow-inner relative">
-          <!-- 메인 콘텐츠 배경 패턴 -->
-          <div class="absolute inset-0 bg-gradient-to-br from-white via-red-50/30 to-rose-50/50"></div>
-          <div class="relative z-10 p-6">
-            <slot />
+        <main class="flex-1 flex flex-col min-h-0">
+          <AdminTabContainer 
+            tabs={adminTabs}
+            {activeTabId}
+            on:tab-switch={handleTabSwitch}
+            on:tab-close={handleTabClose}
+            on:close-all-tabs={handleCloseAllTabs}
+          />
+          
+          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-red-200/50 shadow-inner relative min-h-0">
+            <!-- 메인 콘텐츠 배경 패턴 -->
+            <div class="absolute inset-0 bg-gradient-to-br from-white via-red-50/30 to-rose-50/50"></div>
+            <div class="relative z-10 h-full overflow-y-auto">
+              <div class="p-6 h-full">
+                <slot />
+              </div>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   </div>
 {/if}

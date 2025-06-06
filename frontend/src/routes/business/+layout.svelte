@@ -39,8 +39,9 @@
     };
   });
 
-  function handleMenuClick(menu) {
-    console.log('🏢 Business 메뉴 클릭 상세 정보:', {
+  function handleMenuClick(event) {
+    const menu = event.detail;
+    console.log('🏢 Business 레이아웃에서 메뉴 클릭 처리:', {
       fullMenu: menu,
       menuCode: menu?.menuCode,
       menuName: menu?.menuName,
@@ -49,19 +50,22 @@
       allProperties: Object.keys(menu || {})
     });
     
-    const tabData = {
-      id: `business-${menu?.menuCode || 'unknown'}`,
-      title: menu?.menuName || 'Unknown Menu',
-      path: menu?.menuPath || '/business',
-      system: 'business',
-      closeable: true,
-      starred: false,
-      modified: false
-    };
-    
-    console.log('🏢 생성될 탭 데이터:', tabData);
-    
-    tabStore.openTab(tabData);
+    // 카테고리가 아닌 메뉴만 탭으로 생성
+    if (menu && menu.menuType !== 'CATEGORY') {
+      const tabData = {
+        id: `business-${menu.menuCode || 'unknown'}`,
+        title: menu.menuName || 'Unknown Menu',
+        path: menu.menuPath || '/business',
+        system: 'business',
+        closeable: true,
+        starred: false,
+        modified: false
+      };
+      
+      console.log('🏢 생성될 탭 데이터:', tabData);
+      
+      tabStore.openTab(tabData);
+    }
   }
 
   function handleTabSwitch(event) {
@@ -129,35 +133,40 @@
     
     <!-- 그라디언트 오버레이 -->
     <div class="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-transparent to-sky-500/5"></div>
-    <Header 
-      title="영업정보시스템"
-      subtitle="본사 및 매장 운영 통합 관리"
-      systemType="business"
-      showNotificationsMenu={true}
-    />
     
-    <div class="flex min-h-screen">
-      <BusinessSidebar on:menu-click={handleMenuClick} />
+    <div class="relative z-10 flex flex-col h-screen">
+      <Header 
+        title="영업정보시스템"
+        subtitle="본사 및 매장 운영 통합 관리"
+        systemType="business"
+        showNotificationsMenu={true}
+      />
       
-      <main class="flex-1 flex flex-col">
-        <BusinessTabContainer 
-          tabs={businessTabs}
-          {activeTabId}
-          on:tab-switch={handleTabSwitch}
-          on:tab-close={handleTabClose}
-          on:tab-star={handleTabStar}
-          on:new-tab={handleNewTab}
-          on:close-all-tabs={handleCloseAllTabs}
-        />
+      <div class="flex flex-1 min-h-0">
+        <BusinessSidebar on:menu-click={handleMenuClick} />
         
-        <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-blue-200/50 shadow-inner relative">
-          <!-- 메인 콘텐츠 배경 패턴 -->
-          <div class="absolute inset-0 bg-gradient-to-br from-white via-blue-50/30 to-sky-50/50"></div>
-          <div class="relative z-10 p-6">
-            <slot />
+        <main class="flex-1 flex flex-col min-h-0">
+          <BusinessTabContainer 
+            tabs={businessTabs}
+            {activeTabId}
+            on:tab-switch={handleTabSwitch}
+            on:tab-close={handleTabClose}
+            on:tab-star={handleTabStar}
+            on:new-tab={handleNewTab}
+            on:close-all-tabs={handleCloseAllTabs}
+          />
+          
+          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-blue-200/50 shadow-inner relative min-h-0">
+            <!-- 메인 콘텐츠 배경 패턴 -->
+            <div class="absolute inset-0 bg-gradient-to-br from-white via-blue-50/30 to-sky-50/50"></div>
+            <div class="relative z-10 h-full overflow-y-auto">
+              <div class="p-6 h-full">
+                <slot />
+              </div>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   </div>
 {/if}

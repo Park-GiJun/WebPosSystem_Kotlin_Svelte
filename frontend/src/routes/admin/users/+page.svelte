@@ -202,7 +202,7 @@
   <title>사용자 관리 - WebPos</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="h-full flex flex-col space-y-6">
   <!-- 헤더 -->
   <div class="flex items-center justify-between">
     <div>
@@ -331,7 +331,7 @@
   </div>
 
   <!-- 사용자 목록 -->
-  <div class="card overflow-hidden">
+  <div class="card overflow-hidden flex-1 flex flex-col min-h-0">
     {#if loading}
       <div class="p-12 text-center">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
@@ -343,7 +343,7 @@
         <p class="mt-4 text-gray-500">조건에 맞는 사용자가 없습니다.</p>
       </div>
     {:else}
-      <div class="overflow-x-auto">
+      <div class="flex-1 overflow-y-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>

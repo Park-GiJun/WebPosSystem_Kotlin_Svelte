@@ -2,8 +2,10 @@ package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.application.service.PermissionService
 import com.gijun.backend.configuration.RequiresPermission
+import com.gijun.backend.configuration.JwtUtil
 import com.gijun.backend.domain.permission.entities.PermissionTargetType
 import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.common.util.logger
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -11,64 +13,32 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/v1/admin/permissions")
 class AdminPermissionController(
-    private val permissionService: PermissionService
+    private val permissionService: PermissionService,
+    private val jwtUtil: JwtUtil
 ) {
+    private val logger = logger()
 
     @GetMapping("/menus")
     @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
     suspend fun getAllMenus(): ResponseEntity<MenuListResponse> {
         
-        // TODO: 실제 메뉴 목록 조회 로직 구현
-        val menus = listOf(
+        // 실제 메뉴 목록 조회 로직 구현
+        val menuService = permissionService.getAllMenus()
+        
+        val menus = menuService.map { menu ->
             MenuPermissionDto(
-                menuId = "menu-admin",
-                menuCode = "ADMIN",
-                menuName = "슈퍼어드민",
-                menuPath = "/admin",
-                parentMenuId = null,
-                menuLevel = 1,
-                displayOrder = 10,
-                iconName = "shield",
-                menuType = "CATEGORY",
-                isActive = true
-            ),
-            MenuPermissionDto(
-                menuId = "menu-admin-users",
-                menuCode = "ADMIN_USERS",
-                menuName = "사용자 관리",
-                menuPath = "/admin/users",
-                parentMenuId = "menu-admin",
-                menuLevel = 2,
-                displayOrder = 10,
-                iconName = "users",
-                menuType = "MENU",
-                isActive = true
-            ),
-            MenuPermissionDto(
-                menuId = "menu-business",
-                menuCode = "BUSINESS",
-                menuName = "영업정보시스템",
-                menuPath = "/business",
-                parentMenuId = null,
-                menuLevel = 1,
-                displayOrder = 20,
-                iconName = "building-office",
-                menuType = "CATEGORY",
-                isActive = true
-            ),
-            MenuPermissionDto(
-                menuId = "menu-business-stores",
-                menuCode = "BUSINESS_STORES",
-                menuName = "매장 관리",
-                menuPath = "/business/stores",
-                parentMenuId = "menu-business",
-                menuLevel = 2,
-                displayOrder = 20,
-                iconName = "building-storefront",
-                menuType = "MENU",
-                isActive = true
+                menuId = menu.menuId,
+                menuCode = menu.menuCode,
+                menuName = menu.menuName,
+                menuPath = menu.menuPath,
+                parentMenuId = menu.parentMenuId,
+                menuLevel = menu.menuLevel,
+                displayOrder = menu.displayOrder,
+                iconName = menu.iconName,
+                menuType = menu.menuType,
+                isActive = menu.isActive
             )
-        )
+        }
         
         return ResponseEntity.ok(MenuListResponse(menus))
     }
@@ -79,27 +49,54 @@ class AdminPermissionController(
         @PathVariable userId: String
     ): ResponseEntity<UserPermissionResponse> {
         
-        // TODO: 실제 사용자 권한 조회 로직 구현
-        val permissions = listOf(
-            UserPermissionDto(
-                menuCode = "ADMIN_USERS",
-                menuName = "사용자 관리",
-                permissionType = "ADMIN",
-                grantType = "ROLE",
-                grantValue = "SUPER_ADMIN",
-                expiresAt = null
-            ),
-            UserPermissionDto(
-                menuCode = "BUSINESS_STORES",
-                menuName = "매장 관리",
-                permissionType = "READ",
-                grantType = "USER",
-                grantValue = userId,
-                expiresAt = null
-            )
-        )
-        
-        return ResponseEntity.ok(UserPermissionResponse(userId, permissions))
+        return try {
+            // 사용자 존재 확인
+            val user = permissionService.getUserById(userId)
+                ?: return ResponseEntity.notFound().build()
+            
+            // 사용자의 직접 권한 조회
+            val directPermissions = permissionService.getUserDirectPermissions(userId)
+            
+            // 사용자의 역할 기반 권한 조회
+            val rolePermissions = permissionService.getUserRolePermissions(user.roles.map { it.name })
+            
+            // 모든 권한을 통합하여 응답 생성
+            val permissions = mutableListOf<UserPermissionDto>()
+            
+            // 직접 권한 추가
+            directPermissions.forEach { permission ->
+                permissions.add(
+                    UserPermissionDto(
+                        menuCode = permission.menuCode,
+                        menuName = permission.menuName,
+                        permissionType = permission.permissionType,
+                        grantType = "USER",
+                        grantValue = userId,
+                        expiresAt = permission.expiresAt
+                    )
+                )
+            }
+            
+            // 역할 기반 권한 추가
+            rolePermissions.forEach { rolePermission ->
+                permissions.add(
+                    UserPermissionDto(
+                        menuCode = rolePermission.menuCode,
+                        menuName = rolePermission.menuName,
+                        permissionType = rolePermission.permissionType,
+                        grantType = "ROLE",
+                        grantValue = rolePermission.roleName,
+                        expiresAt = rolePermission.expiresAt
+                    )
+                )
+            }
+            
+            ResponseEntity.ok(UserPermissionResponse(userId, permissions))
+            
+        } catch (e: Exception) {
+            logger.error("Failed to get user permissions for userId: $userId", e)
+            ResponseEntity.status(500).build()
+        }
     }
 
     @PostMapping("/grant")
@@ -107,10 +104,47 @@ class AdminPermissionController(
     suspend fun grantPermission(
         @Valid @RequestBody request: GrantPermissionRequest,
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Map<String, Any>> {
         
-        // TODO: 실제 권한 부여 로직 구현
-        return ResponseEntity.ok().build()
+        return try {
+            val token = authorization.removePrefix("Bearer ")
+            val grantedBy = jwtUtil.getUsernameFromToken(token)
+            
+            // 권한 부여
+            val permission = permissionService.grantPermission(
+                menuCode = request.menuCode,
+                targetType = PermissionTargetType.valueOf(request.targetType),
+                targetId = request.targetId,
+                permissionType = PermissionType.valueOf(request.permissionType),
+                grantedBy = grantedBy
+            )
+            
+            val response = mapOf(
+                "success" to true,
+                "message" to "권한이 성공적으로 부여되었습니다.",
+                "permissionId" to permission.permissionId.value,
+                "grantedAt" to permission.grantedAt
+            )
+            
+            ResponseEntity.ok(response)
+            
+        } catch (e: IllegalArgumentException) {
+            logger.warn("Invalid permission grant request: ${e.message}")
+            ResponseEntity.badRequest().body(
+                mapOf(
+                    "success" to false,
+                    "message" to (e.message ?: "잘못된 요청입니다.")
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to grant permission", e)
+            ResponseEntity.status(500).body(
+                mapOf(
+                    "success" to false,
+                    "message" to "권한 부여 중 오류가 발생했습니다."
+                )
+            )
+        }
     }
 
     @DeleteMapping("/revoke")
@@ -118,38 +152,133 @@ class AdminPermissionController(
     suspend fun revokePermission(
         @Valid @RequestBody request: RevokePermissionRequest,
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<Map<String, Any>> {
         
-        // TODO: 실제 권한 회수 로직 구현
-        return ResponseEntity.ok().build()
+        return try {
+            // 권한 회수
+            permissionService.revokePermission(
+                menuCode = request.menuCode,
+                targetType = PermissionTargetType.valueOf(request.targetType),
+                targetId = request.targetId
+            )
+            
+            val response = mapOf(
+                "success" to true,
+                "message" to "권한이 성공적으로 회수되었습니다."
+            )
+            
+            ResponseEntity.ok(response)
+            
+        } catch (e: IllegalArgumentException) {
+            logger.warn("Invalid permission revoke request: ${e.message}")
+            ResponseEntity.badRequest().body(
+                mapOf(
+                    "success" to false,
+                    "message" to (e.message ?: "잘못된 요청입니다.")
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to revoke permission", e)
+            ResponseEntity.status(500).body(
+                mapOf(
+                    "success" to false,
+                    "message" to "권한 회수 중 오류가 발생했습니다."
+                )
+            )
+        }
     }
 
     @GetMapping("/roles")
     @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
     suspend fun getRolePermissions(): ResponseEntity<List<RolePermissionDto>> {
         
-        // TODO: 실제 역할별 권한 조회 로직 구현
-        val rolePermissions = listOf(
-            RolePermissionDto(
-                roleName = "SUPER_ADMIN",
-                roleDescription = "최고 관리자",
-                permissions = listOf(
-                    PermissionSummaryDto("ADMIN", "슈퍼어드민", "ADMIN"),
-                    PermissionSummaryDto("BUSINESS", "영업정보시스템", "ADMIN"),
-                    PermissionSummaryDto("POS", "POS시스템", "ADMIN")
-                )
-            ),
-            RolePermissionDto(
-                roleName = "HQ_MANAGER",
-                roleDescription = "본사 관리자",
-                permissions = listOf(
-                    PermissionSummaryDto("BUSINESS", "영업정보시스템", "WRITE"),
-                    PermissionSummaryDto("POS", "POS시스템", "READ")
-                )
-            )
-        )
+        return try {
+            val rolePermissions = permissionService.getAllRolePermissions()
+            ResponseEntity.ok(rolePermissions)
+            
+        } catch (e: Exception) {
+            logger.error("Failed to get role permissions", e)
+            ResponseEntity.status(500).build()
+        }
+    }
+
+    @GetMapping("/users")
+    @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
+    suspend fun getAllUsers(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) search: String?
+    ): ResponseEntity<Map<String, Any>> {
         
-        return ResponseEntity.ok(rolePermissions)
+        return try {
+            val users = permissionService.getAllUsers(page, size, search)
+            val totalCount = permissionService.getUserCount(search)
+            
+            val response = mapOf(
+                "users" to users.map { user ->
+                    mapOf(
+                        "id" to user.id,
+                        "username" to user.username,
+                        "email" to user.email,
+                        "roles" to user.roles.map { it.name },
+                        "userStatus" to user.userStatus.name,
+                        "lastLoginAt" to user.lastLoginAt,
+                        "createdAt" to user.createdAt,
+                        "isActive" to user.isActive
+                    )
+                },
+                "totalCount" to totalCount,
+                "page" to page,
+                "size" to size,
+                "totalPages" to ((totalCount + size - 1) / size)
+            )
+            
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            logger.error("Failed to get users", e)
+            ResponseEntity.status(500).build()
+        }
+    }
+
+    @GetMapping("/menus/{menuCode}/permissions")
+    @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
+    suspend fun getMenuPermissions(
+        @PathVariable menuCode: String
+    ): ResponseEntity<Map<String, Any>> {
+        
+        return try {
+            val menuPermissions = permissionService.getMenuPermissions(menuCode)
+            val menu = permissionService.getMenuByCode(menuCode)
+                ?: return ResponseEntity.notFound().build()
+            
+            val response = mapOf(
+                "menu" to mapOf(
+                    "menuId" to menu.menuId,
+                    "menuCode" to menu.menuCode,
+                    "menuName" to menu.menuName,
+                    "menuPath" to menu.menuPath
+                ),
+                "permissions" to menuPermissions.map { permission ->
+                    mapOf(
+                        "permissionId" to permission.permissionId,
+                        "targetType" to permission.targetType,
+                        "targetId" to permission.targetId,
+                        "permissionType" to permission.permissionType,
+                        "grantedBy" to permission.grantedBy,
+                        "grantedAt" to permission.grantedAt,
+                        "expiresAt" to permission.expiresAt,
+                        "isActive" to permission.isActive
+                    )
+                }
+            )
+            
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            logger.error("Failed to get menu permissions for menuCode: $menuCode", e)
+            ResponseEntity.status(500).build()
+        }
     }
 }
 

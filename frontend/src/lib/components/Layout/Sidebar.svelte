@@ -48,6 +48,8 @@
 
   // 메뉴를 계층 구조로 정리
   function organizeMenus(menus) {
+    console.log('🔧 메뉴 조직화 시작:', menus.length, '개 메뉴');
+    
     const menuMap = new Map();
     const rootMenus = [];
 
@@ -56,16 +58,24 @@
       menuMap.set(menu.menuId, { ...menu, children: [] });
     });
 
+    console.log('📝 메뉴 맵 생성 완료:', menuMap.size, '개');
+
     // 계층 구조 구성
     menus.forEach(menu => {
       const menuItem = menuMap.get(menu.menuId);
-      if (menu.parentMenuId) {
+      if (menu.parentMenuId && menu.parentMenuId !== null) {
         const parent = menuMap.get(menu.parentMenuId);
         if (parent) {
           parent.children.push(menuItem);
+          console.log(`📂 ${menu.menuName} → ${parent.menuName} 하위로 추가`);
+        } else {
+          console.warn(`⚠️ 부모 메뉴를 찾을 수 없음: ${menu.parentMenuId} (${menu.menuName})`);
+          // 부모를 찾을 수 없으면 루트로 추가
+          rootMenus.push(menuItem);
         }
       } else {
         rootMenus.push(menuItem);
+        console.log(`🌱 루트 메뉴로 추가: ${menu.menuName}`);
       }
     });
 
@@ -78,7 +88,9 @@
         }));
     };
 
-    return sortMenus(rootMenus);
+    const result = sortMenus(rootMenus);
+    console.log('✅ 메뉴 조직화 완료:', result);
+    return result;
   }
 
   $: organizedMenus = organizeMenus(menus);
@@ -104,6 +116,13 @@
   }
 
   function handleMenuClick(menu) {
+    console.log('🔗 메뉴 클릭:', menu);
+    
+    // 카테고리가 아닌 실제 메뉴인 경우에만 네비게이션
+    if (menu.menuType !== 'CATEGORY' && menu.menuPath) {
+      goto(menu.menuPath);
+    }
+    
     dispatch('menu-click', menu);
   }
 </script>

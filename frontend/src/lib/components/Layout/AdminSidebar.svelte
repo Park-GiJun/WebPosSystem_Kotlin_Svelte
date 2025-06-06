@@ -13,9 +13,11 @@
   // 슈퍼어드민 전용 메뉴만 필터링 (실제 API 응답 구조에 맞게)
   $: allMenus = $authStore.menus || [];
   $: adminMenus = allMenus.filter(menu => 
+    menu.menuCode === 'ADMIN' || 
     menu.menuCode?.startsWith('ADMIN') || 
     menu.parentMenuId === 'menu-admin' ||
-    menu.menuId === 'menu-admin'
+    menu.menuId === 'menu-admin' ||
+    (menu.parentMenuId && allMenus.find(parent => parent.menuId === menu.parentMenuId && parent.menuCode === 'ADMIN'))
   );
 
   // 디버깅 로그 추가
@@ -25,6 +27,8 @@
       adminMenusCount: adminMenus.length,
       firstMenu: allMenus[0],
       adminMenuCodes: adminMenus.map(m => m.menuCode),
+      adminCategory: allMenus.find(m => m.menuId === 'menu-admin'),
+      adminChildren: allMenus.filter(m => m.parentMenuId === 'menu-admin'),
       sampleMenuStructure: allMenus.length > 0 ? {
         menuId: allMenus[0]?.menuId,
         menuCode: allMenus[0]?.menuCode,
@@ -42,6 +46,7 @@
     'building': Building,
     'building-office': Building,
     'building-office-2': Building,
+    'building-storefront': Building,
     'users': Users,
     'key': Key,
     'cog': Settings,
@@ -52,7 +57,11 @@
     'chart-bar': BarChart,
     'chart-bar-square': BarChart,
     'lock-closed': Lock,
-    'adjustments': Settings
+    'adjustments': Settings,
+    'computer-desktop': Server,
+    'cube': Database,
+    'shopping-cart': ClipboardList,
+    'user-group': Users
   };
 
   // 메뉴를 계층 구조로 정리 (실제 API 응답 구조에 맞게)
@@ -118,14 +127,21 @@
   }
 
   function handleMenuClick(menu) {
-    console.log('🔐 AdminSidebar에서 전달된 메뉴 데이터:', {
+    console.log('🔐 AdminSidebar에서 메뉴 클릭:', {
       menu,
-      type: typeof menu,
-      isObject: menu && typeof menu === 'object',
-      keys: menu ? Object.keys(menu) : 'menu is null/undefined'
+      menuType: menu.menuType,
+      menuPath: menu.menuPath,
+      isCategory: menu.menuType === 'CATEGORY'
     });
     
-    dispatch('menu-click', menu);
+    // 카테고리가 아닌 실제 메뉴인 경우에만 네비게이션
+    if (menu.menuType !== 'CATEGORY' && menu.menuPath) {
+      console.log('🔗 네비게이션 실행:', menu.menuPath);
+      goto(menu.menuPath);
+      
+      // 탭 생성도 함께 실행
+      dispatch('menu-click', menu);
+    }
   }
 
   function getRoleDisplayName(role) {
