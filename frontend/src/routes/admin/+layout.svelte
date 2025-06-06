@@ -49,44 +49,79 @@
   }
 
   function handleTabSwitch(event) {
-    tabStore.setActiveTab(event.detail.tabId);
-    goto(adminTabs.find(tab => tab.id === event.detail.tabId)?.path || '/admin');
+    const targetTab = adminTabs.find(tab => tab.id === event.detail.tabId);
+    if (targetTab) {
+      tabStore.setActiveTab(event.detail.tabId);
+      goto(targetTab.path);
+    }
   }
 
   function handleTabClose(event) {
     tabStore.closeTab(event.detail.tabId);
   }
+
+  function handleCloseAllTabs() {
+    tabStore.closeSystemCloseableTabs('admin');
+  }
 </script>
 
 {#if loading}
-  <div class="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
-    <div class="text-center">
-      <div class="animate-spin rounded-full h-16 w-16 border-4 border-red-200 border-t-red-600 mx-auto"></div>
-      <p class="mt-4 text-red-700 font-medium">슈퍼어드민 시스템 로드 중...</p>
+  <div class="min-h-screen bg-gradient-to-br from-red-50 via-rose-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+    <!-- 배경 애니메이션 -->
+    <div class="absolute inset-0">
+      <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
+      <div class="absolute top-1/3 right-1/4 w-72 h-72 bg-rose-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
+      <div class="absolute bottom-1/4 left-1/3 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
+    </div>
+    
+    <div class="text-center relative z-10">
+      <div class="relative">
+        <div class="animate-spin rounded-full h-20 w-20 border-4 border-red-200 border-t-red-600 mx-auto shadow-lg"></div>
+        <div class="absolute inset-0 animate-ping rounded-full h-20 w-20 border-2 border-red-300 opacity-20 mx-auto"></div>
+      </div>
+      <div class="mt-6 space-y-2">
+        <p class="text-xl font-bold text-red-700">슈퍼어드민 시스템</p>
+        <p class="text-red-600 font-medium">시스템을 초기화하고 있습니다...</p>
+        <div class="flex items-center justify-center space-x-1 mt-4">
+          <div class="w-2 h-2 bg-red-500 rounded-full animate-bounce"></div>
+          <div class="w-2 h-2 bg-red-500 rounded-full animate-bounce animation-delay-200"></div>
+          <div class="w-2 h-2 bg-red-500 rounded-full animate-bounce animation-delay-400"></div>
+        </div>
+      </div>
     </div>
   </div>
 {:else}
-  <div class="min-h-screen bg-gradient-to-br from-red-50 to-red-100">
+  <div class="min-h-screen bg-gradient-to-br from-red-50 via-red-25 to-rose-50 relative overflow-hidden">
+    <!-- 배경 패턴 -->
+    <div class="absolute inset-0 opacity-40" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23dc2626&quot; fill-opacity=&quot;0.03&quot;%3E%3Cpath d=&quot;M50 50c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"></div>
+    
+    <!-- 그라디언트 오버레이 -->
+    <div class="absolute inset-0 bg-gradient-to-tr from-red-500/5 via-transparent to-rose-500/5"></div>
     <Header 
       title="슈퍼어드민 시스템"
       subtitle="시스템 전체 관리 및 보안"
-      backgroundColor="bg-gradient-to-r from-red-600 to-red-700"
-      textColor="text-white"
+      systemType="admin"
+      showNotificationsMenu={true}
     />
     
-    <div class="flex h-screen pt-16">
+    <div class="flex min-h-screen ">
       <AdminSidebar on:menu-click={handleMenuClick} />
       
-      <main class="flex-1 flex flex-col overflow-hidden">
+      <main class="flex-1 flex flex-col">
         <AdminTabContainer 
-          {adminTabs}
+          tabs={adminTabs}
           {activeTabId}
           on:tab-switch={handleTabSwitch}
           on:tab-close={handleTabClose}
+          on:close-all-tabs={handleCloseAllTabs}
         />
         
-        <div class="flex-1 overflow-auto bg-white">
-          <slot />
+        <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-red-200/50 shadow-inner relative">
+          <!-- 메인 콘텐츠 배경 패턴 -->
+          <div class="absolute inset-0 bg-gradient-to-br from-white via-red-50/30 to-rose-50/50"></div>
+          <div class="relative z-10 p-6">
+            <slot />
+          </div>
         </div>
       </main>
     </div>

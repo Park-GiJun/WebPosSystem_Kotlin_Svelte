@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
 function createTabStore() {
-  const { subscribe, update } = writable([]);
+  const { subscribe, update, set } = writable([]);
 
   return {
     subscribe,
@@ -13,15 +13,18 @@ function createTabStore() {
         const existingTabIndex = tabs.findIndex(t => t.id === tab.id);
         
         if (existingTabIndex !== -1) {
-          // 기존 탭을 활성화
+          // 기존 탭을 활성화 (같은 시스템의 다른 탭들은 비활성화)
           return tabs.map((t, index) => ({
             ...t,
-            active: index === existingTabIndex
+            active: index === existingTabIndex && t.system === tab.system
           }));
         }
 
-        // 모든 탭을 비활성화하고 새 탭 추가
-        const newTabs = tabs.map(t => ({ ...t, active: false }));
+        // 같은 시스템의 모든 탭을 비활성화하고 새 탭 추가
+        const newTabs = tabs.map(t => ({ 
+          ...t, 
+          active: t.system !== tab.system ? t.active : false 
+        }));
         return [...newTabs, { ...tab, active: true }];
       });
     },
@@ -32,26 +35,57 @@ function createTabStore() {
         const tabIndex = tabs.findIndex(t => t.id === tabId);
         if (tabIndex === -1) return tabs;
 
+        const closingTab = tabs[tabIndex];
         const newTabs = tabs.filter(t => t.id !== tabId);
         
-        // 닫힌 탭이 활성 탭이었다면 다른 탭을 활성화
-        if (tabs[tabIndex].active && newTabs.length > 0) {
-          const nextIndex = Math.min(tabIndex, newTabs.length - 1);
-          newTabs[nextIndex].active = true;
+        // 닫힌 탭이 활성 탭이었다면 같은 시스템의 다른 탭을 활성화
+        if (closingTab.active && newTabs.length > 0) {
+          const systemTabs = newTabs.filter(t => t.system === closingTab.system);
+          if (systemTabs.length > 0) {
+            const nextIndex = Math.min(tabIndex, systemTabs.length - 1);
+            const nextTab = systemTabs[nextIndex];
+            const nextTabGlobalIndex = newTabs.findIndex(t => t.id === nextTab.id);
+            if (nextTabGlobalIndex !== -1) {
+              newTabs[nextTabGlobalIndex].active = true;
+            }
+          }
         }
 
         return newTabs;
       });
     },
 
-    // 활성 탭 설정
+    // 활성 탭 설정 (시스템별 격리)
     setActiveTab(tabId) {
-      update(tabs => 
-        tabs.map(t => ({
+      update(tabs => {
+        const targetTab = tabs.find(t => t.id === tabId);
+        if (!targetTab) return tabs;
+
+        return tabs.map(t => ({
           ...t,
-          active: t.id === tabId
-        }))
-      );
+          active: t.id === tabId ? true : (t.system === targetTab.system ? false : t.active)
+        }));
+      });
+    },
+
+    // 특정 시스템의 활성 탭 가져오기
+    getActiveTabBySystem(system) {
+      let activeTab = null;
+      update(tabs => {
+        activeTab = tabs.find(t => t.system === system && t.active);
+        return tabs;
+      });
+      return activeTab;
+    },
+
+    // 특정 시스템의 탭들만 가져오기
+    getTabsBySystem(system) {
+      let systemTabs = [];
+      update(tabs => {
+        systemTabs = tabs.filter(t => t.system === system);
+        return tabs;
+      });
+      return systemTabs;
     },
 
     // 탭 즐겨찾기 토글
@@ -86,9 +120,25 @@ function createTabStore() {
       update(tabs => tabs.filter(t => t.system !== system));
     },
 
+    // 특정 시스템의 닫을 수 있는 탭들만 닫기
+    closeSystemCloseableTabs(system) {
+      update(tabs => {
+        const systemTabs = tabs.filter(t => t.system === system);
+        const remainingTabs = tabs.filter(t => t.system !== system || !t.closeable);
+        
+        // 남은 시스템 탭 중 첫 번째를 활성화
+        const remainingSystemTabs = remainingTabs.filter(t => t.system === system);
+        if (remainingSystemTabs.length > 0) {
+          remainingSystemTabs[0].active = true;
+        }
+        
+        return remainingTabs;
+      });
+    },
+
     // 모든 탭 닫기
     clearAllTabs() {
-      update(() => []);
+      set([]);
     },
 
     // 닫을 수 있는 모든 탭 닫기
@@ -96,7 +146,14 @@ function createTabStore() {
       update(tabs => {
         const remainingTabs = tabs.filter(t => !t.closeable);
         if (remainingTabs.length > 0) {
-          remainingTabs[0].active = true;
+          // 각 시스템별로 첫 번째 탭을 활성화
+          const systems = [...new Set(remainingTabs.map(t => t.system))];
+          systems.forEach(system => {
+            const systemTabs = remainingTabs.filter(t => t.system === system);
+            if (systemTabs.length > 0) {
+              systemTabs[0].active = true;
+            }
+          });
         }
         return remainingTabs;
       });

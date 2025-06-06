@@ -3,90 +3,58 @@
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth.js';
   import { createEventDispatcher } from 'svelte';
+  import { Users, Building, Key, Settings, Shield, Server, Database, ClipboardList, BarChart, Lock, ChevronDown, ChevronRight, FileText } from 'lucide-svelte';
 
   const dispatch = createEventDispatcher();
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
-  $: menus = $authStore.menus || getDefaultAdminMenus();
+  
+  // 슈퍼어드민 전용 메뉴만 필터링 (DB에서 불러온 실제 데이터만 사용)
+  $: allMenus = $authStore.menus || [];
+  $: adminMenus = allMenus.filter(menu => 
+    menu.menu_code?.startsWith('ADMIN') || 
+    menu.parent_menu_id === 'menu-admin' ||
+    menu.menu_id === 'menu-admin'
+  );
 
-  // 기본 슈퍼어드민 메뉴 (메뉴 정보가 로드되지 않았을 때)
-  function getDefaultAdminMenus() {
-    return [
-      {
-        menuId: 'admin-user-cat',
-        menuName: '사용자 관리',
-        menuType: 'CATEGORY',
-        iconName: 'users',
-        displayOrder: 1,
-        children: [
-          {
-            menuId: 'admin-users',
-            menuName: '사용자',
-            menuPath: '/admin/users',
-            menuCode: 'ADMIN_USERS',
-            iconName: 'users',
-            displayOrder: 1
-          }
-        ]
-      },
-      {
-        menuId: 'admin-system-cat',
-        menuName: '시스템 관리',
-        menuType: 'CATEGORY',
-        iconName: 'cog',
-        displayOrder: 2,
-        children: [
-          {
-            menuId: 'admin-orgs',
-            menuName: '조직 관리',
-            menuPath: '/admin/organizations',
-            menuCode: 'ADMIN_ORGANIZATIONS',
-            iconName: 'building-office',
-            displayOrder: 1
-          },
-          {
-            menuId: 'admin-perms',
-            menuName: '권한 관리',
-            menuPath: '/admin/permissions',
-            menuCode: 'ADMIN_PERMISSIONS',
-            iconName: 'key',
-            displayOrder: 2
-          }
-        ]
-      }
-    ];
-  }
-
-  // 슈퍼어드민 전용 아이콘 매핑
+  // Lucide 아이콘 매핑 (실제 DB의 icon_name에 맞게)
   const iconMap = {
-    'shield': '🛡️',
-    'building-office': '🏢',
-    'users': '👥',
-    'key': '🔑',
-    'cog': '⚙️',
-    'server': '🖥️',
-    'database': '💾',
-    'clipboard-document-list': '📋',
-    'chart-bar-square': '📊',
-    'lock-closed': '🔒'
+    'shield': Shield,
+    'building': Building,
+    'building-office': Building,
+    'building-office-2': Building,
+    'users': Users,
+    'key': Key,
+    'cog': Settings,
+    'server': Server,
+    'database': Database,
+    'document-text': FileText,
+    'clipboard-document-list': ClipboardList,
+    'chart-bar': BarChart,
+    'chart-bar-square': BarChart,
+    'lock-closed': Lock,
+    'adjustments': Settings
   };
 
-  // 메뉴를 계층 구조로 정리
+  // 메뉴를 계층 구조로 정리 (실제 DB 구조에 맞게)
   function organizeMenus(menus) {
+    if (!menus || menus.length === 0) return [];
+    
     const menuMap = new Map();
     const rootMenus = [];
 
-    // 먼저 모든 메뉴를 맵에 저장
-    menus.forEach(menu => {
-      menuMap.set(menu.menuId, { ...menu, children: [] });
+    // 활성화된 메뉴만 처리
+    const activeMenus = menus.filter(menu => menu.is_active === 1);
+
+    activeMenus.forEach(menu => {
+      menuMap.set(menu.menu_id, { ...menu, children: [] });
     });
 
-    // 계층 구조 구성
-    menus.forEach(menu => {
-      const menuItem = menuMap.get(menu.menuId);
-      if (menu.parentMenuId) {
-        const parent = menuMap.get(menu.parentMenuId);
+    activeMenus.forEach(menu => {
+      const menuItem = menuMap.get(menu.menu_id);
+      if (menu.parent_menu_id) {
+        const parent = menuMap.get(menu.parent_menu_id);
         if (parent) {
           parent.children.push(menuItem);
         }
@@ -95,9 +63,8 @@
       }
     });
 
-    // 표시 순서대로 정렬
     const sortMenus = (menus) => {
-      return menus.sort((a, b) => a.displayOrder - b.displayOrder)
+      return menus.sort((a, b) => a.display_order - b.display_order)
         .map(menu => ({
           ...menu,
           children: sortMenus(menu.children)
@@ -107,7 +74,7 @@
     return sortMenus(rootMenus);
   }
 
-  $: organizedMenus = organizeMenus(menus);
+  $: organizedMenus = organizeMenus(adminMenus);
 
   function isActive(menuPath) {
     return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
@@ -116,7 +83,7 @@
   function hasActiveChild(menu) {
     if (menu.children) {
       return menu.children.some(child => 
-        isActive(child.menuPath) || hasActiveChild(child)
+        isActive(child.menu_path) || hasActiveChild(child)
       );
     }
     return false;
@@ -125,115 +92,199 @@
   function handleMenuClick(menu) {
     dispatch('menu-click', menu);
   }
+
+  function getRoleDisplayName(role) {
+    const roleNames = {
+      'SUPER_ADMIN': '슈퍼관리자',
+      'SYSTEM_ADMIN': '시스템관리자', 
+      'HQ_MANAGER': '본사관리자',
+      'STORE_MANAGER': '매장관리자',
+      'USER': '사용자'
+    };
+    return roleNames[role] || role;
+  }
+
+  // 카테고리 확장/축소 상태 관리
+  let expandedCategories = new Set(['menu-admin']);
+
+  function toggleCategory(categoryId) {
+    if (expandedCategories.has(categoryId)) {
+      expandedCategories.delete(categoryId);
+    } else {
+      expandedCategories.add(categoryId);
+    }
+    expandedCategories = expandedCategories;
+  }
 </script>
 
-<aside class="w-64 bg-gradient-to-b from-red-600 to-red-700 text-white h-full shadow-lg">
-  <!-- 로고 영역 -->
-  <div class="p-6 border-b border-red-500/30">
-    <button 
-      type="button"
-      class="text-left w-full hover:opacity-75 transition-opacity duration-200"
-      on:click={() => goto('/system-select')}
-      title="시스템 선택으로 돌아가기"
-    >
-      <div class="flex items-center">
-        <span class="text-2xl mr-3">🛡️</span>
-        <div>
-          <h1 class="text-xl font-bold text-white">슈퍼어드민</h1>
-          <p class="text-xs text-red-200">System Administration</p>
+<aside class="w-60 bg-gradient-to-b from-red-600 via-red-700 to-red-800 text-white h-[calc(100vh-4rem)] shadow-2xl border-r border-red-500/30 overflow-hidden">
+  <!-- 배경 패턴 -->
+  <div class="absolute inset-0 opacity-50" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.05&quot;%3E%3Ccircle cx=&quot;30&quot; cy=&quot;30&quot; r=&quot;2&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"></div>
+  
+  <div class="relative z-10 flex flex-col h-full">
+    <!-- 헤더 영역 -->
+    <div class="p-4 border-b border-red-500/30 bg-gradient-to-r from-red-600/50 to-red-700/50 backdrop-blur-sm">
+      <button 
+        type="button"
+        class="group text-left w-full hover:opacity-90 transition-all duration-300 p-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/30 backdrop-blur-sm"
+        on:click={() => goto('/system-select')}
+        title="시스템 선택으로 돌아가기"
+      >
+        <div class="flex items-center">
+          <div class="p-2 bg-red-500/30 rounded-xl border border-red-400/50 group-hover:border-red-300/70 transition-colors">
+            <Shield size="20" class="text-red-100" />
+          </div>
+          <div class="ml-3">
+            <h1 class="text-lg font-bold text-white group-hover:text-red-100 transition-colors">슈퍼어드민</h1>
+            <p class="text-xs text-red-200/80 font-medium">System Administration</p>
+          </div>
         </div>
-      </div>
+      </button>
+
+      <!-- 사용자 정보 -->
       {#if user}
-        <div class="mt-4 p-3 bg-red-500/20 rounded-lg">
-          <p class="text-sm text-red-100 font-medium">{user.username}</p>
+        <div class="mt-3 p-3 bg-red-500/20 rounded-xl border border-red-400/30 backdrop-blur-sm">
+          <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center border border-red-300/50">
+              <Users size="14" class="text-white" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-red-100 truncate">{user.username}</p>
+              <p class="text-xs text-red-200/70">{user.email || 'admin@company.com'}</p>
+            </div>
+          </div>
           <div class="flex flex-wrap gap-1 mt-2">
             {#each user.roles || [] as role}
-              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800">
-                {role}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100/90 text-red-800 border border-red-200/50 backdrop-blur-sm">
+                {getRoleDisplayName(role)}
               </span>
             {/each}
           </div>
         </div>
       {/if}
-    </button>
-  </div>
+    </div>
 
-  <!-- 메뉴 영역 -->
-  <nav class="p-4 space-y-2">
-    {#each organizedMenus as menu}
-      <div class="menu-group">
-        {#if menu.menuType === 'CATEGORY'}
-          <!-- 카테고리 메뉴 -->
-          <div class="mb-4">
-            <div class="flex items-center px-4 py-3 text-xs font-semibold text-red-200 uppercase tracking-wider border-b border-red-500/30">
-              {#if menu.iconName && iconMap[menu.iconName]}
-                <span class="mr-2 text-lg">{iconMap[menu.iconName]}</span>
-              {/if}
-              {menu.menuName}
+    <!-- 메뉴 영역 -->
+    <nav class="p-3 space-y-1 flex-1 overflow-y-auto">
+      {#if organizedMenus.length === 0}
+        <div class="text-center py-8">
+          <div class="text-red-200/60 text-sm space-y-2">
+            <p>메뉴를 불러오는 중...</p>
+            <div class="text-xs text-red-300/50">
+              <p>전체 메뉴: {allMenus.length}개</p>
+              <p>어드민 메뉴: {adminMenus.length}개</p>
             </div>
-            
-            {#if menu.children && menu.children.length > 0}
-              <div class="mt-3 space-y-1">
-                {#each menu.children as subMenu}
-                  <button
-                    type="button"
-                    class="w-full admin-sidebar-item"
-                    class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
-                    on:click={() => handleMenuClick(subMenu)}
-                  >
-                    {#if subMenu.iconName && iconMap[subMenu.iconName]}
-                      <span class="mr-3 text-lg">{iconMap[subMenu.iconName]}</span>
+          </div>
+        </div>
+      {:else}
+        {#each organizedMenus as menu}
+          <div class="menu-group">
+            {#if menu.menu_type === 'CATEGORY'}
+              <!-- 카테고리 메뉴 -->
+              <div class="mb-3">
+                <button
+                  type="button"
+                  class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-red-200 uppercase tracking-wider hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20"
+                  on:click={() => toggleCategory(menu.menu_id)}
+                >
+                  <div class="flex items-center">
+                    {#if menu.icon_name && iconMap[menu.icon_name]}
+                      {@const IconComponent = iconMap[menu.icon_name]}
+                      <IconComponent size="14" class="mr-2" />
                     {/if}
-                    <span class="font-medium">{subMenu.menuName}</span>
-                    {#if subMenu.children && subMenu.children.length > 0}
-                      <span class="ml-auto text-xs">▶</span>
-                    {/if}
-                  </button>
+                    {menu.menu_name}
+                  </div>
                   
-                  <!-- 3레벨 메뉴가 있는 경우 -->
-                  {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
-                    <div class="ml-8 mt-2 space-y-1 border-l-2 border-red-400/50 pl-4">
-                      {#each subMenu.children as subSubMenu}
-                        <button
-                          type="button"
-                          class="w-full text-left px-3 py-2 text-sm text-red-100 hover:text-white hover:bg-red-500/30 rounded-md transition-colors duration-200 border border-transparent hover:border-red-400/50"
-                          class:text-white={isActive(subSubMenu.menuPath)}
-                          class:bg-red-500={isActive(subSubMenu.menuPath)}
-                          on:click={() => handleMenuClick(subSubMenu)}
-                        >
-                          • {subSubMenu.menuName}
-                        </button>
-                      {/each}
-                    </div>
+                  {#if expandedCategories.has(menu.menu_id)}
+                    <ChevronDown size="14" class="transition-transform" />
+                  {:else}
+                    <ChevronRight size="14" class="transition-transform" />
                   {/if}
-                {/each}
+                </button>
+                
+                {#if menu.children && menu.children.length > 0 && expandedCategories.has(menu.menu_id)}
+                  <div class="space-y-0.5 ml-3 border-l-2 border-red-400/30 pl-3">
+                    {#each menu.children as subMenu}
+                      <button
+                        type="button"
+                        class="admin-sidebar-item group"
+                        class:active={isActive(subMenu.menu_path) || hasActiveChild(subMenu)}
+                        on:click={() => handleMenuClick(subMenu)}
+                      >
+                        <div class="flex items-center">
+                          {#if subMenu.icon_name && iconMap[subMenu.icon_name]}
+                            {@const IconComponent = iconMap[subMenu.icon_name]}
+                            <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                          {/if}
+                          <span class="text-sm font-medium">{subMenu.menu_name}</span>
+                        </div>
+                        
+                        {#if subMenu.children && subMenu.children.length > 0}
+                          <ChevronRight size="12" class="ml-auto opacity-60" />
+                        {/if}
+                      </button>
+                      
+                      <!-- 3레벨 메뉴가 있는 경우 -->
+                      {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menu_path) || hasActiveChild(subMenu))}
+                        <div class="ml-6 space-y-0.5 border-l border-red-400/50 pl-3">
+                          {#each subMenu.children as subSubMenu}
+                            <button
+                              type="button"
+                              class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200"
+                              class:text-white={isActive(subSubMenu.menu_path)}
+                              class:bg-red-500={isActive(subSubMenu.menu_path)}
+                              on:click={() => handleMenuClick(subSubMenu)}
+                            >
+                              • {subSubMenu.menu_name}
+                            </button>
+                          {/each}
+                        </div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
               </div>
+            {:else}
+              <!-- 일반 메뉴 -->
+              <button
+                type="button"
+                class="admin-sidebar-item group"
+                class:active={isActive(menu.menu_path)}
+                on:click={() => handleMenuClick(menu)}
+              >
+                <div class="flex items-center">
+                  {#if menu.icon_name && iconMap[menu.icon_name]}
+                    {@const IconComponent = iconMap[menu.icon_name]}
+                    <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                  {/if}
+                  <span class="text-sm font-medium">{menu.menu_name}</span>
+                </div>
+              </button>
             {/if}
           </div>
-        {:else}
-          <!-- 일반 메뉴 -->
-          <button
-            type="button"
-            class="w-full admin-sidebar-item"
-            class:active={isActive(menu.menuPath)}
-            on:click={() => handleMenuClick(menu)}
-          >
-            {#if menu.iconName && iconMap[menu.iconName]}
-              <span class="mr-3 text-lg">{iconMap[menu.iconName]}</span>
-            {/if}
-            <span class="font-medium">{menu.menuName}</span>
-          </button>
-        {/if}
-      </div>
-    {/each}
-  </nav>
+        {/each}
+      {/if}
+    </nav>
 
-  <!-- 하단 시스템 정보 -->
-  <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-red-500/30">
-    <div class="text-xs text-red-200">
-      <div class="flex items-center justify-between">
-        <span>시스템 상태</span>
-        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+    <!-- 하단 시스템 정보 -->
+    <div class="p-3 border-t border-red-500/30 bg-red-600/30">
+      <div class="text-xs text-red-200 space-y-1">
+        <div class="flex justify-between">
+          <span>시스템 상태</span>
+          <span class="text-green-300">●</span>
+        </div>
+        <div class="flex justify-between">
+          <span>메뉴 로드</span>
+          <span class="text-green-300">{adminMenus.length > 0 ? '●' : '○'}</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span>전체/필터</span>
+          <span class="font-mono">{allMenus.length}/{adminMenus.length}</span>
+        </div>
+        <div class="flex justify-between">
+          <span>접근 권한</span>
+          <span class="text-green-300">●</span>
+        </div>
       </div>
     </div>
   </div>
@@ -243,27 +294,25 @@
   .admin-sidebar-item {
     display: flex;
     align-items: center;
+    justify-content: between;
     width: 100%;
-    padding: 0.75rem 1rem;
-    text-align: left;
-    color: rgb(254 202 202);
-    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    color: rgb(220 252 231);
+    border-radius: 0.375rem;
     transition: all 0.2s ease-in-out;
-    border: 1px solid transparent;
-    background-color: transparent;
+    background: rgba(239, 68, 68, 0.05);
+    backdrop-filter: blur(4px);
   }
 
   .admin-sidebar-item:hover {
     color: white;
-    background-color: rgba(239, 68, 68, 0.3);
-    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(239, 68, 68, 0.2);
     transform: translateX(2px);
   }
 
   .admin-sidebar-item.active {
     color: white;
-    background-color: rgb(239 68 68);
-    border-color: rgb(248 113 113);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    background: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 </style>
