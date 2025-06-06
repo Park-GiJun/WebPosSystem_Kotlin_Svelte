@@ -12,6 +12,10 @@ data class User(
     val passwordHash: String,
     val roles: Set<UserRole> = setOf(UserRole.USER),
     val userStatus: UserStatus = UserStatus.ACTIVE,
+    
+    // 조직 소속 정보 (본사ID 또는 매장ID)
+    val organizationId: String? = null,
+    val organizationType: String? = null, // HEADQUARTERS, STORE, SYSTEM
 
     // Security & Login tracking
     val lastLoginAt: LocalDateTime? = null,

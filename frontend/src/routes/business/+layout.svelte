@@ -7,12 +7,12 @@
     // 영업정보시스템 접근 권한 확인
     const unsubscribe = authStore.subscribe(auth => {
       if (auth.isAuthenticated) {
+        // 본사 관리자 권한 확인 또는 메뉴 권한 확인
         const hasBusinessAccess = auth.user?.roles?.some(role => 
-          ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'HQ_MANAGER', 'AREA_MANAGER'].includes(role)
-        );
+          ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'HQ_MANAGER'].includes(role)
+        ) || auth.hasPermission('BUSINESS', 'READ');
         
         if (!hasBusinessAccess) {
-          // 권한이 없으면 대시보드로 리다이렉트
           goto('/dashboard');
         }
       }
@@ -22,4 +22,5 @@
   });
 </script>
 
+<!-- 영업정보시스템도 동일한 레이아웃 사용 -->
 <slot />
