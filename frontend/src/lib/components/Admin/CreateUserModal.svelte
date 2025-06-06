@@ -1,248 +1,292 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { authStore } from '$lib/stores/auth.js';
-  import { toastStore } from '$lib/stores/toast.js';
+  import { Eye, EyeOff, X } from 'lucide-svelte';
   import Modal from '$lib/components/Common/Modal.svelte';
-  import { Eye, EyeOff } from 'lucide-svelte';
 
   export let open = false;
 
   const dispatch = createEventDispatcher();
 
-  let formData = {
+  let form = {
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
     roles: ['USER']
   };
-  let loading = false;
+
   let showPassword = false;
+  let showConfirmPassword = false;
+  let loading = false;
   let errors = {};
 
   const availableRoles = [
-    { value: 'USER', label: '일반 사용자', description: 'POS 판매 기능만 사용 가능' },
-    { value: 'STORE_MANAGER', label: '매장 관리자', description: 'POS 시스템 관리' },
-    { value: 'AREA_MANAGER', label: '지역 관리자', description: '담당 지역 매장 관리' },
-    { value: 'HQ_MANAGER', label: '본사 관리자', description: '영업정보시스템 관리' },
-    { value: 'SYSTEM_ADMIN', label: '시스템 관리자', description: '시스템 전반 관리' },
-    { value: 'SUPER_ADMIN', label: '최고 관리자', description: '모든 시스템 관리' }
+    { value: 'USER', label: '일반 사용자' },
+    { value: 'STORE_MANAGER', label: '매장 관리자' },
+    { value: 'AREA_MANAGER', label: '지역 관리자' },
+    { value: 'HQ_MANAGER', label: '본사 관리자' },
+    { value: 'SYSTEM_ADMIN', label: '시스템 관리자' },
+    { value: 'SUPER_ADMIN', label: '슈퍼 관리자' }
   ];
-
-  function resetForm() {
-    formData = {
-      username: '',
-      email: '',
-      password: '',
-      roles: ['USER']
-    };
-    errors = {};
-    showPassword = false;
-  }
 
   function validateForm() {
     errors = {};
 
-    if (!formData.username.trim()) {
-      errors.username = '사용자명을 입력해주세요.';
-    } else if (formData.username.length < 3) {
-      errors.username = '사용자명은 3자 이상이어야 합니다.';
+    if (!form.username.trim()) {
+      errors.username = '사용자명은 필수입니다.';
+    } else if (form.username.length < 3) {
+      errors.username = '사용자명은 최소 3자 이상이어야 합니다.';
     }
 
-    if (!formData.email.trim()) {
-      errors.email = '이메일을 입력해주세요.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!form.email.trim()) {
+      errors.email = '이메일은 필수입니다.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errors.email = '올바른 이메일 형식이 아닙니다.';
     }
 
-    if (!formData.password) {
-      errors.password = '비밀번호를 입력해주세요.';
-    } else if (formData.password.length < 6) {
-      errors.password = '비밀번호는 6자 이상이어야 합니다.';
+    if (!form.password) {
+      errors.password = '비밀번호는 필수입니다.';
+    } else if (form.password.length < 6) {
+      errors.password = '비밀번호는 최소 6자 이상이어야 합니다.';
     }
 
-    if (formData.roles.length === 0) {
-      errors.roles = '최소 하나의 역할을 선택해주세요.';
+    if (form.password !== form.confirmPassword) {
+      errors.confirmPassword = '비밀번호가 일치하지 않습니다.';
+    }
+
+    if (form.roles.length === 0) {
+      errors.roles = '최소 하나의 역할을 선택해야 합니다.';
     }
 
     return Object.keys(errors).length === 0;
   }
 
+  function toggleRole(role) {
+    if (form.roles.includes(role)) {
+      form.roles = form.roles.filter(r => r !== role);
+    } else {
+      form.roles = [...form.roles, role];
+    }
+  }
+
   async function handleSubmit() {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     loading = true;
 
     try {
-      const response = await fetch('/api/v1/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${$authStore.token}`
-        },
-        body: JSON.stringify(formData)
+      // TODO: API 호출
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 임시 딜레이
+
+      dispatch('user-created', {
+        ...form,
+        id: Date.now().toString(),
+        userStatus: 'PENDING_VERIFICATION',
+        isEmailVerified: false,
+        lastLoginAt: null,
+        failedLoginAttempts: 0,
+        isLocked: false,
+        lockedUntil: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '사용자 생성에 실패했습니다.');
-      }
-
-      const newUser = await response.json();
-      
-      toastStore.success('사용자가 성공적으로 생성되었습니다.');
-      dispatch('user-created', newUser);
-      
-      resetForm();
-      open = false;
+      handleClose();
     } catch (error) {
-      console.error('Create user error:', error);
-      toastStore.error(error.message);
+      console.error('Failed to create user:', error);
+      errors.submit = '사용자 생성에 실패했습니다.';
     } finally {
       loading = false;
     }
   }
 
   function handleClose() {
-    resetForm();
-    open = false;
-    dispatch('close');
-  }
-
-  function toggleRole(role) {
-    if (formData.roles.includes(role)) {
-      formData.roles = formData.roles.filter(r => r !== role);
-    } else {
-      formData.roles = [...formData.roles, role];
+    if (!loading) {
+      open = false;
+      form = {
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        roles: ['USER']
+      };
+      errors = {};
+      showPassword = false;
+      showConfirmPassword = false;
+      dispatch('close');
     }
-  }
-
-  $: if (!open) {
-    resetForm();
   }
 </script>
 
-<Modal bind:open title="새 사용자 생성" size="lg" on:close={handleClose}>
-  <form on:submit|preventDefault={handleSubmit} class="space-y-6">
-    <!-- 기본 정보 -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- 사용자명 -->
-      <div>
-        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
-          사용자명 <span class="text-red-500">*</span>
-        </label>
-        <input
-          id="username"
-          type="text"
-          bind:value={formData.username}
-          class="input"
-          class:border-red-300={errors.username}
-          placeholder="사용자명을 입력하세요"
-          disabled={loading}
-        />
-        {#if errors.username}
-          <p class="mt-1 text-sm text-red-600">{errors.username}</p>
-        {/if}
-      </div>
+<Modal bind:open title="사용자 추가" size="md" on:close={handleClose}>
+  <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+    <!-- 사용자명 -->
+    <div>
+      <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
+        사용자명 <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="username"
+        type="text"
+        bind:value={form.username}
+        class="input"
+        class:border-red-300={errors.username}
+        placeholder="사용자명을 입력하세요"
+        disabled={loading}
+        required
+      />
+      {#if errors.username}
+        <p class="text-sm text-red-600 mt-1">{errors.username}</p>
+      {/if}
+    </div>
 
-      <!-- 이메일 -->
-      <div>
-        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-          이메일 <span class="text-red-500">*</span>
-        </label>
-        <input
-          id="email"
-          type="email"
-          bind:value={formData.email}
-          class="input"
-          class:border-red-300={errors.email}
-          placeholder="이메일을 입력하세요"
-          disabled={loading}
-        />
-        {#if errors.email}
-          <p class="mt-1 text-sm text-red-600">{errors.email}</p>
-        {/if}
-      </div>
+    <!-- 이메일 -->
+    <div>
+      <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+        이메일 <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="email"
+        type="email"
+        bind:value={form.email}
+        class="input"
+        class:border-red-300={errors.email}
+        placeholder="이메일을 입력하세요"
+        disabled={loading}
+        required
+      />
+      {#if errors.email}
+        <p class="text-sm text-red-600 mt-1">{errors.email}</p>
+      {/if}
     </div>
 
     <!-- 비밀번호 -->
     <div>
       <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-        임시 비밀번호 <span class="text-red-500">*</span>
+        비밀번호 <span class="text-red-500">*</span>
       </label>
       <div class="relative">
-        <input
-          id="password"
-          type={showPassword ? 'text' : 'password'}
-          bind:value={formData.password}
-          class="input pr-10"
-          class:border-red-300={errors.password}
-          placeholder="임시 비밀번호를 입력하세요"
-          disabled={loading}
-        />
+        {#if showPassword}
+          <input
+            id="password"
+            type="text"
+            bind:value={form.password}
+            class="input pr-10"
+            class:border-red-300={errors.password}
+            placeholder="비밀번호를 입력하세요"
+            disabled={loading}
+            required
+          />
+        {:else}
+          <input
+            id="password"
+            type="password"
+            bind:value={form.password}
+            class="input pr-10"
+            class:border-red-300={errors.password}
+            placeholder="비밀번호를 입력하세요"
+            disabled={loading}
+            required
+          />
+        {/if}
         <button
           type="button"
           class="absolute inset-y-0 right-0 pr-3 flex items-center"
           on:click={() => showPassword = !showPassword}
         >
           {#if showPassword}
-            <EyeOff size="16" class="text-gray-400" />
+            <EyeOff class="h-4 w-4 text-gray-400" />
           {:else}
-            <Eye size="16" class="text-gray-400" />
+            <Eye class="h-4 w-4 text-gray-400" />
           {/if}
         </button>
       </div>
       {#if errors.password}
-        <p class="mt-1 text-sm text-red-600">{errors.password}</p>
+        <p class="text-sm text-red-600 mt-1">{errors.password}</p>
       {/if}
-      <p class="mt-1 text-sm text-gray-500">
-        사용자는 첫 로그인 시 비밀번호를 변경해야 합니다.
-      </p>
+    </div>
+
+    <!-- 비밀번호 확인 -->
+    <div>
+      <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">
+        비밀번호 확인 <span class="text-red-500">*</span>
+      </label>
+      <div class="relative">
+        {#if showConfirmPassword}
+          <input
+            id="confirmPassword"
+            type="text"
+            bind:value={form.confirmPassword}
+            class="input pr-10"
+            class:border-red-300={errors.confirmPassword}
+            placeholder="비밀번호를 다시 입력하세요"
+            disabled={loading}
+            required
+          />
+        {:else}
+          <input
+            id="confirmPassword"
+            type="password"
+            bind:value={form.confirmPassword}
+            class="input pr-10"
+            class:border-red-300={errors.confirmPassword}
+            placeholder="비밀번호를 다시 입력하세요"
+            disabled={loading}
+            required
+          />
+        {/if}
+        <button
+          type="button"
+          class="absolute inset-y-0 right-0 pr-3 flex items-center"
+          on:click={() => showConfirmPassword = !showConfirmPassword}
+        >
+          {#if showConfirmPassword}
+            <EyeOff class="h-4 w-4 text-gray-400" />
+          {:else}
+            <Eye class="h-4 w-4 text-gray-400" />
+          {/if}
+        </button>
+      </div>
+      {#if errors.confirmPassword}
+        <p class="text-sm text-red-600 mt-1">{errors.confirmPassword}</p>
+      {/if}
     </div>
 
     <!-- 역할 선택 -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-3">
+      <label class="block text-sm font-medium text-gray-700 mb-2">
         역할 <span class="text-red-500">*</span>
       </label>
-      <div class="space-y-3">
+      <div class="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3">
         {#each availableRoles as role}
-          <label class="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label class="flex items-center">
             <input
               type="checkbox"
-              checked={formData.roles.includes(role.value)}
+              checked={form.roles.includes(role.value)}
               on:change={() => toggleRole(role.value)}
-              class="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
               disabled={loading}
             />
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-gray-900">{role.label}</div>
-              <div class="text-sm text-gray-500">{role.description}</div>
-            </div>
+            <span class="ml-2 text-sm text-gray-700">{role.label}</span>
           </label>
         {/each}
       </div>
       {#if errors.roles}
-        <p class="mt-1 text-sm text-red-600">{errors.roles}</p>
+        <p class="text-sm text-red-600 mt-1">{errors.roles}</p>
       {/if}
     </div>
 
-    <!-- 선택된 역할 미리보기 -->
-    {#if formData.roles.length > 0}
-      <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 class="text-sm font-medium text-blue-900 mb-2">선택된 역할:</h4>
-        <div class="flex flex-wrap gap-2">
-          {#each formData.roles as selectedRole}
-            {@const roleInfo = availableRoles.find(r => r.value === selectedRole)}
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {roleInfo?.label || selectedRole}
-            </span>
-          {/each}
-        </div>
+    <!-- 전체 폼 에러 -->
+    {#if errors.submit}
+      <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+        <p class="text-sm text-red-700">{errors.submit}</p>
       </div>
     {/if}
   </form>
 
-  <!-- 버튼 -->
+  <!-- 푸터 버튼들 -->
   <div slot="footer" class="flex justify-end space-x-3 p-4 border-t border-gray-200">
     <button
       type="button"
@@ -253,10 +297,10 @@
       취소
     </button>
     <button
-      type="button"
+      type="submit"
       class="btn btn-primary"
       on:click={handleSubmit}
-      disabled={loading || !formData.username || !formData.email || !formData.password}
+      disabled={loading}
     >
       {#if loading}
         <div class="flex items-center">

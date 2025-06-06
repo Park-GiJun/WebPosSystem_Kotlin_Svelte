@@ -3,195 +3,201 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
-  import { Key, Users, Menu, Settings, Plus, Edit, Trash2, Shield } from 'lucide-svelte';
+  import { Key, Search, Plus, Shield, Users, Building, Store as StoreIcon, Edit, Trash2 } from 'lucide-svelte';
 
-  let activeTab = 'menus';
-  let loading = false;
+  let permissions = [];
   let menus = [];
-  let rolePermissions = [];
-  let selectedMenu = null;
-  let selectedRole = null;
+  let users = [];
+  let stores = [];
+  let headquarters = [];
+  let loading = true;
+  let searchTerm = '';
+  let filterTargetType = 'all';
+  let filterPermissionType = 'all';
+  let showCreateModal = false;
 
-  const tabs = [
-    { id: 'menus', label: '메뉴 권한', icon: Menu },
-    { id: 'roles', label: '역할별 권한', icon: Users },
-    { id: 'users', label: '사용자별 권한', icon: Shield }
-  ];
-
-  const permissionTypes = [
-    { value: 'READ', label: '읽기', color: 'bg-blue-100 text-blue-800' },
-    { value: 'WRITE', label: '쓰기', color: 'bg-green-100 text-green-800' },
-    { value: 'DELETE', label: '삭제', color: 'bg-orange-100 text-orange-800' },
-    { value: 'ADMIN', label: '관리자', color: 'bg-red-100 text-red-800' }
-  ];
-
-  const roles = [
-    { value: 'SUPER_ADMIN', label: '최고 관리자', description: '모든 시스템 관리' },
-    { value: 'SYSTEM_ADMIN', label: '시스템 관리자', description: '시스템 전반 관리' },
-    { value: 'HQ_MANAGER', label: '본사 관리자', description: '영업정보시스템 관리' },
-    { value: 'STORE_MANAGER', label: '매장 관리자', description: 'POS 시스템 관리' },
-    { value: 'AREA_MANAGER', label: '지역 관리자', description: '담당 지역 매장 관리' },
-    { value: 'USER', label: '일반 사용자', description: 'POS 판매 기능만' }
-  ];
-
+  // 탭 활성화
   onMount(() => {
     tabStore.setActiveTab('ADMIN_PERMISSIONS');
-    loadMenus();
-    loadRolePermissions();
+    loadData();
   });
 
-  async function loadMenus() {
-    loading = true;
+  async function loadData() {
     try {
-      const response = await fetch('/api/v1/admin/permissions/menus', {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      const [permissionsRes, menusRes, usersRes] = await Promise.all([
+        fetch('/api/v1/admin/permissions', {
+          headers: { 'Authorization': `Bearer ${$authStore.token}` }
+        }),
+        fetch('/api/v1/admin/menus', {
+          headers: { 'Authorization': `Bearer ${$authStore.token}` }
+        }),
+        fetch('/api/v1/admin/users', {
+          headers: { 'Authorization': `Bearer ${$authStore.token}` }
+        })
+      ]);
+
+      if (permissionsRes.ok) {
+        const data = await permissionsRes.json();
+        permissions = data.permissions || [];
+      }
+
+      if (menusRes.ok) {
+        const data = await menusRes.json();
         menus = data.menus || [];
       }
+
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        users = data.users || [];
+      }
+
     } catch (error) {
-      console.error('Failed to load menus:', error);
-      toastStore.error('메뉴 목록을 불러오는데 실패했습니다.');
+      console.error('Failed to load data:', error);
+      toastStore.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       loading = false;
     }
   }
 
-  async function loadRolePermissions() {
-    try {
-      const response = await fetch('/api/v1/admin/permissions/roles', {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        rolePermissions = data || [];
-      }
-    } catch (error) {
-      console.error('Failed to load role permissions:', error);
-    }
-  }
+  // 필터링된 권한 목록
+  $: filteredPermissions = permissions.filter(permission => {
+    const matchesSearch = permission.menuName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         permission.targetName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTargetType = filterTargetType === 'all' || permission.targetType === filterTargetType;
+    const matchesPermissionType = filterPermissionType === 'all' || permission.permissionType === filterPermissionType;
+    
+    return matchesSearch && matchesTargetType && matchesPermissionType;
+  });
 
-  function organizeMenusHierarchy(menus) {
-    const menuMap = new Map();
-    const rootMenus = [];
-
-    // 먼저 모든 메뉴를 맵에 저장
-    menus.forEach(menu => {
-      menuMap.set(menu.menuId, { ...menu, children: [] });
-    });
-
-    // 계층 구조 구성
-    menus.forEach(menu => {
-      const menuItem = menuMap.get(menu.menuId);
-      if (menu.parentMenuId) {
-        const parent = menuMap.get(menu.parentMenuId);
-        if (parent) {
-          parent.children.push(menuItem);
-        }
-      } else {
-        rootMenus.push(menuItem);
-      }
-    });
-
-    // 표시 순서대로 정렬
-    const sortMenus = (menus) => {
-      return menus.sort((a, b) => a.displayOrder - b.displayOrder)
-        .map(menu => ({
-          ...menu,
-          children: sortMenus(menu.children)
-        }));
-    };
-
-    return sortMenus(rootMenus);
-  }
-
-  $: organizedMenus = organizeMenusHierarchy(menus);
-
-  function getMenuTypeColor(type) {
+  function getTargetTypeColor(targetType) {
     const colors = {
-      'CATEGORY': 'bg-purple-100 text-purple-800',
-      'MENU': 'bg-blue-100 text-blue-800',
-      'FUNCTION': 'bg-green-100 text-green-800'
+      'USER': 'bg-blue-100 text-blue-800',
+      'ROLE': 'bg-purple-100 text-purple-800',
+      'STORE': 'bg-green-100 text-green-800',
+      'HEADQUARTERS': 'bg-orange-100 text-orange-800'
     };
-    return colors[type] || 'bg-gray-100 text-gray-800';
+    return colors[targetType] || 'bg-gray-100 text-gray-800';
   }
 
-  function getPermissionColor(permissionType) {
-    const type = permissionTypes.find(p => p.value === permissionType);
-    return type?.color || 'bg-gray-100 text-gray-800';
+  function getTargetTypeText(targetType) {
+    const texts = {
+      'USER': '사용자',
+      'ROLE': '역할',
+      'STORE': '매장',
+      'HEADQUARTERS': '본사'
+    };
+    return texts[targetType] || targetType;
   }
 
-  async function grantPermission(menuCode, targetType, targetId, permissionType) {
-    try {
-      const response = await fetch('/api/v1/admin/permissions/grant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${$authStore.token}`
-        },
-        body: JSON.stringify({
-          menuCode,
-          targetType,
-          targetId,
-          permissionType
-        })
-      });
+  function getPermissionTypeColor(permissionType) {
+    const colors = {
+      'READ': 'bg-gray-100 text-gray-800',
+      'WRITE': 'bg-blue-100 text-blue-800',
+      'DELETE': 'bg-red-100 text-red-800',
+      'ADMIN': 'bg-purple-100 text-purple-800'
+    };
+    return colors[permissionType] || 'bg-gray-100 text-gray-800';
+  }
 
-      if (response.ok) {
-        toastStore.success('권한이 부여되었습니다.');
-        await loadRolePermissions();
-      } else {
-        throw new Error('권한 부여 실패');
-      }
-    } catch (error) {
-      console.error('Grant permission error:', error);
-      toastStore.error('권한 부여에 실패했습니다.');
+  function getPermissionTypeText(permissionType) {
+    const texts = {
+      'READ': '읽기',
+      'WRITE': '쓰기',
+      'DELETE': '삭제',
+      'ADMIN': '관리'
+    };
+    return texts[permissionType] || permissionType;
+  }
+
+  function getTargetTypeIcon(targetType) {
+    const icons = {
+      'USER': Users,
+      'ROLE': Shield,
+      'STORE': StoreIcon,
+      'HEADQUARTERS': Building
+    };
+    return icons[targetType] || Key;
+  }
+
+  async function editPermission(permission) {
+    // TODO: 권한 편집 모달 구현
+    console.log('Edit permission:', permission);
+    toastStore.info('권한 편집 기능은 준비 중입니다.');
+  }
+
+  async function deletePermission(permission) {
+    if (!confirm(`정말로 이 권한을 삭제하시겠습니까?`)) {
+      return;
     }
-  }
 
-  async function revokePermission(menuCode, targetType, targetId) {
     try {
-      const response = await fetch('/api/v1/admin/permissions/revoke', {
+      const response = await fetch(`/api/v1/admin/permissions/${permission.id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${$authStore.token}`
-        },
-        body: JSON.stringify({
-          menuCode,
-          targetType,
-          targetId
-        })
+        }
       });
 
       if (response.ok) {
-        toastStore.success('권한이 회수되었습니다.');
-        await loadRolePermissions();
+        permissions = permissions.filter(p => p.id !== permission.id);
+        toastStore.success('권한이 삭제되었습니다.');
       } else {
-        throw new Error('권한 회수 실패');
+        throw new Error('삭제 실패');
       }
     } catch (error) {
-      console.error('Revoke permission error:', error);
-      toastStore.error('권한 회수에 실패했습니다.');
+      console.error('Delete permission error:', error);
+      toastStore.error('권한 삭제에 실패했습니다.');
     }
   }
 
-  function renderMenuTree(menus, level = 0) {
-    return menus.map(menu => ({
-      ...menu,
-      level,
-      children: renderMenuTree(menu.children, level + 1)
-    }));
+  function openCreateModal() {
+    showCreateModal = true;
   }
 
-  $: flatMenus = renderMenuTree(organizedMenus).flat(Infinity);
+  // 임시 데이터 (실제로는 API에서 가져와야 함)
+  if (permissions.length === 0 && !loading) {
+    permissions = [
+      {
+        id: '1',
+        menuCode: 'ADMIN_USERS',
+        menuName: '사용자 관리',
+        targetType: 'ROLE',
+        targetId: 'SUPER_ADMIN',
+        targetName: '최고관리자',
+        permissionType: 'ADMIN',
+        grantedBy: 'system',
+        grantedAt: '2024-01-01T00:00:00Z',
+        expiresAt: null,
+        isActive: true
+      },
+      {
+        id: '2',
+        menuCode: 'BUSINESS_STORES',
+        menuName: '매장 관리',
+        targetType: 'ROLE',
+        targetId: 'HQ_MANAGER',
+        targetName: '본사관리자',
+        permissionType: 'WRITE',
+        grantedBy: 'system',
+        grantedAt: '2024-01-01T00:00:00Z',
+        expiresAt: null,
+        isActive: true
+      },
+      {
+        id: '3',
+        menuCode: 'POS_SALES',
+        menuName: 'POS 판매',
+        targetType: 'ROLE',
+        targetId: 'USER',
+        targetName: '일반사용자',
+        permissionType: 'READ',
+        grantedBy: 'system',
+        grantedAt: '2024-01-01T00:00:00Z',
+        expiresAt: null,
+        isActive: true
+      }
+    ];
+  }
 </script>
 
 <svelte:head>
@@ -203,1944 +209,234 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">권한 관리</h1>
-      <p class="text-gray-600 mt-1">시스템 메뉴 및 사용자 권한을 관리합니다.</p>
+      <p class="text-gray-600 mt-1">시스템 메뉴별 접근 권한을 관리합니다.</p>
+    </div>
+    <button 
+      type="button" 
+      class="btn btn-primary"
+      on:click={openCreateModal}
+    >
+      <Plus size="16" class="mr-2" />
+      권한 추가
+    </button>
+  </div>
+
+  <!-- 통계 카드 -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-blue-100">
+          <Key class="h-6 w-6 text-blue-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">총 권한</p>
+          <p class="text-2xl font-bold text-gray-900">{permissions.length}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-purple-100">
+          <Shield class="h-6 w-6 text-purple-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">역할 기반</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {permissions.filter(p => p.targetType === 'ROLE').length}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-green-100">
+          <Users class="h-6 w-6 text-green-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">사용자 직접</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {permissions.filter(p => p.targetType === 'USER').length}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-center">
+        <div class="p-3 rounded-full bg-orange-100">
+          <StoreIcon class="h-6 w-6 text-orange-600" />
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">매장 기반</p>
+          <p class="text-2xl font-bold text-gray-900">
+            {permissions.filter(p => p.targetType === 'STORE').length}
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- 탭 네비게이션 -->
-  <div class="card">
-    <div class="border-b border-gray-200">
-      <nav class="-mb-px flex">
-        {#each tabs as tab}
+  <!-- 검색 및 필터 -->
+  <div class="card p-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- 검색 -->
+      <div class="relative">
+        <Search size="20" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="메뉴명 또는 대상명 검색..."
+          bind:value={searchTerm}
+          class="input pl-10"
+        />
+      </div>
+
+      <!-- 대상 타입 필터 -->
+      <select bind:value={filterTargetType} class="input">
+        <option value="all">모든 대상 타입</option>
+        <option value="USER">사용자</option>
+        <option value="ROLE">역할</option>
+        <option value="STORE">매장</option>
+        <option value="HEADQUARTERS">본사</option>
+      </select>
+
+      <!-- 권한 타입 필터 -->
+      <select bind:value={filterPermissionType} class="input">
+        <option value="all">모든 권한 타입</option>
+        <option value="READ">읽기</option>
+        <option value="WRITE">쓰기</option>
+        <option value="DELETE">삭제</option>
+        <option value="ADMIN">관리</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 권한 목록 -->
+  <div class="card overflow-hidden">
+    {#if loading}
+      <div class="p-12 text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+        <p class="mt-4 text-gray-600">로딩 중...</p>
+      </div>
+    {:else if filteredPermissions.length === 0}
+      <div class="p-12 text-center">
+        <Key class="mx-auto h-12 w-12 text-gray-400" />
+        <p class="mt-4 text-gray-500">조건에 맞는 권한이 없습니다.</p>
+      </div>
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                메뉴
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                대상
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                권한 타입
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                부여자
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                부여일
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                만료일
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                작업
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {#each filteredPermissions as permission}
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div class="text-sm font-medium text-gray-900">{permission.menuName}</div>
+                    <div class="text-sm text-gray-500">{permission.menuCode}</div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 mr-3">
+                      <svelte:component 
+                        this={getTargetTypeIcon(permission.targetType)} 
+                        class="h-5 w-5 text-gray-400" 
+                      />
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">{permission.targetName}</div>
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getTargetTypeColor(permission.targetType)}">
+                        {getTargetTypeText(permission.targetType)}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getPermissionTypeColor(permission.permissionType)}">
+                    {getPermissionTypeText(permission.permissionType)}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {permission.grantedBy}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(permission.grantedAt).toLocaleDateString('ko-KR')}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {permission.expiresAt ? new Date(permission.expiresAt).toLocaleDateString('ko-KR') : '무제한'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      class="text-indigo-600 hover:text-indigo-900"
+                      on:click={() => editPermission(permission)}
+                      title="편집"
+                    >
+                      <Edit size="16" />
+                    </button>
+                    <button
+                      type="button"
+                      class="text-red-600 hover:text-red-900"
+                      on:click={() => deletePermission(permission)}
+                      title="삭제"
+                    >
+                      <Trash2 size="16" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<!-- TODO: 권한 생성/편집 모달 구현 -->
+{#if showCreateModal}
+  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div class="mt-3 text-center">
+        <h3 class="text-lg font-medium text-gray-900">권한 추가</h3>
+        <p class="text-sm text-gray-500 mt-2">권한 추가 기능은 준비 중입니다.</p>
+        <div class="items-center px-4 py-3">
           <button
             type="button"
-            class="tab flex items-center"
-            class:active={activeTab === tab.id}
-            on:click={() => activeTab = tab.id}
+            class="btn btn-secondary"
+            on:click={() => showCreateModal = false}
           >
-            <svelte:component this={tab.icon} size="16" class="mr-2" />
-            {tab.label}
+            닫기
           </button>
-        {/each}
-      </nav>
-    </div>
-
-    <div class="p-6">
-      {#if activeTab === 'menus'}
-        <!-- 메뉴 권한 탭 -->
-        <div class="space-y-6">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-medium text-gray-900">메뉴 구조 및 권한</h3>
-            <button type="button" class="btn btn-primary">
-              <Plus size="16" class="mr-2" />
-              메뉴 추가
-            </button>
-          </div>
-
-          {#if loading}
-            <div class="text-center py-12">
-              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p class="mt-4 text-gray-600">로딩 중...</p>
-            </div>
-          {:else if flatMenus.length === 0}
-            <div class="text-center py-12">
-              <Menu class="mx-auto h-12 w-12 text-gray-400" />
-              <p class="mt-4 text-gray-500">메뉴가 없습니다.</p>
-            </div>
-          {:else}
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          {#if menu.menuType === 'MENU'}
-                            <button
-                              type="button"
-                              class="text-green-600 hover:text-green-900"
-                              on:click={() => openGrantModal(menu)}
-                              title="권한 부여"
-                            >
-                              <Key size="16" />
-                            </button>
-                          {/if}
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
         </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'organizations'}
-        <!-- 조직별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">조직별 권한 설정</h3>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {#each organizations as org}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center">
-                    <div class="p-2 rounded-full {org.type === 'HEADQUARTERS' ? 'bg-blue-100' : 'bg-green-100'}">
-                      {#if org.type === 'HEADQUARTERS'}
-                        <Building size="20" class="text-blue-600" />
-                      {:else}
-                        <Store size="20" class="text-green-600" />
-                      {/if}
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-lg font-medium text-gray-900">{org.name}</h4>
-                      <p class="text-sm text-gray-500">
-                        {org.type === 'HEADQUARTERS' ? '체인본부' : '매장'}
-                        {#if org.storeCount}
-                          · {org.storeCount}개 매장
-                        {/if}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 설정"
-                  >
-                    <Key size="16" />
-                  </button>
-                </div>
-
-                <div class="text-sm text-gray-500">
-                  <p>조직별 메뉴 권한을 설정할 수 있습니다.</p>
-                  <p class="mt-1">현재 설정된 권한: 0개</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'grant'}
-        <!-- 권한 부여 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">권한 부여</h3>
-          
-          <div class="max-w-2xl">
-            <form on:submit|preventDefault={grantPermission} class="space-y-6">
-              <div>
-                <label for="grantMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-                <select
-                  id="grantMenuCode"
-                  required
-                  bind:value={grantForm.menuCode}
-                  class="mt-1 input"
-                >
-                  <option value="">메뉴를 선택하세요</option>
-                  {#each availableMenus as menu}
-                    <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-                <select
-                  id="grantTargetType"
-                  required
-                  bind:value={grantForm.targetType}
-                  class="mt-1 input"
-                >
-                  {#each targetTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetId" class="block text-sm font-medium text-gray-700">
-                  {grantForm.targetType === 'ROLE' ? '역할' : 
-                   grantForm.targetType === 'USER' ? '사용자' :
-                   grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-                </label>
-                <select
-                  id="grantTargetId"
-                  required
-                  bind:value={grantForm.targetId}
-                  class="mt-1 input"
-                >
-                  <option value="">선택하세요</option>
-                  {#if grantForm.targetType === 'ROLE'}
-                    {#each roles as role}
-                      <option value={role.value}>{role.label}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'HEADQUARTERS'}
-                    {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'STORE'}
-                    {#each organizations.filter(o => o.type === 'STORE') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {/if}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-                <select
-                  id="grantPermissionType"
-                  required
-                  bind:value={grantForm.permissionType}
-                  class="mt-1 input"
-                >
-                  {#each permissionTypes as permission}
-                    <option value={permission.value}>{permission.label}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-sm text-gray-500">
-                  {permissionTypes.find(p => p.value === grantForm.permissionType)?.label}
-                  권한이 부여됩니다.
-                </p>
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  on:click={resetGrantForm}
-                >
-                  초기화
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  권한 부여
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {/if}
+      </div>
     </div>
   </div>
-</div>
-
-<!-- 권한 부여 모달 -->
-<Modal bind:open={showGrantModal} title="권한 부여" size="md">
-  <form on:submit|preventDefault={grantPermission} class="space-y-6">
-    <div>
-      <label for="modalMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-      <select
-        id="modalMenuCode"
-        required
-        bind:value={grantForm.menuCode}
-        class="mt-1 input"
-      >
-        <option value="">메뉴를 선택하세요</option>
-        {#each availableMenus as menu}
-          <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-      <select
-        id="modalTargetType"
-        required
-        bind:value={grantForm.targetType}
-        class="mt-1 input"
-      >
-        {#each targetTypes as type}
-          <option value={type.value}>{type.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetId" class="block text-sm font-medium text-gray-700">
-        {grantForm.targetType === 'ROLE' ? '역할' : 
-         grantForm.targetType === 'USER' ? '사용자' :
-         grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-      </label>
-      <select
-        id="modalTargetId"
-        required
-        bind:value={grantForm.targetId}
-        class="mt-1 input"
-      >
-        <option value="">선택하세요</option>
-        {#if grantForm.targetType === 'ROLE'}
-          {#each roles as role}
-            <option value={role.value}>{role.label}</option>
-          {/each}
-        {:else if grantForm.targetType === 'HEADQUARTERS'}
-          {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {:else if grantForm.targetType === 'STORE'}
-          {#each organizations.filter(o => o.type === 'STORE') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-      <select
-        id="modalPermissionType"
-        required
-        bind:value={grantForm.permissionType}
-        class="mt-1 input"
-      >
-        {#each permissionTypes as permission}
-          <option value={permission.value}>{permission.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        on:click={() => showGrantModal = false}
-      >
-        취소
-      </button>
-      <button type="submit" class="btn btn-primary">
-        권한 부여
-      </button>
-    </div>
-  </form>
-</Modal> class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      메뉴
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          {#if menu.menuType === 'MENU'}
-                            <button
-                              type="button"
-                              class="text-green-600 hover:text-green-900"
-                              on:click={() => openGrantModal(menu)}
-                              title="권한 부여"
-                            >
-                              <Key size="16" />
-                            </button>
-                          {/if}
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'organizations'}
-        <!-- 조직별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">조직별 권한 설정</h3>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {#each organizations as org}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center">
-                    <div class="p-2 rounded-full {org.type === 'HEADQUARTERS' ? 'bg-blue-100' : 'bg-green-100'}">
-                      {#if org.type === 'HEADQUARTERS'}
-                        <Building size="20" class="text-blue-600" />
-                      {:else}
-                        <Store size="20" class="text-green-600" />
-                      {/if}
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-lg font-medium text-gray-900">{org.name}</h4>
-                      <p class="text-sm text-gray-500">
-                        {org.type === 'HEADQUARTERS' ? '체인본부' : '매장'}
-                        {#if org.storeCount}
-                          · {org.storeCount}개 매장
-                        {/if}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 설정"
-                  >
-                    <Key size="16" />
-                  </button>
-                </div>
-
-                <div class="text-sm text-gray-500">
-                  <p>조직별 메뉴 권한을 설정할 수 있습니다.</p>
-                  <p class="mt-1">현재 설정된 권한: 0개</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'grant'}
-        <!-- 권한 부여 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">권한 부여</h3>
-          
-          <div class="max-w-2xl">
-            <form on:submit|preventDefault={grantPermission} class="space-y-6">
-              <div>
-                <label for="grantMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-                <select
-                  id="grantMenuCode"
-                  required
-                  bind:value={grantForm.menuCode}
-                  class="mt-1 input"
-                >
-                  <option value="">메뉴를 선택하세요</option>
-                  {#each availableMenus as menu}
-                    <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-                <select
-                  id="grantTargetType"
-                  required
-                  bind:value={grantForm.targetType}
-                  class="mt-1 input"
-                >
-                  {#each targetTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetId" class="block text-sm font-medium text-gray-700">
-                  {grantForm.targetType === 'ROLE' ? '역할' : 
-                   grantForm.targetType === 'USER' ? '사용자' :
-                   grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-                </label>
-                <select
-                  id="grantTargetId"
-                  required
-                  bind:value={grantForm.targetId}
-                  class="mt-1 input"
-                >
-                  <option value="">선택하세요</option>
-                  {#if grantForm.targetType === 'ROLE'}
-                    {#each roles as role}
-                      <option value={role.value}>{role.label}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'HEADQUARTERS'}
-                    {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'STORE'}
-                    {#each organizations.filter(o => o.type === 'STORE') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {/if}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-                <select
-                  id="grantPermissionType"
-                  required
-                  bind:value={grantForm.permissionType}
-                  class="mt-1 input"
-                >
-                  {#each permissionTypes as permission}
-                    <option value={permission.value}>{permission.label}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-sm text-gray-500">
-                  {permissionTypes.find(p => p.value === grantForm.permissionType)?.label}
-                  권한이 부여됩니다.
-                </p>
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  on:click={resetGrantForm}
-                >
-                  초기화
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  권한 부여
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
-
-<!-- 권한 부여 모달 -->
-<Modal bind:open={showGrantModal} title="권한 부여" size="md">
-  <form on:submit|preventDefault={grantPermission} class="space-y-6">
-    <div>
-      <label for="modalMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-      <select
-        id="modalMenuCode"
-        required
-        bind:value={grantForm.menuCode}
-        class="mt-1 input"
-      >
-        <option value="">메뉴를 선택하세요</option>
-        {#each availableMenus as menu}
-          <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-      <select
-        id="modalTargetType"
-        required
-        bind:value={grantForm.targetType}
-        class="mt-1 input"
-      >
-        {#each targetTypes as type}
-          <option value={type.value}>{type.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetId" class="block text-sm font-medium text-gray-700">
-        {grantForm.targetType === 'ROLE' ? '역할' : 
-         grantForm.targetType === 'USER' ? '사용자' :
-         grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-      </label>
-      <select
-        id="modalTargetId"
-        required
-        bind:value={grantForm.targetId}
-        class="mt-1 input"
-      >
-        <option value="">선택하세요</option>
-        {#if grantForm.targetType === 'ROLE'}
-          {#each roles as role}
-            <option value={role.value}>{role.label}</option>
-          {/each}
-        {:else if grantForm.targetType === 'HEADQUARTERS'}
-          {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {:else if grantForm.targetType === 'STORE'}
-          {#each organizations.filter(o => o.type === 'STORE') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-      <select
-        id="modalPermissionType"
-        required
-        bind:value={grantForm.permissionType}
-        class="mt-1 input"
-      >
-        {#each permissionTypes as permission}
-          <option value={permission.value}>{permission.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        on:click={() => showGrantModal = false}
-      >
-        취소
-      </button>
-      <button type="submit" class="btn btn-primary">
-        권한 부여
-      </button>
-    </div>
-  </form>
-</Modal> class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      경로
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          {#if menu.menuType === 'MENU'}
-                            <button
-                              type="button"
-                              class="text-green-600 hover:text-green-900"
-                              on:click={() => openGrantModal(menu)}
-                              title="권한 부여"
-                            >
-                              <Key size="16" />
-                            </button>
-                          {/if}
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'organizations'}
-        <!-- 조직별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">조직별 권한 설정</h3>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {#each organizations as org}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center">
-                    <div class="p-2 rounded-full {org.type === 'HEADQUARTERS' ? 'bg-blue-100' : 'bg-green-100'}">
-                      {#if org.type === 'HEADQUARTERS'}
-                        <Building size="20" class="text-blue-600" />
-                      {:else}
-                        <Store size="20" class="text-green-600" />
-                      {/if}
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-lg font-medium text-gray-900">{org.name}</h4>
-                      <p class="text-sm text-gray-500">
-                        {org.type === 'HEADQUARTERS' ? '체인본부' : '매장'}
-                        {#if org.storeCount}
-                          · {org.storeCount}개 매장
-                        {/if}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 설정"
-                  >
-                    <Key size="16" />
-                  </button>
-                </div>
-
-                <div class="text-sm text-gray-500">
-                  <p>조직별 메뉴 권한을 설정할 수 있습니다.</p>
-                  <p class="mt-1">현재 설정된 권한: 0개</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'grant'}
-        <!-- 권한 부여 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">권한 부여</h3>
-          
-          <div class="max-w-2xl">
-            <form on:submit|preventDefault={grantPermission} class="space-y-6">
-              <div>
-                <label for="grantMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-                <select
-                  id="grantMenuCode"
-                  required
-                  bind:value={grantForm.menuCode}
-                  class="mt-1 input"
-                >
-                  <option value="">메뉴를 선택하세요</option>
-                  {#each availableMenus as menu}
-                    <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-                <select
-                  id="grantTargetType"
-                  required
-                  bind:value={grantForm.targetType}
-                  class="mt-1 input"
-                >
-                  {#each targetTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetId" class="block text-sm font-medium text-gray-700">
-                  {grantForm.targetType === 'ROLE' ? '역할' : 
-                   grantForm.targetType === 'USER' ? '사용자' :
-                   grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-                </label>
-                <select
-                  id="grantTargetId"
-                  required
-                  bind:value={grantForm.targetId}
-                  class="mt-1 input"
-                >
-                  <option value="">선택하세요</option>
-                  {#if grantForm.targetType === 'ROLE'}
-                    {#each roles as role}
-                      <option value={role.value}>{role.label}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'HEADQUARTERS'}
-                    {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'STORE'}
-                    {#each organizations.filter(o => o.type === 'STORE') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {/if}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-                <select
-                  id="grantPermissionType"
-                  required
-                  bind:value={grantForm.permissionType}
-                  class="mt-1 input"
-                >
-                  {#each permissionTypes as permission}
-                    <option value={permission.value}>{permission.label}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-sm text-gray-500">
-                  {permissionTypes.find(p => p.value === grantForm.permissionType)?.label}
-                  권한이 부여됩니다.
-                </p>
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  on:click={resetGrantForm}
-                >
-                  초기화
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  권한 부여
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
-
-<!-- 권한 부여 모달 -->
-<Modal bind:open={showGrantModal} title="권한 부여" size="md">
-  <form on:submit|preventDefault={grantPermission} class="space-y-6">
-    <div>
-      <label for="modalMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-      <select
-        id="modalMenuCode"
-        required
-        bind:value={grantForm.menuCode}
-        class="mt-1 input"
-      >
-        <option value="">메뉴를 선택하세요</option>
-        {#each availableMenus as menu}
-          <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-      <select
-        id="modalTargetType"
-        required
-        bind:value={grantForm.targetType}
-        class="mt-1 input"
-      >
-        {#each targetTypes as type}
-          <option value={type.value}>{type.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetId" class="block text-sm font-medium text-gray-700">
-        {grantForm.targetType === 'ROLE' ? '역할' : 
-         grantForm.targetType === 'USER' ? '사용자' :
-         grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-      </label>
-      <select
-        id="modalTargetId"
-        required
-        bind:value={grantForm.targetId}
-        class="mt-1 input"
-      >
-        <option value="">선택하세요</option>
-        {#if grantForm.targetType === 'ROLE'}
-          {#each roles as role}
-            <option value={role.value}>{role.label}</option>
-          {/each}
-        {:else if grantForm.targetType === 'HEADQUARTERS'}
-          {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {:else if grantForm.targetType === 'STORE'}
-          {#each organizations.filter(o => o.type === 'STORE') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-      <select
-        id="modalPermissionType"
-        required
-        bind:value={grantForm.permissionType}
-        class="mt-1 input"
-      >
-        {#each permissionTypes as permission}
-          <option value={permission.value}>{permission.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        on:click={() => showGrantModal = false}
-      >
-        취소
-      </button>
-      <button type="submit" class="btn btn-primary">
-        권한 부여
-      </button>
-    </div>
-  </form>
-</Modal> class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      타입
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          {#if menu.menuType === 'MENU'}
-                            <button
-                              type="button"
-                              class="text-green-600 hover:text-green-900"
-                              on:click={() => openGrantModal(menu)}
-                              title="권한 부여"
-                            >
-                              <Key size="16" />
-                            </button>
-                          {/if}
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'organizations'}
-        <!-- 조직별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">조직별 권한 설정</h3>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {#each organizations as org}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center">
-                    <div class="p-2 rounded-full {org.type === 'HEADQUARTERS' ? 'bg-blue-100' : 'bg-green-100'}">
-                      {#if org.type === 'HEADQUARTERS'}
-                        <Building size="20" class="text-blue-600" />
-                      {:else}
-                        <Store size="20" class="text-green-600" />
-                      {/if}
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-lg font-medium text-gray-900">{org.name}</h4>
-                      <p class="text-sm text-gray-500">
-                        {org.type === 'HEADQUARTERS' ? '체인본부' : '매장'}
-                        {#if org.storeCount}
-                          · {org.storeCount}개 매장
-                        {/if}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 설정"
-                  >
-                    <Key size="16" />
-                  </button>
-                </div>
-
-                <div class="text-sm text-gray-500">
-                  <p>조직별 메뉴 권한을 설정할 수 있습니다.</p>
-                  <p class="mt-1">현재 설정된 권한: 0개</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'grant'}
-        <!-- 권한 부여 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">권한 부여</h3>
-          
-          <div class="max-w-2xl">
-            <form on:submit|preventDefault={grantPermission} class="space-y-6">
-              <div>
-                <label for="grantMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-                <select
-                  id="grantMenuCode"
-                  required
-                  bind:value={grantForm.menuCode}
-                  class="mt-1 input"
-                >
-                  <option value="">메뉴를 선택하세요</option>
-                  {#each availableMenus as menu}
-                    <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-                <select
-                  id="grantTargetType"
-                  required
-                  bind:value={grantForm.targetType}
-                  class="mt-1 input"
-                >
-                  {#each targetTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetId" class="block text-sm font-medium text-gray-700">
-                  {grantForm.targetType === 'ROLE' ? '역할' : 
-                   grantForm.targetType === 'USER' ? '사용자' :
-                   grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-                </label>
-                <select
-                  id="grantTargetId"
-                  required
-                  bind:value={grantForm.targetId}
-                  class="mt-1 input"
-                >
-                  <option value="">선택하세요</option>
-                  {#if grantForm.targetType === 'ROLE'}
-                    {#each roles as role}
-                      <option value={role.value}>{role.label}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'HEADQUARTERS'}
-                    {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'STORE'}
-                    {#each organizations.filter(o => o.type === 'STORE') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {/if}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-                <select
-                  id="grantPermissionType"
-                  required
-                  bind:value={grantForm.permissionType}
-                  class="mt-1 input"
-                >
-                  {#each permissionTypes as permission}
-                    <option value={permission.value}>{permission.label}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-sm text-gray-500">
-                  {permissionTypes.find(p => p.value === grantForm.permissionType)?.label}
-                  권한이 부여됩니다.
-                </p>
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  on:click={resetGrantForm}
-                >
-                  초기화
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  권한 부여
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
-
-<!-- 권한 부여 모달 -->
-<Modal bind:open={showGrantModal} title="권한 부여" size="md">
-  <form on:submit|preventDefault={grantPermission} class="space-y-6">
-    <div>
-      <label for="modalMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-      <select
-        id="modalMenuCode"
-        required
-        bind:value={grantForm.menuCode}
-        class="mt-1 input"
-      >
-        <option value="">메뉴를 선택하세요</option>
-        {#each availableMenus as menu}
-          <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-      <select
-        id="modalTargetType"
-        required
-        bind:value={grantForm.targetType}
-        class="mt-1 input"
-      >
-        {#each targetTypes as type}
-          <option value={type.value}>{type.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetId" class="block text-sm font-medium text-gray-700">
-        {grantForm.targetType === 'ROLE' ? '역할' : 
-         grantForm.targetType === 'USER' ? '사용자' :
-         grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-      </label>
-      <select
-        id="modalTargetId"
-        required
-        bind:value={grantForm.targetId}
-        class="mt-1 input"
-      >
-        <option value="">선택하세요</option>
-        {#if grantForm.targetType === 'ROLE'}
-          {#each roles as role}
-            <option value={role.value}>{role.label}</option>
-          {/each}
-        {:else if grantForm.targetType === 'HEADQUARTERS'}
-          {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {:else if grantForm.targetType === 'STORE'}
-          {#each organizations.filter(o => o.type === 'STORE') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-      <select
-        id="modalPermissionType"
-        required
-        bind:value={grantForm.permissionType}
-        class="mt-1 input"
-      >
-        {#each permissionTypes as permission}
-          <option value={permission.value}>{permission.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        on:click={() => showGrantModal = false}
-      >
-        취소
-      </button>
-      <button type="submit" class="btn btn-primary">
-        권한 부여
-      </button>
-    </div>
-  </form>
-</Modal> class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      상태
-                    </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          {#if menu.menuType === 'MENU'}
-                            <button
-                              type="button"
-                              class="text-green-600 hover:text-green-900"
-                              on:click={() => openGrantModal(menu)}
-                              title="권한 부여"
-                            >
-                              <Key size="16" />
-                            </button>
-                          {/if}
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'organizations'}
-        <!-- 조직별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">조직별 권한 설정</h3>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {#each organizations as org}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center">
-                    <div class="p-2 rounded-full {org.type === 'HEADQUARTERS' ? 'bg-blue-100' : 'bg-green-100'}">
-                      {#if org.type === 'HEADQUARTERS'}
-                        <Building size="20" class="text-blue-600" />
-                      {:else}
-                        <Store size="20" class="text-green-600" />
-                      {/if}
-                    </div>
-                    <div class="ml-3">
-                      <h4 class="text-lg font-medium text-gray-900">{org.name}</h4>
-                      <p class="text-sm text-gray-500">
-                        {org.type === 'HEADQUARTERS' ? '체인본부' : '매장'}
-                        {#if org.storeCount}
-                          · {org.storeCount}개 매장
-                        {/if}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 설정"
-                  >
-                    <Key size="16" />
-                  </button>
-                </div>
-
-                <div class="text-sm text-gray-500">
-                  <p>조직별 메뉴 권한을 설정할 수 있습니다.</p>
-                  <p class="mt-1">현재 설정된 권한: 0개</p>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'grant'}
-        <!-- 권한 부여 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">권한 부여</h3>
-          
-          <div class="max-w-2xl">
-            <form on:submit|preventDefault={grantPermission} class="space-y-6">
-              <div>
-                <label for="grantMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-                <select
-                  id="grantMenuCode"
-                  required
-                  bind:value={grantForm.menuCode}
-                  class="mt-1 input"
-                >
-                  <option value="">메뉴를 선택하세요</option>
-                  {#each availableMenus as menu}
-                    <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-                <select
-                  id="grantTargetType"
-                  required
-                  bind:value={grantForm.targetType}
-                  class="mt-1 input"
-                >
-                  {#each targetTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantTargetId" class="block text-sm font-medium text-gray-700">
-                  {grantForm.targetType === 'ROLE' ? '역할' : 
-                   grantForm.targetType === 'USER' ? '사용자' :
-                   grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-                </label>
-                <select
-                  id="grantTargetId"
-                  required
-                  bind:value={grantForm.targetId}
-                  class="mt-1 input"
-                >
-                  <option value="">선택하세요</option>
-                  {#if grantForm.targetType === 'ROLE'}
-                    {#each roles as role}
-                      <option value={role.value}>{role.label}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'HEADQUARTERS'}
-                    {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {:else if grantForm.targetType === 'STORE'}
-                    {#each organizations.filter(o => o.type === 'STORE') as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  {/if}
-                </select>
-              </div>
-
-              <div>
-                <label for="grantPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-                <select
-                  id="grantPermissionType"
-                  required
-                  bind:value={grantForm.permissionType}
-                  class="mt-1 input"
-                >
-                  {#each permissionTypes as permission}
-                    <option value={permission.value}>{permission.label}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-sm text-gray-500">
-                  {permissionTypes.find(p => p.value === grantForm.permissionType)?.label}
-                  권한이 부여됩니다.
-                </p>
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  on:click={resetGrantForm}
-                >
-                  초기화
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  권한 부여
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
-
-<!-- 권한 부여 모달 -->
-<Modal bind:open={showGrantModal} title="권한 부여" size="md">
-  <form on:submit|preventDefault={grantPermission} class="space-y-6">
-    <div>
-      <label for="modalMenuCode" class="block text-sm font-medium text-gray-700">메뉴 선택 *</label>
-      <select
-        id="modalMenuCode"
-        required
-        bind:value={grantForm.menuCode}
-        class="mt-1 input"
-      >
-        <option value="">메뉴를 선택하세요</option>
-        {#each availableMenus as menu}
-          <option value={menu.menuCode}>{menu.menuName} ({menu.menuCode})</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetType" class="block text-sm font-medium text-gray-700">대상 타입 *</label>
-      <select
-        id="modalTargetType"
-        required
-        bind:value={grantForm.targetType}
-        class="mt-1 input"
-      >
-        {#each targetTypes as type}
-          <option value={type.value}>{type.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalTargetId" class="block text-sm font-medium text-gray-700">
-        {grantForm.targetType === 'ROLE' ? '역할' : 
-         grantForm.targetType === 'USER' ? '사용자' :
-         grantForm.targetType === 'HEADQUARTERS' ? '본사' : '매장'} 선택 *
-      </label>
-      <select
-        id="modalTargetId"
-        required
-        bind:value={grantForm.targetId}
-        class="mt-1 input"
-      >
-        <option value="">선택하세요</option>
-        {#if grantForm.targetType === 'ROLE'}
-          {#each roles as role}
-            <option value={role.value}>{role.label}</option>
-          {/each}
-        {:else if grantForm.targetType === 'HEADQUARTERS'}
-          {#each organizations.filter(o => o.type === 'HEADQUARTERS') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {:else if grantForm.targetType === 'STORE'}
-          {#each organizations.filter(o => o.type === 'STORE') as org}
-            <option value={org.id}>{org.name}</option>
-          {/each}
-        {/if}
-      </select>
-    </div>
-
-    <div>
-      <label for="modalPermissionType" class="block text-sm font-medium text-gray-700">권한 레벨 *</label>
-      <select
-        id="modalPermissionType"
-        required
-        bind:value={grantForm.permissionType}
-        class="mt-1 input"
-      >
-        {#each permissionTypes as permission}
-          <option value={permission.value}>{permission.label}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="flex justify-end space-x-3 pt-4">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        on:click={() => showGrantModal = false}
-      >
-        취소
-      </button>
-      <button type="submit" class="btn btn-primary">
-        권한 부여
-      </button>
-    </div>
-  </form>
-</Modal> class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  {#each flatMenus as menu}
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center" style="margin-left: {menu.level * 20}px">
-                          <div class="flex-shrink-0">
-                            {#if menu.iconName}
-                              <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
-                                <span class="text-xs">{menu.iconName}</span>
-                              </div>
-                            {/if}
-                          </div>
-                          <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">{menu.menuName}</div>
-                            <div class="text-sm text-gray-500">{menu.menuCode}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {menu.menuPath}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getMenuTypeColor(menu.menuType)}">
-                          {menu.menuType}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {menu.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                          {menu.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex justify-end space-x-2">
-                          <button
-                            type="button"
-                            class="text-indigo-600 hover:text-indigo-900"
-                            title="편집"
-                          >
-                            <Edit size="16" />
-                          </button>
-                          <button
-                            type="button"
-                            class="text-red-600 hover:text-red-900"
-                            title="삭제"
-                          >
-                            <Trash2 size="16" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        </div>
-
-      {:else if activeTab === 'roles'}
-        <!-- 역할별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">역할별 권한 설정</h3>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {#each roles as role}
-              {@const rolePermission = rolePermissions.find(rp => rp.roleName === role.value)}
-              <div class="card p-6">
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 class="text-lg font-medium text-gray-900">{role.label}</h4>
-                    <p class="text-sm text-gray-500">{role.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-900"
-                    title="권한 편집"
-                  >
-                    <Settings size="16" />
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  {#if rolePermission && rolePermission.permissions.length > 0}
-                    {#each rolePermission.permissions as permission}
-                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div>
-                          <span class="text-sm font-medium text-gray-900">{permission.menuName}</span>
-                        </div>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {getPermissionColor(permission.permissionType)}">
-                          {permissionTypes.find(p => p.value === permission.permissionType)?.label || permission.permissionType}
-                        </span>
-                      </div>
-                    {/each}
-                  {:else}
-                    <p class="text-sm text-gray-500 text-center py-4">설정된 권한이 없습니다.</p>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-      {:else if activeTab === 'users'}
-        <!-- 사용자별 권한 탭 -->
-        <div class="space-y-6">
-          <h3 class="text-lg font-medium text-gray-900">사용자별 개별 권한</h3>
-          
-          <div class="text-center py-12">
-            <Users class="mx-auto h-12 w-12 text-gray-400" />
-            <p class="mt-4 text-gray-500">사용자별 권한 관리 기능은 준비 중입니다.</p>
-          </div>
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
+{/if}
