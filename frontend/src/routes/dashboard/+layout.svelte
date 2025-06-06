@@ -12,7 +12,13 @@
 
   onMount(() => {
     // 인증 확인
-    authStore.checkAuth();
+    const unsubscribe = authStore.subscribe(auth => {
+      if (!auth.isAuthenticated) {
+        goto('/login');
+      }
+    });
+
+    return unsubscribe;
   });
 
   function handleMenuClick(event) {
@@ -57,7 +63,7 @@
   <div class="flex-1 flex flex-col overflow-hidden">
     <!-- 헤더 -->
     <Header>
-      <slot name="title" slot="title" />
+      <span slot="title">대시보드</span>
     </Header>
     
     <!-- 탭 컨테이너 -->

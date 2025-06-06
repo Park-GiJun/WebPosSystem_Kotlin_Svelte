@@ -92,8 +92,6 @@
   <title>POS 판매 - WebPos</title>
 </svelte:head>
 
-<div slot="title">POS 판매</div>
-
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
   <!-- 상품 목록 -->
   <div class="lg:col-span-2 space-y-6">

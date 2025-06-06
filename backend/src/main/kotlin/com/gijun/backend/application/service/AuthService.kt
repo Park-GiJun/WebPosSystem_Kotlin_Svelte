@@ -12,6 +12,7 @@ import com.gijun.backend.domain.user.enums.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
+import java.time.LocalDateTime
 
 @Service
 class AuthService(
@@ -68,11 +69,32 @@ class AuthService(
         }
 
         val loginSuccess = passwordEncoder.matches(command.password, user.passwordHash)
-        val updatedUser = user.recordLoginAttempt(loginSuccess, command.username)
-        userRepository.save(updatedUser)
-
+        
         if (!loginSuccess) {
+            // 비밀번호 실패 시에만 실패 횟수 업데이트 (try-catch로 감싸서 충돌 무시)
+            try {
+                val updatedUser = user.recordLoginAttempt(false, command.username)
+                userRepository.save(updatedUser)
+            } catch (e: Exception) {
+                logger.warn("Failed to record failed login attempt for user: ${command.username}, but continuing with login failure", e)
+            }
             throw AuthenticationException("Invalid username or password")
+        }
+
+        // 로그인 성공 - 별도 처리로 실패해도 로그인은 계속 진행
+        val finalUser = try {
+            // 성공 시에는 실패 횟수만 초기화하고 버전은 증가시키지 않음
+            val updatedUser = user.copy(
+                lastLoginAt = LocalDateTime.now(),
+                failedLoginAttempts = 0,
+                updatedAt = LocalDateTime.now(),
+                updatedBy = command.username
+                // version 업데이트 제거
+            )
+            userRepository.save(updatedUser)
+        } catch (e: Exception) {
+            logger.warn("Failed to record successful login for user: ${command.username}, proceeding with login", e)
+            user // 실패해도 로그인은 계속 진행
         }
 
         val authorities = user.roles.map { "ROLE_${it.name}" }
@@ -80,7 +102,7 @@ class AuthService(
 
         logger.info("User logged in successfully: ${user.id}")
         return AuthResult(
-            user = updatedUser,
+            user = finalUser,
             token = token,
             expiresIn = 86400000L // 24시간
         )

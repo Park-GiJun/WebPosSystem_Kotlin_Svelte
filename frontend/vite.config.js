@@ -11,5 +11,11 @@ export default defineConfig({
 				changeOrigin: true
 			}
 		}
+	},
+	ssr: {
+		noExternal: ['lucide-svelte']
+	},
+	optimizeDeps: {
+		include: ['lucide-svelte']
 	}
 });

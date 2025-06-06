@@ -4,10 +4,10 @@
   import { authStore } from '$lib/stores/auth.js';
 
   onMount(() => {
-    // 이미 로그인된 경우 대시보드로 리다이렉트
+    // 이미 로그인된 경우 시스템 선택 페이지로 리다이렉트
     const unsubscribe = authStore.subscribe(auth => {
       if (auth.isAuthenticated) {
-        goto('/dashboard');
+        goto('/system-select');
       } else {
         goto('/login');
       }

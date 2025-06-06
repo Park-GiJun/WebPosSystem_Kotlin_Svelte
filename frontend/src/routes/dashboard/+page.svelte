@@ -39,9 +39,6 @@
   <title>대시보드 - WebPos</title>
 </svelte:head>
 
-<!-- 페이지 제목 -->
-<div slot="title">대시보드</div>
-
 <div class="space-y-6">
   <!-- 환영 메시지 -->
   <div class="card p-6">

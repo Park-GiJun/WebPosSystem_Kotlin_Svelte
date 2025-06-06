@@ -12,7 +12,10 @@
     
     // 인증이 필요한 페이지에서 로그인 상태 확인
     authStore.subscribe(auth => {
-      if (!auth.isAuthenticated && $page.url.pathname !== '/login' && $page.url.pathname !== '/') {
+      const currentPath = $page.url.pathname;
+      const publicPaths = ['/login', '/', '/system-select'];
+      
+      if (!auth.isAuthenticated && !publicPaths.includes(currentPath)) {
         goto('/login');
       }
     });

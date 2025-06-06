@@ -2,7 +2,6 @@
   import { authStore } from '$lib/stores/auth.js';
   import { goto } from '$app/navigation';
   import { createEventDispatcher } from 'svelte';
-  import { Bell, User, LogOut, Settings } from 'lucide-svelte';
 
   const dispatch = createEventDispatcher();
 
@@ -56,7 +55,7 @@
         class="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors duration-200"
         title="알림"
       >
-        <Bell size="20" />
+        🔔
       </button>
 
       <!-- 사용자 메뉴 -->
@@ -67,7 +66,7 @@
           on:click={toggleUserMenu}
         >
           <div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-            <User size="16" class="text-white" />
+            <span class="text-white text-sm">👤</span>
           </div>
           {#if user}
             <div class="text-left">
@@ -88,7 +87,7 @@
                 class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 on:click={handleProfile}
               >
-                <User size="16" class="mr-3" />
+                <span class="mr-3">👤</span>
                 프로필
               </button>
               
@@ -97,7 +96,7 @@
                 class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 on:click={handleSettings}
               >
-                <Settings size="16" class="mr-3" />
+                <span class="mr-3">⚙️</span>
                 설정
               </button>
               
@@ -108,7 +107,7 @@
                 class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
                 on:click={handleLogout}
               >
-                <LogOut size="16" class="mr-3" />
+                <span class="mr-3">🚪</span>
                 로그아웃
               </button>
             </div>

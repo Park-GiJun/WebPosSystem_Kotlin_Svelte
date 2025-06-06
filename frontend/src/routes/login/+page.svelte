@@ -9,10 +9,10 @@
   let error = '';
 
   onMount(() => {
-    // 이미 로그인된 경우 대시보드로 리다이렉트
+    // 이미 로그인된 경우 시스템 선택 페이지로 리다이렉트
     const unsubscribe = authStore.subscribe(auth => {
       if (auth.isAuthenticated) {
-        goto('/dashboard');
+        goto('/system-select');
       }
     });
 
@@ -31,7 +31,7 @@
     const result = await authStore.login({ username, password });
 
     if (result.success) {
-      goto('/dashboard');
+      goto('/system-select');
     } else {
       error = result.error;
     }
@@ -119,6 +119,12 @@
             로그인
           {/if}
         </button>
+      </div>
+
+      <div class="text-center">
+        <a href="/register" class="text-sm text-primary-600 hover:text-primary-500">
+          계정이 없으신가요? 회원가입
+        </a>
       </div>
     </form>
   </div>

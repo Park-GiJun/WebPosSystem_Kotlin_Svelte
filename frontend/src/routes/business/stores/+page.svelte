@@ -75,8 +75,6 @@
   <title>매장 관리 - WebPos</title>
 </svelte:head>
 
-<div slot="title">매장 관리</div>
-
 <div class="space-y-6">
   <!-- 헤더 -->
   <div class="flex items-center justify-between">

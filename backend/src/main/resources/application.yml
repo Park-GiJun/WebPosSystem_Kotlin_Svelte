@@ -6,14 +6,16 @@ spring:
   
   # R2DBC 설정
   r2dbc:
-    url: r2dbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:webpos}?createDatabaseIfNotExist=true
+    url: r2dbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:webpos}?createDatabaseIfNotExist=true&serverTimezone=Asia/Seoul
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:password}
     pool:
-      initial-size: ${DB_POOL_INITIAL_SIZE:10}
-      max-size: ${DB_POOL_MAX_SIZE:30}
-      max-idle-time: ${DB_POOL_MAX_IDLE_TIME:30m}
+      initial-size: ${DB_POOL_INITIAL_SIZE:5}
+      max-size: ${DB_POOL_MAX_SIZE:20}
+      max-idle-time: ${DB_POOL_MAX_IDLE_TIME:10m}
       validation-query: ${DB_VALIDATION_QUERY:SELECT 1}
+      max-acquire-time: 30s
+      max-life-time: 30m
   
   # Flyway 설정 (JDBC URL 사용)
   flyway:

@@ -120,12 +120,13 @@ data class User(
 
     fun recordLoginAttempt(success: Boolean, updatedBy: String): User {
         return if (success) {
+            // 성공 시에는 버전을 증가시키지 않음 (충돌 방지)
             copy(
                 lastLoginAt = LocalDateTime.now(),
                 failedLoginAttempts = 0,
                 updatedAt = LocalDateTime.now(),
-                updatedBy = updatedBy,
-                version = version + 1
+                updatedBy = updatedBy
+                // version = version + 1 제거
             )
         } else {
             val newFailedAttempts = failedLoginAttempts + 1

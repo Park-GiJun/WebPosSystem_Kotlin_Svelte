@@ -27,12 +27,25 @@ function createAuthStore() {
           body: JSON.stringify(credentials),
         });
 
+        console.log('Login response status:', response.status);
+        console.log('Login response headers:', response.headers);
+
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || '로그인에 실패했습니다.');
+          const contentType = response.headers.get('content-type');
+          console.log('Content-Type:', contentType);
+          
+          if (contentType && contentType.includes('application/json')) {
+            const error = await response.json();
+            throw new Error(error.message || '로그인에 실패했습니다.');
+          } else {
+            const text = await response.text();
+            console.log('Non-JSON response:', text);
+            throw new Error('서버 오류가 발생했습니다.');
+          }
         }
 
         const data = await response.json();
+        console.log('Login success:', data);
         
         // 토큰을 localStorage에 저장
         if (browser) {
@@ -42,7 +55,7 @@ function createAuthStore() {
         // 사용자 정보와 권한 정보 로드
         await this.loadUserProfile(data.token);
         
-        return { success: true };
+        return { success: true, data };
       } catch (error) {
         console.error('Login error:', error);
         return { success: false, error: error.message };
