@@ -3,8 +3,10 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
-  import { Plus, Search, Filter, Edit, Trash2, Shield, Unlock, UserCheck } from 'lucide-svelte';
-  import CreateUserModal from '$lib/components/Admin/CreateUserModal.svelte';
+  import { Plus, Search, Filter, Edit, Trash2, Shield, Unlock, UserCheck, AlertTriangle } from 'lucide-svelte';
+  import CreateUserModal from '$lib/components/SuperAdmin/CreateUserModal.svelte';
+  import Custom404 from '$lib/components/Common/Custom404.svelte';
+  import { userApi } from '$lib/api/superAdmin.js';
 
   let users = [];
   let loading = true;
@@ -12,6 +14,7 @@
   let filterStatus = 'all';
   let filterRole = 'all';
   let showCreateModal = false;
+  let apiError = false;
 
   // 탭 활성화
   onMount(() => {
@@ -21,18 +24,53 @@
 
   async function loadUsers() {
     try {
-      const response = await fetch('/api/v1/admin/users', {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+      const response = await userApi.getUsers();
       
-      if (response.ok) {
-        const data = await response.json();
-        users = data.users || [];
+      if (response.success && response.data) {
+        users = response.data.users || response.data;
+        apiError = false;
+      } else if (response.error === 'API_NOT_FOUND') {
+        // 더미 데이터
+        users = [
+          {
+            id: '1',
+            username: 'admin',
+            email: 'admin@webpos.com',
+            roles: ['SUPER_ADMIN'],
+            userStatus: 'ACTIVE',
+            isEmailVerified: true,
+            lastLoginAt: new Date().toISOString(),
+            failedLoginAttempts: 0,
+            isLocked: false,
+            lockedUntil: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            id: '2',
+            username: 'manager1',
+            email: 'manager1@webpos.com',
+            roles: ['HQ_MANAGER'],
+            userStatus: 'ACTIVE',
+            isEmailVerified: true,
+            lastLoginAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            failedLoginAttempts: 0,
+            isLocked: false,
+            lockedUntil: null,
+            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+        apiError = true;
+      } else {
+        apiError = true;
+        users = [];
+        toastStore.error(response.message || '사용자 목록을 불러오는데 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to load users:', error);
+      apiError = true;
+      users = [];
       toastStore.error('사용자 목록을 불러오는데 실패했습니다.');
     } finally {
       loading = false;
@@ -107,18 +145,17 @@
     }
 
     try {
-      const response = await fetch(`/api/v1/admin/users/${user.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+      const response = await userApi.deleteUser(user.id);
 
-      if (response.ok) {
+      if (response.success) {
         users = users.filter(u => u.id !== user.id);
         toastStore.success('사용자가 삭제되었습니다.');
+      } else if (response.error === 'API_NOT_FOUND') {
+        // API가 없어도 로컬에서 삭제
+        users = users.filter(u => u.id !== user.id);
+        toastStore.success('사용자가 삭제되었습니다. (데모 모드)');
       } else {
-        throw new Error('삭제 실패');
+        toastStore.error(response.message || '사용자 삭제에 실패했습니다.');
       }
     } catch (error) {
       console.error('Delete user error:', error);
@@ -128,19 +165,21 @@
 
   async function unlockUser(user) {
     try {
-      const response = await fetch(`/api/v1/admin/users/${user.id}/unlock`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+      const response = await userApi.unlockUser(user.id);
 
-      if (response.ok) {
-        // 사용자 목록 새로고침
+      if (response.success) {
         await loadUsers();
         toastStore.success('사용자 잠금이 해제되었습니다.');
+      } else if (response.error === 'API_NOT_FOUND') {
+        // API가 없어도 로컬에서 처리
+        const userIndex = users.findIndex(u => u.id === user.id);
+        if (userIndex !== -1) {
+          users[userIndex] = { ...users[userIndex], isLocked: false, lockedUntil: null };
+          users = [...users];
+        }
+        toastStore.success('사용자 잠금이 해제되었습니다. (데모 모드)');
       } else {
-        throw new Error('잠금 해제 실패');
+        toastStore.error(response.message || '사용자 잠금 해제에 실패했습니다.');
       }
     } catch (error) {
       console.error('Unlock user error:', error);
@@ -170,15 +209,32 @@
       <h1 class="text-2xl font-bold text-gray-900">사용자 관리</h1>
       <p class="text-gray-600 mt-1">시스템 사용자를 관리합니다.</p>
     </div>
-    <button 
-      type="button" 
-      class="btn btn-primary"
-      on:click={openCreateModal}
-    >
-      <Plus size="16" class="mr-2" />
-      사용자 추가
-    </button>
+    <div class="flex items-center space-x-3">
+      {#if apiError}
+        <div class="flex items-center px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">
+          <AlertTriangle class="w-4 h-4 mr-1" />
+          데모 모드
+        </div>
+      {/if}
+      <button 
+        type="button" 
+        class="btn btn-primary"
+        on:click={openCreateModal}
+      >
+        <Plus size="16" class="mr-2" />
+        사용자 추가
+      </button>
+    </div>
   </div>
+
+  {#if apiError}
+    <Custom404
+      title="사용자 API를 찾을 수 없습니다"
+      message="사용자 관리 API가 구현되지 않았습니다. 현재 데모 데이터로 동작하고 있습니다."
+      showHomeButton={false}
+      onRetry={loadUsers}
+    />
+  {/if}
 
   <!-- 통계 카드 -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
