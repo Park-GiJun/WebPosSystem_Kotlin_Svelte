@@ -137,16 +137,28 @@ function createAuthStore() {
       }
     },
 
-    // 권한 확인
+    // 권한 확인 (동기 버전)
     hasPermission(menuCode, requiredPermission = 'READ') {
       let hasPermission = false;
       this.subscribe(state => {
         const permission = state.permissions.find(p => p.menuCode === menuCode);
         if (permission) {
-          const permissionLevels = { 'READ': 1, 'WRITE': 2, 'DELETE': 3, 'ADMIN': 4 };
-          const userLevel = permissionLevels[permission.permissionType] || 0;
-          const requiredLevel = permissionLevels[requiredPermission] || 1;
-          hasPermission = userLevel >= requiredLevel;
+          switch (requiredPermission.toLowerCase()) {
+            case 'read':
+              hasPermission = permission.hasRead;
+              break;
+            case 'write':
+              hasPermission = permission.hasWrite;
+              break;
+            case 'delete':
+              hasPermission = permission.hasDelete;
+              break;
+            case 'admin':
+              hasPermission = permission.hasAdmin;
+              break;
+            default:
+              hasPermission = false;
+          }
         }
       })();
       return hasPermission;
