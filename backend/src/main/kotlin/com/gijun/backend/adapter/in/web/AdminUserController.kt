@@ -1,13 +1,11 @@
 package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.adapter.`in`.web.dto.*
-import com.gijun.backend.application.service.AuthService
+import com.gijun.backend.application.service.AdminUserService
 import com.gijun.backend.application.service.PermissionService
-import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.configuration.JwtUtil
 import com.gijun.backend.domain.permission.entities.PermissionType
-import com.gijun.backend.domain.user.enums.UserRole
-import com.gijun.backend.domain.user.enums.UserStatus
+import com.gijun.backend.domain.user.entity.User
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -17,8 +15,7 @@ import org.springframework.web.server.ResponseStatusException
 @RestController
 @RequestMapping("/api/v1/admin/users")
 class AdminUserController(
-    private val userRepository: UserRepository,
-    private val authService: AuthService,
+    private val adminUserService: AdminUserService,
     private val permissionService: PermissionService,
     private val jwtUtil: JwtUtil
 ) {
@@ -47,45 +44,36 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제로는 페이징과 필터링을 구현해야 함
-        // 임시로 모든 사용자 반환
-        val users = listOf(
-            AdminUserDto(
-                id = "1",
-                username = "admin",
-                email = "admin@webpos.com",
-                roles = listOf("SUPER_ADMIN"),
-                userStatus = "ACTIVE",
-                isEmailVerified = true,
-                lastLoginAt = null,
-                failedLoginAttempts = 0,
-                isLocked = false,
-                lockedUntil = null,
-                createdAt = java.time.LocalDateTime.now(),
-                updatedAt = java.time.LocalDateTime.now()
-            ),
-            AdminUserDto(
-                id = "2",
-                username = "manager1",
-                email = "manager1@webpos.com",
-                roles = listOf("HQ_MANAGER"),
-                userStatus = "ACTIVE",
-                isEmailVerified = true,
-                lastLoginAt = java.time.LocalDateTime.now().minusHours(2),
-                failedLoginAttempts = 0,
-                isLocked = false,
-                lockedUntil = null,
-                createdAt = java.time.LocalDateTime.now().minusDays(30),
-                updatedAt = java.time.LocalDateTime.now().minusHours(2)
-            )
-        )
-        
-        return ResponseEntity.ok(UserListResponse(
-            users = users,
-            totalCount = users.size.toLong(),
-            page = page,
-            size = size
-        ))
+        try {
+            val result = adminUserService.getAllUsers(page, size, status, role, search)
+            
+            val userDtos = result.users.map { user ->
+                AdminUserDto(
+                    id = user.id,
+                    username = user.username,
+                    email = user.email,
+                    roles = user.roles.map { it.name },
+                    userStatus = user.userStatus.name,
+                    isEmailVerified = user.isEmailVerified(),
+                    lastLoginAt = user.lastLoginAt,
+                    failedLoginAttempts = user.failedLoginAttempts,
+                    isLocked = user.isLocked(),
+                    lockedUntil = user.lockedUntil,
+                    createdAt = user.createdAt,
+                    updatedAt = user.updatedAt
+                )
+            }
+            
+            return ResponseEntity.ok(UserListResponse(
+                users = userDtos,
+                totalCount = result.totalCount,
+                page = result.page,
+                size = result.size
+            ))
+            
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 목록 조회 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 
     @PostMapping
@@ -108,23 +96,37 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제 사용자 생성 로직 구현
-        val newUser = AdminUserDto(
-            id = java.util.UUID.randomUUID().toString(),
-            username = request.username,
-            email = request.email,
-            roles = request.roles,
-            userStatus = "PENDING_VERIFICATION",
-            isEmailVerified = false,
-            lastLoginAt = null,
-            failedLoginAttempts = 0,
-            isLocked = false,
-            lockedUntil = null,
-            createdAt = java.time.LocalDateTime.now(),
-            updatedAt = java.time.LocalDateTime.now()
-        )
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(newUser)
+        try {
+            val newUser = adminUserService.createUser(
+                username = request.username.trim(),
+                email = request.email.trim(),
+                password = request.password,
+                roles = request.roles,
+                createdBy = username
+            )
+            
+            val userDto = AdminUserDto(
+                id = newUser.id,
+                username = newUser.username,
+                email = newUser.email,
+                roles = newUser.roles.map { it.name },
+                userStatus = newUser.userStatus.name,
+                isEmailVerified = newUser.isEmailVerified(),
+                lastLoginAt = newUser.lastLoginAt,
+                failedLoginAttempts = newUser.failedLoginAttempts,
+                isLocked = newUser.isLocked(),
+                lockedUntil = newUser.lockedUntil,
+                createdAt = newUser.createdAt,
+                updatedAt = newUser.updatedAt
+            )
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(userDto)
+            
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 생성 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 
     @PutMapping("/{userId}")
@@ -148,23 +150,38 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제 사용자 업데이트 로직 구현
-        val updatedUser = AdminUserDto(
-            id = userId,
-            username = request.username,
-            email = request.email,
-            roles = request.roles,
-            userStatus = request.userStatus ?: "ACTIVE",
-            isEmailVerified = true,
-            lastLoginAt = null,
-            failedLoginAttempts = 0,
-            isLocked = false,
-            lockedUntil = null,
-            createdAt = java.time.LocalDateTime.now().minusDays(30),
-            updatedAt = java.time.LocalDateTime.now()
-        )
-        
-        return ResponseEntity.ok(updatedUser)
+        try {
+            val updatedUser = adminUserService.updateUser(
+                userId = userId,
+                username = request.username.trim(),
+                email = request.email.trim(),
+                roles = request.roles,
+                userStatus = request.userStatus,
+                updatedBy = username
+            )
+            
+            val userDto = AdminUserDto(
+                id = updatedUser.id,
+                username = updatedUser.username,
+                email = updatedUser.email,
+                roles = updatedUser.roles.map { it.name },
+                userStatus = updatedUser.userStatus.name,
+                isEmailVerified = updatedUser.isEmailVerified(),
+                lastLoginAt = updatedUser.lastLoginAt,
+                failedLoginAttempts = updatedUser.failedLoginAttempts,
+                isLocked = updatedUser.isLocked(),
+                lockedUntil = updatedUser.lockedUntil,
+                createdAt = updatedUser.createdAt,
+                updatedAt = updatedUser.updatedAt
+            )
+            
+            return ResponseEntity.ok(userDto)
+            
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 수정 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 
     @DeleteMapping("/{userId}")
@@ -187,8 +204,15 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제 사용자 삭제 로직 구현
-        return ResponseEntity.noContent().build()
+        try {
+            adminUserService.deleteUser(userId, username)
+            return ResponseEntity.noContent().build()
+            
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 삭제 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 
     @PostMapping("/{userId}/roles")
@@ -212,30 +236,42 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제 역할 할당 로직 구현
-        val updatedUser = AdminUserDto(
-            id = userId,
-            username = "updated_user",
-            email = "user@webpos.com",
-            roles = request.roles,
-            userStatus = "ACTIVE",
-            isEmailVerified = true,
-            lastLoginAt = null,
-            failedLoginAttempts = 0,
-            isLocked = false,
-            lockedUntil = null,
-            createdAt = java.time.LocalDateTime.now().minusDays(30),
-            updatedAt = java.time.LocalDateTime.now()
-        )
-        
-        return ResponseEntity.ok(updatedUser)
+        try {
+            val updatedUser = adminUserService.assignRoles(
+                userId = userId,
+                roles = request.roles,
+                updatedBy = username
+            )
+            
+            val userDto = AdminUserDto(
+                id = updatedUser.id,
+                username = updatedUser.username,
+                email = updatedUser.email,
+                roles = updatedUser.roles.map { it.name },
+                userStatus = updatedUser.userStatus.name,
+                isEmailVerified = updatedUser.isEmailVerified(),
+                lastLoginAt = updatedUser.lastLoginAt,
+                failedLoginAttempts = updatedUser.failedLoginAttempts,
+                isLocked = updatedUser.isLocked(),
+                lockedUntil = updatedUser.lockedUntil,
+                createdAt = updatedUser.createdAt,
+                updatedAt = updatedUser.updatedAt
+            )
+            
+            return ResponseEntity.ok(userDto)
+            
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "역할 할당 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 
     @PostMapping("/{userId}/unlock")
     suspend fun unlockUser(
         @PathVariable userId: String,
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<Void> {
+    ): ResponseEntity<AdminUserDto> {
         
         // 권한 체크
         val token = authorization.removePrefix("Bearer ")
@@ -251,8 +287,79 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
         }
         
-        // TODO: 실제 사용자 잠금 해제 로직 구현
-        return ResponseEntity.ok().build()
+        try {
+            val unlockedUser = adminUserService.unlockUser(userId, username)
+            
+            val userDto = AdminUserDto(
+                id = unlockedUser.id,
+                username = unlockedUser.username,
+                email = unlockedUser.email,
+                roles = unlockedUser.roles.map { it.name },
+                userStatus = unlockedUser.userStatus.name,
+                isEmailVerified = unlockedUser.isEmailVerified(),
+                lastLoginAt = unlockedUser.lastLoginAt,
+                failedLoginAttempts = unlockedUser.failedLoginAttempts,
+                isLocked = unlockedUser.isLocked(),
+                lockedUntil = unlockedUser.lockedUntil,
+                createdAt = unlockedUser.createdAt,
+                updatedAt = unlockedUser.updatedAt
+            )
+            
+            return ResponseEntity.ok(userDto)
+            
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 잠금 해제 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    @GetMapping("/{userId}")
+    suspend fun getUser(
+        @PathVariable userId: String,
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<AdminUserDto> {
+        
+        // 권한 체크
+        val token = authorization.removePrefix("Bearer ")
+        val username = jwtUtil.getUsernameFromToken(token)
+        
+        val hasPermission = permissionService.checkUserPermission(
+            username, 
+            "ADMIN_USERS", 
+            PermissionType.READ
+        )
+        
+        if (!hasPermission) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
+        }
+        
+        try {
+            val user = adminUserService.getUserById(userId)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+            
+            val userDto = AdminUserDto(
+                id = user.id,
+                username = user.username,
+                email = user.email,
+                roles = user.roles.map { it.name },
+                userStatus = user.userStatus.name,
+                isEmailVerified = user.isEmailVerified(),
+                lastLoginAt = user.lastLoginAt,
+                failedLoginAttempts = user.failedLoginAttempts,
+                isLocked = user.isLocked(),
+                lockedUntil = user.lockedUntil,
+                createdAt = user.createdAt,
+                updatedAt = user.updatedAt
+            )
+            
+            return ResponseEntity.ok(userDto)
+            
+        } catch (e: ResponseStatusException) {
+            throw e
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 조회 중 오류가 발생했습니다: ${e.message}")
+        }
     }
 }
 

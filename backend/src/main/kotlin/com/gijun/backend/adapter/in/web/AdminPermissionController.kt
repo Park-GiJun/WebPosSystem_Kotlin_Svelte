@@ -1,6 +1,7 @@
 package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.application.service.PermissionService
+import com.gijun.backend.application.service.RolePermissionDto as ServiceRolePermissionDto
 import com.gijun.backend.configuration.RequiresPermission
 import com.gijun.backend.configuration.JwtUtil
 import com.gijun.backend.domain.permission.entities.PermissionTargetType
@@ -190,11 +191,11 @@ class AdminPermissionController(
 
     @GetMapping("/roles")
     @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
-    suspend fun getRolePermissions(): ResponseEntity<List<RolePermissionDto>> {
+    suspend fun getRolePermissions(): ResponseEntity<List<ServiceRolePermissionDto>> {
         
         return try {
             val rolePermissions = permissionService.getAllRolePermissions()
-            ResponseEntity.ok(rolePermissions)
+            ResponseEntity.ok(rolePermissions) 
             
         } catch (e: Exception) {
             logger.error("Failed to get role permissions", e)
@@ -327,14 +328,5 @@ data class RevokePermissionRequest(
     val targetId: String
 )
 
-data class RolePermissionDto(
-    val roleName: String,
-    val roleDescription: String,
-    val permissions: List<PermissionSummaryDto>
-)
-
-data class PermissionSummaryDto(
-    val menuCode: String,
-    val menuName: String,
-    val permissionType: String
-)
+// RolePermissionDto와 PermissionSummaryDto는 PermissionService에서 가져와서 사용
+// 중복 정의 제거
