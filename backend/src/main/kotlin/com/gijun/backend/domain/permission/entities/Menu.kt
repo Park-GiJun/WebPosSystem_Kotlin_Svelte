@@ -1,6 +1,7 @@
 package com.gijun.backend.domain.permission.entities
 
 import com.gijun.backend.domain.permission.vo.MenuId
+import com.gijun.backend.domain.permission.enums.MenuType
 import com.gijun.backend.domain.common.AuditableEntity
 import java.time.LocalDateTime
 
@@ -92,10 +93,4 @@ data class Menu(
             )
         }
     }
-}
-
-enum class MenuType(val description: String) {
-    CATEGORY("카테고리"),
-    MENU("메뉴"),
-    FUNCTION("기능")
 }

@@ -56,6 +56,17 @@ data class User(
     fun isSystemUser(): Boolean = organizationType == "SYSTEM"
     fun isHeadquartersUser(): Boolean = organizationType == "HEADQUARTERS"
     fun isStoreUser(): Boolean = organizationType == "STORE"
+    
+    // AuthService에서 필요한 메소드들
+    fun canLogin(): Boolean = isActive && !isLocked() && userStatus in listOf(UserStatus.ACTIVE, UserStatus.PENDING_VERIFICATION)
+    fun isAdmin(): Boolean = hasRole(UserRole.SUPER_ADMIN) || hasRole(UserRole.SYSTEM_ADMIN)
+    
+    fun recordLoginAttempt(): User {
+        return this.copy(
+            failedLoginAttempts = failedLoginAttempts + 1,
+            updatedAt = LocalDateTime.now()
+        )
+    }
 
     fun login(loginAt: LocalDateTime = LocalDateTime.now()): User {
         val updatedUser = this.copy(

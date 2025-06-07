@@ -1,7 +1,7 @@
 package com.gijun.backend.application.service
 
 import com.gijun.backend.application.port.out.UserRepository
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.entities.User
 import com.gijun.backend.domain.user.enums.UserRole
 import com.gijun.backend.domain.user.enums.UserStatus
 import kotlinx.coroutines.flow.toList

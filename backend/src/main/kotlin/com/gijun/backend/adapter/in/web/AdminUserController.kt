@@ -4,8 +4,8 @@ import com.gijun.backend.adapter.`in`.web.dto.*
 import com.gijun.backend.application.service.AdminUserService
 import com.gijun.backend.application.service.PermissionService
 import com.gijun.backend.configuration.JwtUtil
-import com.gijun.backend.domain.permission.entities.PermissionType
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.permission.enums.PermissionType
+import com.gijun.backend.domain.user.entities.User
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -304,6 +304,8 @@ class AdminUserController(
                 email = unlockedUser.email,
                 roles = unlockedUser.roles.map { it.name },
                 userStatus = unlockedUser.userStatus.name,
+                organizationId = unlockedUser.organizationId,
+                organizationType = unlockedUser.organizationType,
                 isEmailVerified = unlockedUser.isEmailVerified(),
                 lastLoginAt = unlockedUser.lastLoginAt,
                 failedLoginAttempts = unlockedUser.failedLoginAttempts,

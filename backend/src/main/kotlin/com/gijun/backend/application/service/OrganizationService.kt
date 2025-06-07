@@ -2,10 +2,11 @@ package com.gijun.backend.application.service
 
 import com.gijun.backend.adapter.`in`.web.dto.organization.*
 import com.gijun.backend.application.port.out.UserRepository
-import com.gijun.backend.domain.store.entities.*
+import com.gijun.backend.domain.store.entities.Headquarters
+import com.gijun.backend.domain.store.entities.Store
 import com.gijun.backend.domain.store.vo.*
 import com.gijun.backend.domain.store.enums.*
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.entities.User
 import com.gijun.backend.domain.user.enums.UserRole
 import com.gijun.backend.domain.user.enums.UserStatus
 import org.springframework.security.crypto.password.PasswordEncoder

@@ -1,8 +1,8 @@
 package com.gijun.backend.application.port.out
 
 import com.gijun.backend.domain.permission.entities.Permission
-import com.gijun.backend.domain.permission.entities.PermissionTargetType
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionTargetType
+import com.gijun.backend.domain.permission.enums.PermissionType
 
 interface PermissionRepository {
     suspend fun save(permission: Permission): Permission

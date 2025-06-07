@@ -1,5 +1,6 @@
 package com.gijun.backend.adapter.`in`.web
 
+import com.gijun.backend.adapter.`in`.web.dto.organization.*
 import com.gijun.backend.application.service.*
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -65,8 +66,3 @@ class OrganizationController(
         }
     }
 }
-
-data class OrganizationsResponse(
-    val headquarters: List<HeadquartersResponse>,
-    val individualStores: List<StoreResponse>
-)

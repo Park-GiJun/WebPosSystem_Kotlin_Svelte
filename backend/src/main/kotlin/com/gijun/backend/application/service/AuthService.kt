@@ -6,7 +6,7 @@ import com.gijun.backend.application.port.`in`.LoginCommand
 import com.gijun.backend.application.port.`in`.RegisterCommand
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.configuration.JwtUtil
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.entities.User
 import com.gijun.backend.domain.user.enums.UserRole
 import com.gijun.backend.domain.user.enums.UserStatus
 import org.slf4j.LoggerFactory
@@ -73,7 +73,7 @@ class AuthService(
         if (!loginSuccess) {
             // 비밀번호 실패 시에만 실패 횟수 업데이트 (try-catch로 감싸서 충돌 무시)
             try {
-                val updatedUser = user.recordLoginAttempt(false, command.username)
+                val updatedUser = user.recordLoginAttempt()
                 userRepository.save(updatedUser)
             } catch (e: Exception) {
                 logger.warn("Failed to record failed login attempt for user: ${command.username}, but continuing with login failure", e)
@@ -146,7 +146,7 @@ class AuthService(
         val user = userRepository.findById(userId)
             ?: throw UserNotFoundException("User not found")
 
-        val verifiedUser = user.verifyEmail(userId)
+        val verifiedUser = user.verifyEmail()
         return userRepository.save(verifiedUser)
     }
 

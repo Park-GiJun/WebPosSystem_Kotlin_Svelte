@@ -2,23 +2,41 @@
 -- V8: 자동 사용자 생성 트리거 추가
 -- ========================================
 
--- 사용자 테이블에 조직 정보 컬럼 추가
-ALTER TABLE users 
-ADD COLUMN organization_id VARCHAR(50) NULL AFTER version,
-ADD COLUMN organization_type ENUM('SYSTEM', 'HEADQUARTERS', 'STORE') NULL AFTER organization_id;
+-- 사용자 테이블에 조직 정보 컬럼이 없는 경우에만 추가
+-- (V5에서 이미 추가되었으므로 생략)
 
--- 조직 관련 인덱스 추가
-CREATE INDEX idx_users_organization ON users(organization_type, organization_id);
-CREATE INDEX idx_users_organization_id ON users(organization_id);
-CREATE INDEX idx_users_organization_type ON users(organization_type);
+-- 조직 관련 인덱스 추가 (이미 존재하는 경우 무시)
+-- MySQL에서는 IF NOT EXISTS를 지원하지 않으므로 다른 방법 사용
 
--- 기존 SUPER_ADMIN, SYSTEM_ADMIN 사용자들을 SYSTEM 타입으로 업데이트
+-- 기존 인덱스가 있으면 무시하고 없으면 생성
+SET @sql = IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS 
+               WHERE table_schema = DATABASE() 
+               AND table_name = 'users' 
+               AND index_name = 'idx_users_organization_id') = 0,
+              'CREATE INDEX idx_users_organization_id ON users(organization_id)',
+              'SELECT ''Index idx_users_organization_id already exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS 
+               WHERE table_schema = DATABASE() 
+               AND table_name = 'users' 
+               AND index_name = 'idx_users_organization_type') = 0,
+              'CREATE INDEX idx_users_organization_type ON users(organization_type)',
+              'SELECT ''Index idx_users_organization_type already exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 기존 SUPER_ADMIN, SYSTEM_ADMIN 사용자들이 SYSTEM 타입이 아닌 경우에만 업데이트
 UPDATE users 
 SET organization_type = 'SYSTEM', 
     organization_id = NULL,
     updated_at = CURRENT_TIMESTAMP
-WHERE JSON_CONTAINS(roles, '"SUPER_ADMIN"') = 1 
-   OR JSON_CONTAINS(roles, '"SYSTEM_ADMIN"') = 1;
+WHERE (JSON_CONTAINS(roles, '"SUPER_ADMIN"') = 1 
+       OR JSON_CONTAINS(roles, '"SYSTEM_ADMIN"') = 1)
+  AND (organization_type IS NULL OR organization_type != 'SYSTEM');
 
 -- ========================================
 -- 필요한 테이블들 생성 (존재하지 않는 경우)
@@ -151,7 +169,7 @@ BEGIN
     DECLARE admin_username VARCHAR(50);
     DECLARE admin_email VARCHAR(320);
     DECLARE admin_password_hash VARCHAR(255);
-    DECLARE current_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    DECLARE now_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     
     -- 관리자 계정 정보 생성
     SET admin_user_id = CONCAT('HQ-', NEW.hq_id, '-ADMIN');
@@ -159,6 +177,7 @@ BEGIN
     SET admin_email = CONCAT(NEW.hq_code, '_admin@', LOWER(NEW.hq_code), '.webpos.com');
     -- 기본 비밀번호: 'password123' (운영환경에서는 임시 비밀번호 생성 로직 필요)
     SET admin_password_hash = '$2a$10$RUDKfsvPLlm75vp5DVccCej2esBU4iAYxGO7Pcj3nCwSjIERLmI32';
+    SET now_timestamp = NOW();
     
     -- 본사 관리자 계정 생성
     INSERT INTO users (
@@ -185,15 +204,15 @@ BEGIN
         NEW.hq_id,
         'HEADQUARTERS',
         TRUE,
-        current_timestamp,
+        now_timestamp,
         NEW.created_by,
-        current_timestamp,
+        now_timestamp,
         0
     ) ON DUPLICATE KEY UPDATE
         email = VALUES(email),
         organization_id = VALUES(organization_id),
         organization_type = VALUES(organization_type),
-        updated_at = current_timestamp,
+        updated_at = now_timestamp,
         version = version + 1;
         
     -- 본사 관리자에게 영업정보시스템 메뉴 권한 부여
@@ -216,16 +235,17 @@ BEGIN
         'ADMIN',
         'system',
         TRUE,
-        current_timestamp,
-        current_timestamp
+        now_timestamp,
+        now_timestamp
     FROM menus m 
     WHERE m.menu_code LIKE 'BUSINESS_%' 
       AND m.is_active = TRUE
     ON DUPLICATE KEY UPDATE
         permission_type = VALUES(permission_type),
-        updated_at = current_timestamp;
+        updated_at = now_timestamp;
         
-    -- 트리거 실행 로그 (선택사항)
+    -- 트리거 실행 로그 (선택사항) - 임시로 비활성화
+    /*
     INSERT INTO audit_logs (
         log_id,
         table_name,
@@ -246,8 +266,9 @@ BEGIN
             'admin_username', admin_username,
             'admin_email', admin_email
         ),
-        current_timestamp
+        now_timestamp
     );
+    */
 END$$
 
 DELIMITER ;
@@ -266,7 +287,7 @@ BEGIN
     DECLARE admin_username VARCHAR(50);
     DECLARE admin_email VARCHAR(320);
     DECLARE admin_password_hash VARCHAR(255);
-    DECLARE current_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    DECLARE now_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     DECLARE store_prefix VARCHAR(20);
     
     -- 매장 타입에 따른 접두사 설정
@@ -282,6 +303,7 @@ BEGIN
     SET admin_email = CONCAT(store_prefix, '_admin@', 'store.webpos.com');
     -- 기본 비밀번호: 'password123' (운영환경에서는 임시 비밀번호 생성 로직 필요)
     SET admin_password_hash = '$2a$10$EqKwQKUjQQ7zMwcXCNHyWu.V.VwKSLGrjTlIr/Rvz3Yh4VWL6/QE.';
+    SET now_timestamp = NOW();
     
     -- 매장 관리자 계정 생성
     INSERT INTO users (
@@ -308,15 +330,15 @@ BEGIN
         NEW.store_id,
         'STORE',
         TRUE,
-        current_timestamp,
+        now_timestamp,
         NEW.created_by,
-        current_timestamp,
+        now_timestamp,
         0
     ) ON DUPLICATE KEY UPDATE
         email = VALUES(email),
         organization_id = VALUES(organization_id),
         organization_type = VALUES(organization_type),
-        updated_at = current_timestamp,
+        updated_at = now_timestamp,
         version = version + 1;
         
     -- 매장 관리자에게 POS 시스템 메뉴 권한 부여
@@ -339,14 +361,14 @@ BEGIN
         'ADMIN',
         'system',
         TRUE,
-        current_timestamp,
-        current_timestamp
+        now_timestamp,
+        now_timestamp
     FROM menus m 
     WHERE m.menu_code LIKE 'POS_%' 
       AND m.is_active = TRUE
     ON DUPLICATE KEY UPDATE
         permission_type = VALUES(permission_type),
-        updated_at = current_timestamp;
+        updated_at = now_timestamp;
         
     -- 영업정보시스템의 POS 관리 메뉴 권한도 부여 (매장에서 POS 관리용)
     INSERT INTO permissions (
@@ -368,23 +390,24 @@ BEGIN
         'ADMIN',
         'system',
         TRUE,
-        current_timestamp,
-        current_timestamp
+        now_timestamp,
+        now_timestamp
     FROM menus m 
     WHERE m.menu_code = 'BUSINESS_POS'
       AND m.is_active = TRUE
     ON DUPLICATE KEY UPDATE
         permission_type = VALUES(permission_type),
-        updated_at = current_timestamp;
+        updated_at = now_timestamp;
         
     -- stores 테이블의 manager_user_id 업데이트
     UPDATE stores 
     SET manager_user_id = admin_user_id,
-        updated_at = current_timestamp,
+        updated_at = now_timestamp,
         version = version + 1
     WHERE store_id = NEW.store_id;
         
-    -- 트리거 실행 로그 (선택사항)
+    -- 트리거 실행 로그 (선택사항) - 임시로 비활성화
+    /*
     INSERT INTO audit_logs (
         log_id,
         table_name,
@@ -406,8 +429,9 @@ BEGIN
             'admin_username', admin_username,
             'admin_email', admin_email
         ),
-        current_timestamp
+        now_timestamp
     );
+    */
 END$$
 
 DELIMITER ;
@@ -621,9 +645,10 @@ GROUP BY u.organization_type, u.organization_id
 ORDER BY u.organization_type, u.organization_id;
 
 -- ========================================
--- 마이그레이션 완료 로그
+-- 마이그레이션 완료 로그 - 임시로 비활성화
 -- ========================================
 
+/*
 INSERT INTO audit_logs (
     log_id,
     table_name,
@@ -651,3 +676,4 @@ INSERT INTO audit_logs (
     ),
     NOW()
 );
+*/

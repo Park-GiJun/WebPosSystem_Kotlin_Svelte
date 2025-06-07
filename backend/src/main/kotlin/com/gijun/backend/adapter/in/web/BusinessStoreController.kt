@@ -1,7 +1,7 @@
 package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.configuration.RequiresPermission
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionType
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

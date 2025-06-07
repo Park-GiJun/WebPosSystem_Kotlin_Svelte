@@ -1,6 +1,6 @@
 package com.gijun.backend.configuration
 
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionType
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

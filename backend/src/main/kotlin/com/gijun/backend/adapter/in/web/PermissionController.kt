@@ -2,7 +2,7 @@ package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.application.service.PermissionService
 import com.gijun.backend.configuration.JwtUtil
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 

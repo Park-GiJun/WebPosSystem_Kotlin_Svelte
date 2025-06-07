@@ -1,7 +1,7 @@
 package com.gijun.backend.adapter.out.persistence.user
 
 import com.gijun.backend.application.port.out.UserRepository
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.entities.User
 import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Component
 

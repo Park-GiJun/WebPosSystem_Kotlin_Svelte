@@ -1,7 +1,7 @@
 package com.gijun.backend.adapter.out.persistence.permission
 
 import com.gijun.backend.domain.permission.entities.Menu
-import com.gijun.backend.domain.permission.entities.MenuType
+import com.gijun.backend.domain.permission.enums.MenuType
 import com.gijun.backend.domain.permission.vo.MenuId
 import org.springframework.stereotype.Component
 

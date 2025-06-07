@@ -4,8 +4,8 @@ import com.gijun.backend.application.service.PermissionService
 import com.gijun.backend.application.service.RolePermissionDto as ServiceRolePermissionDto
 import com.gijun.backend.configuration.RequiresPermission
 import com.gijun.backend.configuration.JwtUtil
-import com.gijun.backend.domain.permission.entities.PermissionTargetType
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionTargetType
+import com.gijun.backend.domain.permission.enums.PermissionType
 import com.gijun.backend.common.util.logger
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity

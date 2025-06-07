@@ -2,7 +2,7 @@ package com.gijun.backend.adapter.out.persistence.user
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.gijun.backend.domain.user.entity.User
+import com.gijun.backend.domain.user.entities.User
 import com.gijun.backend.domain.user.enums.UserRole
 import com.gijun.backend.domain.user.enums.UserStatus
 import org.springframework.stereotype.Component

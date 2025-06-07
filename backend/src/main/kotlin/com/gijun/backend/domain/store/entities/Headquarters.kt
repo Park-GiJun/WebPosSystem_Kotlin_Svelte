@@ -1,21 +1,22 @@
-package com.gijun.backend.domain.permission.entities
+package com.gijun.backend.domain.store.entities
 
-import com.gijun.backend.domain.permission.vo.MenuId
-import com.gijun.backend.domain.permission.enums.MenuType
+import com.gijun.backend.domain.store.vo.*
+import com.gijun.backend.domain.store.enums.*
+import com.gijun.backend.domain.store.events.*
 import com.gijun.backend.domain.common.AuditableEntity
 import java.time.LocalDateTime
 
-data class Menu(
-    val menuId: MenuId,
-    val menuCode: String,
-    val menuName: String,
-    val menuPath: String,
-    val parentMenuId: MenuId? = null,
-    val menuLevel: Int = 1,
-    val displayOrder: Int = 0,
-    val iconName: String? = null,
-    val description: String? = null,
-    val menuType: MenuType = MenuType.MENU,
+data class Headquarters(
+    val hqId: HeadquartersId,
+    val hqCode: String,
+    val hqName: String,
+    val businessLicense: BusinessLicense? = null,
+    val ceoName: String? = null,
+    val headquartersAddress: String? = null,
+    val contactPhone: PhoneNumber? = null,
+    val website: String? = null,
+    val storeType: StoreType = StoreType.FRANCHISE,
+    val hqStatus: StoreStatus = StoreStatus.ACTIVE,
     override val isActive: Boolean = true,
     override val createdAt: LocalDateTime = LocalDateTime.now(),
     override val createdBy: String? = null,
@@ -26,69 +27,76 @@ data class Menu(
 ) : AuditableEntity {
 
     init {
-        require(menuCode.isNotBlank()) { "메뉴 코드는 필수입니다." }
-        require(menuName.isNotBlank()) { "메뉴명은 필수입니다." }
-        require(menuLevel > 0) { "메뉴 레벨은 1 이상이어야 합니다." }
+        require(hqCode.isNotBlank()) { "본사 코드는 필수입니다." }
+        require(hqName.isNotBlank()) { "본사명은 필수입니다." }
+        require(hqCode.length >= 2) { "본사 코드는 최소 2자 이상이어야 합니다." }
+        require(hqName.length >= 2) { "본사명은 최소 2자 이상이어야 합니다." }
     }
 
-    fun isParentMenu(): Boolean = menuType == MenuType.CATEGORY
-    fun hasParent(): Boolean = parentMenuId != null
+    fun isOperational(): Boolean = hqStatus == StoreStatus.ACTIVE && isActive
 
     fun updateInfo(
-        menuName: String? = null,
-        menuPath: String? = null,
-        iconName: String? = null,
-        description: String? = null,
-        displayOrder: Int? = null,
+        hqName: String? = null,
+        businessLicense: BusinessLicense? = null,
+        ceoName: String? = null,
+        headquartersAddress: String? = null,
+        contactPhone: PhoneNumber? = null,
+        website: String? = null,
         updatedBy: String
-    ): Menu = this.copy(
-        menuName = menuName ?: this.menuName,
-        menuPath = menuPath ?: this.menuPath,
-        iconName = iconName ?: this.iconName,
-        description = description ?: this.description,
-        displayOrder = displayOrder ?: this.displayOrder,
+    ): Headquarters = this.copy(
+        hqName = hqName ?: this.hqName,
+        businessLicense = businessLicense ?: this.businessLicense,
+        ceoName = ceoName ?: this.ceoName,
+        headquartersAddress = headquartersAddress ?: this.headquartersAddress,
+        contactPhone = contactPhone ?: this.contactPhone,
+        website = website ?: this.website,
         updatedAt = LocalDateTime.now(),
         updatedBy = updatedBy
     )
 
-    fun activate(updatedBy: String): Menu =
+    fun activate(updatedBy: String): Headquarters =
         this.copy(
+            hqStatus = StoreStatus.ACTIVE,
             isActive = true,
             updatedAt = LocalDateTime.now(),
             updatedBy = updatedBy
         )
 
-    fun deactivate(updatedBy: String): Menu =
+    fun deactivate(updatedBy: String): Headquarters =
         this.copy(
+            hqStatus = StoreStatus.INACTIVE,
             isActive = false,
+            updatedAt = LocalDateTime.now(),
+            updatedBy = updatedBy
+        )
+
+    fun suspend(updatedBy: String): Headquarters =
+        this.copy(
+            hqStatus = StoreStatus.SUSPENDED,
             updatedAt = LocalDateTime.now(),
             updatedBy = updatedBy
         )
 
     companion object {
         fun create(
-            menuCode: String,
-            menuName: String,
-            menuPath: String,
-            parentMenuId: MenuId? = null,
-            menuLevel: Int = 1,
-            displayOrder: Int = 0,
-            iconName: String? = null,
-            description: String? = null,
-            menuType: MenuType = MenuType.MENU,
-            createdBy: String
-        ): Menu {
-            return Menu(
-                menuId = MenuId.generate(),
-                menuCode = menuCode,
-                menuName = menuName,
-                menuPath = menuPath,
-                parentMenuId = parentMenuId,
-                menuLevel = menuLevel,
-                displayOrder = displayOrder,
-                iconName = iconName,
-                description = description,
-                menuType = menuType,
+            hqCode: String,
+            hqName: String,
+            createdBy: String,
+            businessLicense: BusinessLicense? = null,
+            ceoName: String? = null,
+            headquartersAddress: String? = null,
+            contactPhone: PhoneNumber? = null,
+            website: String? = null
+        ): Headquarters {
+            return Headquarters(
+                hqId = HeadquartersId.generate(hqCode),
+                hqCode = hqCode,
+                hqName = hqName,
+                businessLicense = businessLicense,
+                ceoName = ceoName,
+                headquartersAddress = headquartersAddress,
+                contactPhone = contactPhone,
+                website = website,
                 createdBy = createdBy
             )
         }

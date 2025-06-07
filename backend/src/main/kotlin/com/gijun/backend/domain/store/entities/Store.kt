@@ -63,7 +63,11 @@ data class Store(
         )
 
         deletedStore._events.add(
-            StoreDeletedEvent(storeId = storeId, deletedBy = deletedBy)
+            StoreDeletedEvent(
+                storeId = storeId,
+                reason = null,
+                deletedBy = deletedBy
+            )
         )
 
         return deletedStore
@@ -79,8 +83,9 @@ data class Store(
         updatedStore._events.add(
             StoreStatusChangedEvent(
                 storeId = storeId,
-                previousStatus = this.storeStatus.name,
-                newStatus = newStatus.name,
+                previousStatus = this.storeStatus,
+                newStatus = newStatus,
+                reason = null,
                 changedBy = updatedBy
             )
         )
@@ -148,6 +153,12 @@ data class Store(
                 StoreCreatedEvent(
                     storeId = storeId,
                     storeName = storeName,
+                    storeType = StoreType.INDIVIDUAL,
+                    operationType = null,
+                    regionCode = regionCode,
+                    storeNumber = storeNumber,
+                    ownerName = ownerName,
+                    headquartersId = null,
                     createdBy = createdBy
                 )
             )
@@ -190,6 +201,12 @@ data class Store(
                 StoreCreatedEvent(
                     storeId = storeId,
                     storeName = storeName,
+                    storeType = StoreType.INDIVIDUAL,
+                    operationType = null,
+                    regionCode = regionCode,
+                    storeNumber = storeNumber,
+                    ownerName = ownerName,
+                    headquartersId = null,
                     createdBy = createdBy
                 )
             )

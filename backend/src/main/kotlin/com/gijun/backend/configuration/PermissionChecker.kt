@@ -2,7 +2,7 @@ package com.gijun.backend.configuration
 
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.application.service.PermissionService
-import com.gijun.backend.domain.permission.entities.PermissionType
+import com.gijun.backend.domain.permission.enums.PermissionType
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ResponseStatusException

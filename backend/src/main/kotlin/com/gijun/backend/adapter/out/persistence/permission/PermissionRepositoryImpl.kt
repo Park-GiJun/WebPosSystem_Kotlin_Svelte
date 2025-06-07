@@ -2,7 +2,7 @@ package com.gijun.backend.adapter.out.persistence.permission
 
 import com.gijun.backend.application.port.out.PermissionRepository
 import com.gijun.backend.domain.permission.entities.Permission
-import com.gijun.backend.domain.permission.entities.PermissionTargetType
+import com.gijun.backend.domain.permission.enums.PermissionTargetType
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Component
