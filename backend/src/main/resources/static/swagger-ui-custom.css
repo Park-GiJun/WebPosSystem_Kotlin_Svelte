@@ -1,0 +1,366 @@
+/* WebPos Swagger UI 커스텀 스타일 */
+
+:root {
+    --primary-color: #2E8B57;
+    --secondary-color: #3CB371;
+    --accent-color: #20B2AA;
+    --background-color: #F8FFFE;
+    --card-background: #FFFFFF;
+    --text-primary: #2F4F4F;
+    --text-secondary: #696969;
+    --border-color: #E0E6ED;
+    --success-color: #28A745;
+    --warning-color: #FFC107;
+    --error-color: #DC3545;
+    --info-color: #17A2B8;
+}
+
+/* 전체 배경 */
+body {
+    background: linear-gradient(135deg, #F8FFFE 0%, #E8F5E8 100%);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 헤더 스타일링 */
+.swagger-ui .topbar {
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    border-bottom: 3px solid var(--accent-color);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.swagger-ui .topbar .download-url-wrapper {
+    display: none;
+}
+
+/* 메인 컨테이너 */
+.swagger-ui .wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* API 정보 헤더 */
+.swagger-ui .info {
+    background: var(--card-background);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 30px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.swagger-ui .info .title {
+    color: var(--primary-color);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.swagger-ui .info .description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+/* 서버 선택 드롭다운 */
+.swagger-ui .scheme-container {
+    background: var(--card-background);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+/* 태그 섹션 */
+.swagger-ui .opblock-tag-section {
+    margin-bottom: 30px;
+}
+
+.swagger-ui .opblock-tag {
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px 8px 0 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.swagger-ui .opblock-tag:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+/* API 블록 */
+.swagger-ui .opblock {
+    border-radius: 0 0 8px 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.swagger-ui .opblock:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+/* HTTP 메소드별 색상 */
+.swagger-ui .opblock.opblock-get {
+    border-left: 4px solid var(--info-color);
+}
+
+.swagger-ui .opblock.opblock-post {
+    border-left: 4px solid var(--success-color);
+}
+
+.swagger-ui .opblock.opblock-put {
+    border-left: 4px solid var(--warning-color);
+}
+
+.swagger-ui .opblock.opblock-delete {
+    border-left: 4px solid var(--error-color);
+}
+
+.swagger-ui .opblock.opblock-patch {
+    border-left: 4px solid var(--secondary-color);
+}
+
+/* 메소드 버튼 */
+.swagger-ui .opblock-summary-method {
+    border-radius: 6px;
+    font-weight: 700;
+    min-width: 80px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* Try it out 버튼 */
+.swagger-ui .btn.try-out__btn {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.swagger-ui .btn.try-out__btn:hover {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+/* Execute 버튼 */
+.swagger-ui .btn.execute {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.swagger-ui .btn.execute:hover {
+    background: #1BA3A6;
+    border-color: #1BA3A6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* 응답 섹션 */
+.swagger-ui .responses-wrapper {
+    background: var(--background-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.swagger-ui .response {
+    background: var(--card-background);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+/* 스키마 섹션 */
+.swagger-ui .model-box {
+    background: var(--card-background);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+}
+
+/* 입력 필드 */
+.swagger-ui input[type="text"],
+.swagger-ui input[type="password"],
+.swagger-ui input[type="email"],
+.swagger-ui textarea,
+.swagger-ui select {
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.swagger-ui input[type="text"]:focus,
+.swagger-ui input[type="password"]:focus,
+.swagger-ui input[type="email"]:focus,
+.swagger-ui textarea:focus,
+.swagger-ui select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.1);
+}
+
+/* 보안 인증 섹션 */
+.swagger-ui .auth-wrapper {
+    background: var(--card-background);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.swagger-ui .auth-btn-wrapper .btn-done {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* 코드 하이라이팅 */
+.swagger-ui .highlight-code {
+    background: #2d3748;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.swagger-ui .highlight-code pre {
+    color: #e2e8f0;
+    font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+}
+
+/* 로딩 애니메이션 */
+.swagger-ui .loading {
+    position: relative;
+}
+
+.swagger-ui .loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 스크롤바 커스터마이징 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .swagger-ui .wrapper {
+        padding: 10px;
+    }
+    
+    .swagger-ui .info {
+        padding: 20px;
+    }
+    
+    .swagger-ui .info .title {
+        font-size: 2rem;
+    }
+    
+    .swagger-ui .opblock-tag {
+        padding: 12px 15px;
+        font-size: 1.1rem;
+    }
+}
+
+/* 다크모드 지원 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #1a202c;
+        --card-background: #2d3748;
+        --text-primary: #e2e8f0;
+        --text-secondary: #a0aec0;
+        --border-color: #4a5568;
+    }
+    
+    body {
+        background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+        color: var(--text-primary);
+    }
+}
+
+/* 성공/에러 메시지 스타일링 */
+.swagger-ui .response .response-col_status {
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.swagger-ui .response .response-col_status.response-200 {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--success-color);
+}
+
+.swagger-ui .response .response-col_status.response-400,
+.swagger-ui .response .response-col_status.response-401,
+.swagger-ui .response .response-col_status.response-403,
+.swagger-ui .response .response-col_status.response-404,
+.swagger-ui .response .response-col_status.response-500 {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--error-color);
+}
+
+/* 애니메이션 효과 */
+.swagger-ui .opblock-summary:hover {
+    background-color: rgba(46, 139, 87, 0.05);
+}
+
+.swagger-ui .expand-operation svg {
+    transition: transform 0.3s ease;
+}
+
+.swagger-ui .expand-operation.expanded svg {
+    transform: rotate(90deg);
+}

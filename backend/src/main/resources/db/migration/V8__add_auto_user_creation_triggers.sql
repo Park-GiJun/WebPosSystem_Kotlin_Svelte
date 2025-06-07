@@ -399,12 +399,8 @@ BEGIN
         permission_type = VALUES(permission_type),
         updated_at = now_timestamp;
         
-    -- stores 테이블의 manager_user_id 업데이트
-    UPDATE stores 
-    SET manager_user_id = admin_user_id,
-        updated_at = now_timestamp,
-        version = version + 1
-    WHERE store_id = NEW.store_id;
+    -- stores 테이블의 manager_user_id는 별도 UPDATE문으로 처리
+    -- (트리거 내에서 같은 테이블 수정 불가로 인해 제거)
         
     -- 트리거 실행 로그 (선택사항) - 임시로 비활성화
     /*
@@ -475,74 +471,11 @@ INSERT INTO menus (
     updated_at = NOW();
 
 -- ========================================
--- 트리거 테스트용 임시 데이터 (개발/테스트 환경에서만 사용)
+-- 트리거 테스트용 임시 데이터 삭제 (트리거 충돌 방지)
 -- ========================================
 
--- 테스트용 본사 데이터 삽입 (트리거 동작 확인용)
-INSERT INTO headquarters (
-    hq_id,
-    hq_code,
-    hq_name,
-    business_license,
-    ceo_name,
-    headquarters_address,
-    contact_phone,
-    website,
-    is_active,
-    created_by
-) VALUES (
-    'HQ001',
-    'TEST',
-    '테스트 본사',
-    '123-45-67890',
-    '김본사',
-    '서울시 강남구 테스트로 123',
-    '02-123-4567',
-    'https://test.webpos.com',
-    TRUE,
-    'admin'
-) ON DUPLICATE KEY UPDATE
-    hq_name = VALUES(hq_name),
-    updated_at = NOW();
-
--- 테스트용 매장 데이터 삽입 (트리거 동작 확인용)
-INSERT INTO stores (
-    store_id,
-    store_name,
-    store_type,
-    operation_type,
-    hq_id,
-    region_code,
-    store_number,
-    business_license,
-    owner_name,
-    phone_number,
-    address,
-    postal_code,
-    opening_date,
-    store_status,
-    is_active,
-    created_by
-) VALUES (
-    'HQ001001',
-    '테스트 강남점',
-    'CHAIN',
-    'FRANCHISE',
-    'HQ001',
-    '001',
-    '001',
-    '234-56-78901',
-    '김매장',
-    '02-234-5678',
-    '서울시 강남구 매장로 456',
-    '12345',
-    CURDATE(),
-    'ACTIVE',
-    TRUE,
-    'HQ-HQ001-ADMIN'
-) ON DUPLICATE KEY UPDATE
-    store_name = VALUES(store_name),
-    updated_at = NOW();
+-- 테스트 데이터는 별도 스크립트로 처리하거나 수동으로 삽입
+-- 트리거 동작 확인은 애플리케이션 레벨에서 수행
 
 -- ========================================
 -- 권한 정리 및 업데이트

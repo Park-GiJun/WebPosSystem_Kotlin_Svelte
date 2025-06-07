@@ -1,115 +1,106 @@
 package com.gijun.backend.configuration
 
-import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.annotation.EnableKafka
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory
-import org.springframework.kafka.config.TopicBuilder
-import org.springframework.kafka.core.ConsumerFactory
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory
-import org.springframework.kafka.core.DefaultKafkaProducerFactory
-import org.springframework.kafka.core.KafkaTemplate
-import org.springframework.kafka.core.ProducerFactory
+import org.springframework.kafka.core.*
 import org.springframework.kafka.listener.ContainerProperties
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 import org.springframework.kafka.support.serializer.JsonDeserializer
 import org.springframework.kafka.support.serializer.JsonSerializer
 
-
 @Configuration
 @EnableKafka
-class KafkaConfiguration(
-    private val kafkaProperties: KafkaProperties
-) {
+class KafkaConfiguration {
 
-    // Topics
-    @Bean
-    fun characterEventsTopic(): NewTopic {
-        return TopicBuilder.name("character-events")
-            .partitions(3)
-            .replicas(1)
-            .build()
-    }
+    @Value("\${spring.kafka.bootstrap-servers:localhost:9092}")
+    private lateinit var bootstrapServers: String
 
-    @Bean
-    fun gameEventsTopic(): NewTopic {
-        return TopicBuilder.name("game-events")
-            .partitions(3)
-            .replicas(1)
-            .build()
-    }
+    @Value("\${spring.kafka.consumer.group-id:webpos-group}")
+    private lateinit var groupId: String
 
-    @Bean
-    fun notificationsTopic(): NewTopic {
-        return TopicBuilder.name("notifications")
-            .partitions(1)
-            .replicas(1)
-            .build()
-    }
+    @Value("\${spring.kafka.consumer.key-deserializer:org.apache.kafka.common.serialization.StringDeserializer}")
+    private lateinit var keyDeserializer: String
 
-    // Producer Configuration
-    @Bean
-    fun producerFactory(): ProducerFactory<String, Any> {
-        val props = HashMap<String, Any>()
-        props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = kafkaProperties.bootstrapServers
-        props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
-        props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = JsonSerializer::class.java
-        props[ProducerConfig.ACKS_CONFIG] = "all"
-        props[ProducerConfig.RETRIES_CONFIG] = 3
-        props[ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG] = true
+    @Value("\${spring.kafka.consumer.value-deserializer:org.springframework.kafka.support.serializer.JsonDeserializer}")
+    private lateinit var valueDeserializer: String
 
-        return DefaultKafkaProducerFactory(props)
-    }
+    @Value("\${spring.kafka.producer.key-serializer:org.apache.kafka.common.serialization.StringSerializer}")
+    private lateinit var keySerializer: String
 
-    @Bean
-    fun kafkaTemplate(): KafkaTemplate<String, Any> {
-        return KafkaTemplate(producerFactory())
-    }
+    @Value("\${spring.kafka.producer.value-serializer:org.springframework.kafka.support.serializer.JsonSerializer}")
+    private lateinit var valueSerializer: String
 
-    // Consumer Configuration with Error Handling
+    @Value("\${spring.kafka.consumer.properties.spring.json.trusted.packages:com.gijun.backend}")
+    private lateinit var trustedPackages: String
+
     @Bean
     fun consumerFactory(): ConsumerFactory<String, Any> {
-        val props = HashMap<String, Any>()
-        props[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = kafkaProperties.bootstrapServers
-        props[ConsumerConfig.GROUP_ID_CONFIG] = kafkaProperties.consumer.groupId
-        props[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
-        props[ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG] = false
+        val configProps = mutableMapOf<String, Any>()
+        configProps[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServers
+        configProps[ConsumerConfig.GROUP_ID_CONFIG] = groupId
+        configProps[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = keyDeserializer
+        configProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = valueDeserializer
+        configProps[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
+        configProps[ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG] = false
+        configProps[ConsumerConfig.MAX_POLL_RECORDS_CONFIG] = 500
+        configProps[ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG] = 30000
+        configProps[ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG] = 10000
 
-        // Error Handling Deserializer 설정
-        props[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = ErrorHandlingDeserializer::class.java
-        props[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = ErrorHandlingDeserializer::class.java
+        // JsonDeserializer 설정
+        configProps[JsonDeserializer.TRUSTED_PACKAGES] = trustedPackages
+        configProps[JsonDeserializer.USE_TYPE_INFO_HEADERS] = false
+        configProps[JsonDeserializer.VALUE_DEFAULT_TYPE] = "com.gijun.backend.adapter.in.messaging.events.BaseEvent"
 
-        // 실제 Deserializer 설정
-        props[ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS] = StringDeserializer::class.java
-        props[ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS] = JsonDeserializer::class.java
-
-        // JSON Deserializer 신뢰 패키지 설정 - 모든 클래스 허용
-        props[JsonDeserializer.TRUSTED_PACKAGES] = "*"
-
-        return DefaultKafkaConsumerFactory(props)
+        return DefaultKafkaConsumerFactory(configProps)
     }
 
     @Bean
     fun kafkaListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, Any> {
         val factory = ConcurrentKafkaListenerContainerFactory<String, Any>()
         factory.consumerFactory = consumerFactory()
-        factory.setConcurrency(3)
-        factory.containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
-        factory.setCommonErrorHandler(KafkaErrorHandler())
+        factory.setConcurrency(3) // 동시 처리할 컨슈머 수
+        factory.containerProperties.ackMode = ContainerProperties.AckMode.MANUAL_IMMEDIATE
+        factory.containerProperties.isSyncCommits = true
+        factory.setCommonErrorHandler(kafkaErrorHandler())
         return factory
     }
-}
 
-// Custom Error Handler - 기본 설정만 사용
-class KafkaErrorHandler : org.springframework.kafka.listener.DefaultErrorHandler() {
-    init {
-        // Configure retry and DLQ behavior
-        setBackOffFunction { _, _ -> org.springframework.util.backoff.FixedBackOff(1000L, 3) }
+    @Bean
+    fun producerFactory(): ProducerFactory<String, Any> {
+        val configProps = mutableMapOf<String, Any>()
+        configProps[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServers
+        configProps[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = keySerializer
+        configProps[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = valueSerializer
+        configProps[ProducerConfig.ACKS_CONFIG] = "all" // 모든 복제본 확인
+        configProps[ProducerConfig.RETRIES_CONFIG] = 3
+        configProps[ProducerConfig.BATCH_SIZE_CONFIG] = 16384
+        configProps[ProducerConfig.LINGER_MS_CONFIG] = 5
+        configProps[ProducerConfig.BUFFER_MEMORY_CONFIG] = 33554432
+        configProps[ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG] = true
+
+        // JsonSerializer 설정
+        configProps[JsonSerializer.ADD_TYPE_INFO_HEADERS] = false
+
+        return DefaultKafkaProducerFactory(configProps)
+    }
+
+    @Bean
+    fun kafkaTemplate(): KafkaTemplate<String, Any> {
+        val template = KafkaTemplate(producerFactory())
+        template.setObservationEnabled(true) // 메트릭 수집 활성화
+        return template
+    }
+
+    @Bean
+    fun kafkaErrorHandler(): org.springframework.kafka.listener.CommonErrorHandler {
+        return org.springframework.kafka.listener.DefaultErrorHandler(
+            org.springframework.util.backoff.FixedBackOff(1000L, 3)
+        )
     }
 }
