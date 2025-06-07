@@ -11,6 +11,11 @@ interface UserR2dbcRepository : CoroutineCrudRepository<UserEntity, String> {
     suspend fun existsByUsername(username: String): Boolean
     suspend fun existsByEmail(email: String): Boolean
 
+    // Organization-related queries
+    suspend fun findByOrganizationId(organizationId: String): List<UserEntity>
+    suspend fun findByOrganizationType(organizationType: String): List<UserEntity>
+    suspend fun findByOrganizationIdAndOrganizationType(organizationId: String, organizationType: String): List<UserEntity>
+
     // New methods for V2 features
     @Query("SELECT * FROM users WHERE user_status = :status AND is_active = true")
     suspend fun findByUserStatus(status: String): List<UserEntity>

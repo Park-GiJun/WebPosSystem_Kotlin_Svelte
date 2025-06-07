@@ -1,6 +1,5 @@
 package com.gijun.backend.application.service
 
-import com.gijun.backend.adapter.`in`.web.dto.organization.*
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.domain.store.entities.*
 import com.gijun.backend.domain.store.vo.*
@@ -142,3 +141,71 @@ class OrganizationService(
         return this.roles.contains(role)
     }
 }
+
+// Request/Response DTOs
+data class CreateHeadquartersRequest(
+    val hqCode: String,
+    val hqName: String,
+    val businessLicense: String?,
+    val ceoName: String?,
+    val address: String?,
+    val contactPhone: String?,
+    val website: String?,
+    val adminUsername: String,
+    val adminEmail: String,
+    val adminPassword: String
+)
+
+data class CreateIndividualStoreRequest(
+    val storeName: String,
+    val regionCode: String,
+    val storeNumber: String,
+    val businessLicense: String?,
+    val ownerName: String,
+    val phoneNumber: String?,
+    val address: String?,
+    val postalCode: String?,
+    val openingDate: LocalDate?,
+    val adminUsername: String,
+    val adminEmail: String,
+    val adminPassword: String
+)
+
+data class HeadquartersResponse(
+    val hqId: String,
+    val hqCode: String,
+    val hqName: String,
+    val businessLicense: String?,
+    val ceoName: String?,
+    val address: String?,
+    val contactPhone: String?,
+    val website: String?,
+    val adminUser: UserResponse,
+    val createdAt: java.time.LocalDateTime
+)
+
+data class StoreResponse(
+    val storeId: String,
+    val storeName: String,
+    val storeType: String,
+    val operationType: String?,
+    val regionCode: String,
+    val storeNumber: String,
+    val ownerName: String,
+    val businessLicense: String?,
+    val phoneNumber: String?,
+    val address: String?,
+    val postalCode: String?,
+    val openingDate: LocalDate?,
+    val storeStatus: String,
+    val managerUser: UserResponse,
+    val createdAt: java.time.LocalDateTime
+)
+
+data class UserResponse(
+    val id: String,
+    val username: String,
+    val email: String,
+    val roles: List<String>,
+    val userStatus: String
+)

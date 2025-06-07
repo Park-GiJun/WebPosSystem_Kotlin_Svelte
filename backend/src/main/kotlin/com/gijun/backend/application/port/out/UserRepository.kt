@@ -14,6 +14,12 @@ interface UserRepository {
 
     suspend fun findAll(): List<User>
 
+    suspend fun findByOrganizationId(organizationId: String): List<User>
+
+    suspend fun findByOrganizationType(organizationType: String): List<User>
+
+    suspend fun findByOrganizationIdAndType(organizationId: String, organizationType: String): List<User>
+
     suspend fun existsByUsername(username: String): Boolean
 
     suspend fun existsByEmail(email: String): Boolean

@@ -197,7 +197,13 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">조직 관리</h1>
-      <p class="text-gray-600 mt-1">체인본부와 개인매장을 관리합니다.</p>
+      <p class="text-gray-600 mt-1">체인본부와 개인매장을 생성하고 관리합니다.</p>
+      <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p class="text-sm text-blue-800">
+          <strong>업무 흐름:</strong> 
+          1) 여기서 본사 생성 → 2) 본사에서 가맹점 생성 → 3) 가맹점에서 POS 생성
+        </p>
+      </div>
     </div>
     <div class="flex space-x-3">
       <button 

@@ -33,6 +33,18 @@ class UserRepositoryImpl(
         return r2dbcRepository.findAll().toList().map { userMapper.toDomain(it) }
     }
 
+    override suspend fun findByOrganizationId(organizationId: String): List<User> {
+        return r2dbcRepository.findByOrganizationId(organizationId).map { userMapper.toDomain(it) }
+    }
+
+    override suspend fun findByOrganizationType(organizationType: String): List<User> {
+        return r2dbcRepository.findByOrganizationType(organizationType).map { userMapper.toDomain(it) }
+    }
+
+    override suspend fun findByOrganizationIdAndType(organizationId: String, organizationType: String): List<User> {
+        return r2dbcRepository.findByOrganizationIdAndOrganizationType(organizationId, organizationType).map { userMapper.toDomain(it) }
+    }
+
     override suspend fun existsByUsername(username: String): Boolean {
         return r2dbcRepository.existsByUsername(username)
     }

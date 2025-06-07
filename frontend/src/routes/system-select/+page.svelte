@@ -25,9 +25,9 @@
       });
     }
 
-    // 영업정보시스템
-    if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN') || 
-        roles.includes('HQ_MANAGER') || roles.includes('AREA_MANAGER')) {
+    // 영업정보시스템 - 사용자 권한에 따라 다른 기본 경로
+    if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN')) {
+      // 슈퍼어드민은 조직 관리로
       systems.push({
         id: 'business',
         title: '영업정보시스템',
@@ -36,7 +36,31 @@
         color: 'bg-blue-100 text-blue-600',
         hoverColor: 'hover:bg-blue-50',
         borderColor: 'border-blue-200',
-        path: '/business/stores'
+        path: '/admin/organizations'
+      });
+    } else if (roles.includes('HQ_MANAGER')) {
+      // 본사 관리자는 가맹점 관리로
+      systems.push({
+        id: 'business',
+        title: '영업정보시스템',
+        description: '가맹점, POS, 매출 관리',
+        icon: Building,
+        color: 'bg-blue-100 text-blue-600',
+        hoverColor: 'hover:bg-blue-50',
+        borderColor: 'border-blue-200',
+        path: '/business/headquarters/stores'
+      });
+    } else if (roles.includes('STORE_MANAGER')) {
+      // 매장 관리자는 POS 관리로
+      systems.push({
+        id: 'business',
+        title: '영업정보시스템',
+        description: 'POS, 직원, 매출 관리',
+        icon: Building,
+        color: 'bg-blue-100 text-blue-600',
+        hoverColor: 'hover:bg-blue-50',
+        borderColor: 'border-blue-200',
+        path: '/business/pos'
       });
     }
 

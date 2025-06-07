@@ -150,7 +150,7 @@
   <title>가맹점 관리 - WebPos</title>
 </svelte:head>
 
-<div slot="title">가맹점 관리</div>
+
 
 <div class="space-y-6">
   <!-- 헤더 -->
@@ -158,6 +158,12 @@
     <div>
       <h1 class="text-2xl font-bold text-gray-900">가맹점 관리</h1>
       <p class="text-gray-600 mt-1">우리 본사의 가맹점과 직영점을 관리합니다.</p>
+      <div class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <p class="text-sm text-green-800">
+          <strong>본사 관리자 업무:</strong> 
+          여기서 매장을 생성하면 매장 관리자 계정이 자동으로 생성됩니다. 매장 관리자는 POS 시스템에서 기기를 추가할 수 있습니다.
+        </p>
+      </div>
     </div>
     <button 
       type="button" 

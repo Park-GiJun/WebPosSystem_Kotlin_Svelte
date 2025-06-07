@@ -1,8 +1,9 @@
-package com.gijun.backend.domain.user.entity
+package com.gijun.backend.domain.user.entities
 
 import com.gijun.backend.domain.user.vo.*
 import com.gijun.backend.domain.user.enums.*
 import com.gijun.backend.domain.user.events.*
+import com.gijun.backend.domain.common.AuditableEntity
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -25,15 +26,15 @@ data class User(
     val emailVerifiedAt: LocalDateTime? = null,
 
     // Audit fields
-    val isActive: Boolean = true,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    val createdBy: String? = null,
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
-    val updatedBy: String? = null,
-    val deletedAt: LocalDateTime? = null,
-    val deletedBy: String? = null,
+    override val isActive: Boolean = true,
+    override val createdAt: LocalDateTime = LocalDateTime.now(),
+    override val createdBy: String? = null,
+    override val updatedAt: LocalDateTime = LocalDateTime.now(),
+    override val updatedBy: String? = null,
+    override val deletedAt: LocalDateTime? = null,
+    override val deletedBy: String? = null,
     val version: Long = 0
-) {
+) : AuditableEntity {
 
     private val _events = mutableListOf<UserEvent>()
     val events: List<UserEvent> get() = _events.toList()

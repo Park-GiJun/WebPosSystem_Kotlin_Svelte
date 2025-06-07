@@ -121,7 +121,7 @@
   <title>직원 관리 - WebPos</title>
 </svelte:head>
 
-<div slot="title">직원 관리</div>
+
 
 <div class="space-y-6">
   <!-- 헤더 -->
