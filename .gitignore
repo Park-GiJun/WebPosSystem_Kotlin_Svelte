@@ -102,3 +102,4 @@ secrets/
 # Local configuration override files
 config/local/
 local.properties
+!/frontend/.svelte-kit/
