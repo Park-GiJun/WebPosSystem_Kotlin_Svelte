@@ -3,32 +3,37 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
+  import { posApi, storeApi } from '$lib/api/business.js';
   import { Plus, Monitor, Settings, Activity, Edit, Trash2, Power, PowerOff } from 'lucide-svelte';
   import Modal from '$lib/components/Common/Modal.svelte';
 
   let posDevices = [];
   let loading = true;
   let showCreateModal = false;
+  let availableStores = [];
+
+  // 인증 상태 구독
+  let authToken = '';
+  authStore.subscribe(state => {
+    authToken = state.token || '';
+  });
 
   // POS 생성 폼
   let posForm = {
-    posName: '',
     storeId: '',
-    deviceType: 'TERMINAL',
-    serialNumber: '',
-    macAddress: '',
+    posNumber: 1,
+    posName: '',
+    posType: 'MAIN',
     ipAddress: '',
-    location: '',
-    description: ''
+    macAddress: '',
+    serialNumber: '',
+    installedDate: new Date().toISOString().split('T')[0]
   };
 
-  // 사용 가능한 매장 목록 (사용자 권한에 따라)
-  let availableStores = [];
-
   const deviceTypes = [
-    { value: 'TERMINAL', label: 'POS 터미널', description: '일반 POS 단말기' },
-    { value: 'TABLET', label: '태블릿 POS', description: '태블릿 형태의 POS' },
-    { value: 'MOBILE', label: '모바일 POS', description: '모바일 기기용 POS' },
+    { value: 'MAIN', label: '메인 POS', description: '주요 계산대 POS' },
+    { value: 'SUB', label: '서브 POS', description: '보조 계산대 POS' },
+    { value: 'MOBILE', label: '모바일 POS', description: '이동식 POS' },
     { value: 'KIOSK', label: '키오스크', description: '셀프 주문 키오스크' }
   ];
 
@@ -39,112 +44,152 @@
   });
 
   async function loadAvailableStores() {
-    try {
-      const user = $authStore.user;
-      let endpoint = '';
-      
-      // 사용자 권한에 따라 다른 엔드포인트 사용
-      if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN')) {
-        endpoint = '/api/v1/admin/stores'; // 모든 매장
-      } else if (user.roles.includes('HQ_MANAGER')) {
-        endpoint = '/api/v1/business/headquarters/my-stores'; // 자신의 본사 매장만
-      } else {
-        endpoint = '/api/v1/business/stores/my-store'; // 자신의 매장만
-      }
+    if (!authToken) {
+      console.warn('인증 토큰이 없습니다.');
+      return;
+    }
 
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+    try {
+      console.log('🏪 사용 가능한 매장 목록 조회 중...');
+      const response = await storeApi.getStores({}, authToken);
       
-      if (response.ok) {
-        const data = await response.json();
-        availableStores = data.stores || (data.store ? [data.store] : []);
+      if (response && response.stores) {
+        availableStores = response.stores;
+        console.log('✅ 매장 목록 로드 완료:', availableStores.length, '개');
+      } else {
+        console.warn('⚠️ 응답에 stores 필드가 없습니다:', response);
+        availableStores = [];
       }
     } catch (error) {
-      console.error('Failed to load stores:', error);
-      toastStore.error('매장 목록을 불러오는데 실패했습니다.');
+      console.error('❌ 매장 목록 로드 실패:', error);
+      toastStore.error('매장 목록을 불러오는데 실패했습니다: ' + error.message);
+      availableStores = [];
     }
   }
 
   async function loadPosDevices() {
-    try {
-      const user = $authStore.user;
-      let endpoint = '';
-      
-      // 사용자 권한에 따라 다른 엔드포인트 사용
-      if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN')) {
-        endpoint = '/api/v1/admin/pos-devices'; // 모든 POS
-      } else if (user.roles.includes('HQ_MANAGER')) {
-        endpoint = '/api/v1/business/headquarters/pos-devices'; // 자신의 본사 POS만
-      } else {
-        endpoint = '/api/v1/business/stores/pos-devices'; // 자신의 매장 POS만
-      }
+    if (!authToken) {
+      console.warn('인증 토큰이 없습니다.');
+      return;
+    }
 
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+    try {
+      loading = true;
+      console.log('🖥️ POS 기기 목록 조회 중...');
       
-      if (response.ok) {
-        const data = await response.json();
-        posDevices = data.posDevices || [];
+      const response = await posApi.getPosSystems({}, authToken);
+      
+      if (response && response.posSystems) {
+        posDevices = response.posSystems;
+        console.log('✅ POS 목록 로드 완료:', posDevices.length, '개');
       } else {
-        throw new Error('POS 목록을 불러올 수 없습니다.');
+        console.warn('⚠️ 응답에 posSystems 필드가 없습니다:', response);
+        posDevices = [];
       }
     } catch (error) {
-      console.error('Failed to load POS devices:', error);
-      toastStore.error(error.message);
+      console.error('❌ POS 목록 로드 실패:', error);
+      toastStore.error('POS 목록을 불러오는데 실패했습니다: ' + error.message);
+      posDevices = [];
     } finally {
       loading = false;
     }
   }
 
   async function createPosDevice() {
-    try {
-      const response = await fetch('/api/v1/business/pos-devices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${$authStore.token}`
-        },
-        body: JSON.stringify(posForm)
-      });
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-      if (response.ok) {
+    try {
+      console.log('🖥️ POS 기기 생성 중:', posForm.posName);
+      
+      const response = await posApi.createPosSystem(posForm, authToken);
+      
+      if (response) {
+        // 목록에 추가
+        posDevices = [...posDevices, response];
+        
         toastStore.success('POS 기기가 성공적으로 생성되었습니다.');
         showCreateModal = false;
         resetForm();
-        await loadPosDevices();
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || 'POS 기기 생성에 실패했습니다.');
+        console.log('✅ POS 기기 생성 완료');
       }
     } catch (error) {
-      console.error('Create POS error:', error);
-      toastStore.error(error.message);
+      console.error('❌ POS 기기 생성 실패:', error);
+      toastStore.error('POS 기기 생성에 실패했습니다: ' + error.message);
+    }
+  }
+
+  async function startMaintenance(device) {
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
+
+    try {
+      console.log('🔧 POS 점검 시작:', device.posName);
+      
+      await posApi.startMaintenance(device.posId, authToken);
+      
+      // 로컬 상태 업데이트
+      const deviceIndex = posDevices.findIndex(p => p.posId === device.posId);
+      if (deviceIndex !== -1) {
+        posDevices[deviceIndex] = { ...posDevices[deviceIndex], posStatus: 'MAINTENANCE' };
+        posDevices = [...posDevices];
+      }
+      
+      toastStore.success('POS 점검이 시작되었습니다.');
+      console.log('✅ POS 점검 시작 완료');
+    } catch (error) {
+      console.error('❌ POS 점검 시작 실패:', error);
+      toastStore.error('POS 점검 시작에 실패했습니다: ' + error.message);
+    }
+  }
+
+  async function completeMaintenance(device) {
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
+
+    try {
+      console.log('✅ POS 점검 완료:', device.posName);
+      
+      await posApi.completeMaintenance(device.posId, authToken);
+      
+      // 로컬 상태 업데이트
+      const deviceIndex = posDevices.findIndex(p => p.posId === device.posId);
+      if (deviceIndex !== -1) {
+        posDevices[deviceIndex] = { ...posDevices[deviceIndex], posStatus: 'ACTIVE' };
+        posDevices = [...posDevices];
+      }
+      
+      toastStore.success('POS 점검이 완료되었습니다.');
+      console.log('✅ POS 점검 완료');
+    } catch (error) {
+      console.error('❌ POS 점검 완료 실패:', error);
+      toastStore.error('POS 점검 완료에 실패했습니다: ' + error.message);
     }
   }
 
   function resetForm() {
     posForm = {
-      posName: '',
       storeId: '',
-      deviceType: 'TERMINAL',
-      serialNumber: '',
-      macAddress: '',
+      posNumber: 1,
+      posName: '',
+      posType: 'MAIN',
       ipAddress: '',
-      location: '',
-      description: ''
+      macAddress: '',
+      serialNumber: '',
+      installedDate: new Date().toISOString().split('T')[0]
     };
   }
 
   function getDeviceTypeColor(type) {
     const colors = {
-      'TERMINAL': 'bg-blue-100 text-blue-800',
-      'TABLET': 'bg-green-100 text-green-800',
+      'MAIN': 'bg-blue-100 text-blue-800',
+      'SUB': 'bg-green-100 text-green-800',
       'MOBILE': 'bg-purple-100 text-purple-800',
       'KIOSK': 'bg-orange-100 text-orange-800'
     };
@@ -153,33 +198,56 @@
 
   function getStatusColor(status) {
     const colors = {
-      'ONLINE': 'bg-green-100 text-green-800',
-      'OFFLINE': 'bg-red-100 text-red-800',
+      'ACTIVE': 'bg-green-100 text-green-800',
+      'INACTIVE': 'bg-red-100 text-red-800',
       'MAINTENANCE': 'bg-yellow-100 text-yellow-800',
-      'INACTIVE': 'bg-gray-100 text-gray-800'
+      'ERROR': 'bg-red-100 text-red-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   }
 
+  function getStatusText(status) {
+    const texts = {
+      'ACTIVE': '활성',
+      'INACTIVE': '비활성',
+      'MAINTENANCE': '점검중',
+      'ERROR': '오류'
+    };
+    return texts[status] || status;
+  }
+
   function editPosDevice(device) {
     console.log('Edit POS device:', device);
-    // TODO: 편집 모달 구현
+    toastStore.info('POS 편집 기능은 준비 중입니다.');
   }
 
   function deletePosDevice(device) {
+    if (!confirm(`정말로 "${device.posName}" POS를 삭제하시겠습니까?`)) {
+      return;
+    }
+    
     console.log('Delete POS device:', device);
-    // TODO: 삭제 확인 모달 구현
+    toastStore.info('POS 삭제 기능은 준비 중입니다.');
   }
 
   function togglePosStatus(device) {
-    console.log('Toggle POS status:', device);
-    // TODO: 상태 변경 API 호출
+    if (device.posStatus === 'MAINTENANCE') {
+      completeMaintenance(device);
+    } else {
+      startMaintenance(device);
+    }
   }
 
   function getStoreName(storeId) {
     const store = availableStores.find(s => s.storeId === storeId || s.id === storeId);
     return store?.storeName || store?.name || '알 수 없음';
   }
+
+  // 통계 계산
+  $: totalPos = posDevices.length;
+  $: activePos = posDevices.filter(p => p.posStatus === 'ACTIVE').length;
+  $: inactivePos = posDevices.filter(p => p.posStatus === 'INACTIVE').length;
+  $: maintenancePos = posDevices.filter(p => p.posStatus === 'MAINTENANCE').length;
 </script>
 
 <svelte:head>
@@ -218,7 +286,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">총 POS 수</p>
-          <p class="text-2xl font-bold text-gray-900">{posDevices.length}</p>
+          <p class="text-2xl font-bold text-gray-900">{totalPos}</p>
         </div>
       </div>
     </div>
@@ -229,10 +297,8 @@
           <Activity class="h-6 w-6 text-green-600" />
         </div>
         <div class="ml-4">
-          <p class="text-sm font-medium text-gray-600">온라인</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {posDevices.filter(p => p.status === 'ONLINE').length}
-          </p>
+          <p class="text-sm font-medium text-gray-600">활성</p>
+          <p class="text-2xl font-bold text-gray-900">{activePos}</p>
         </div>
       </div>
     </div>
@@ -243,10 +309,8 @@
           <PowerOff class="h-6 w-6 text-red-600" />
         </div>
         <div class="ml-4">
-          <p class="text-sm font-medium text-gray-600">오프라인</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {posDevices.filter(p => p.status === 'OFFLINE').length}
-          </p>
+          <p class="text-sm font-medium text-gray-600">비활성</p>
+          <p class="text-2xl font-bold text-gray-900">{inactivePos}</p>
         </div>
       </div>
     </div>
@@ -258,9 +322,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">점검중</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {posDevices.filter(p => p.status === 'MAINTENANCE').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{maintenancePos}</p>
         </div>
       </div>
     </div>
@@ -297,23 +359,28 @@
             <!-- POS 헤더 -->
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
-                <h3 class="text-lg font-semibold text-gray-900 mb-1">{device.posName}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-1">{device.posName || `POS ${device.posNumber}`}</h3>
                 <p class="text-sm text-gray-600">{getStoreName(device.storeId)}</p>
               </div>
               <div class="flex flex-col items-end space-y-2">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(device.status)}">
-                  {device.status === 'ONLINE' ? '온라인' : 
-                   device.status === 'OFFLINE' ? '오프라인' :
-                   device.status === 'MAINTENANCE' ? '점검중' : '비활성'}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(device.posStatus)}">
+                  {getStatusText(device.posStatus)}
                 </span>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getDeviceTypeColor(device.deviceType)}">
-                  {deviceTypes.find(t => t.value === device.deviceType)?.label}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getDeviceTypeColor(device.posType)}">
+                  {deviceTypes.find(t => t.value === device.posType)?.label || device.posType}
                 </span>
               </div>
             </div>
 
             <!-- POS 정보 -->
             <div class="space-y-3">
+              <!-- POS ID -->
+              <div class="flex items-center text-sm text-gray-600">
+                <Monitor size="16" class="mr-2" />
+                <span class="font-medium">ID:</span>
+                <span class="ml-1 font-mono">{device.posId}</span>
+              </div>
+
               <!-- 시리얼 번호 -->
               {#if device.serialNumber}
                 <div class="flex items-center text-sm text-gray-600">
@@ -332,45 +399,46 @@
                 </div>
               {/if}
 
-              <!-- 위치 -->
-              {#if device.location}
+              <!-- MAC 주소 -->
+              {#if device.macAddress}
                 <div class="flex items-center text-sm text-gray-600">
-                  <Monitor size="16" class="mr-2" />
-                  <span class="font-medium">위치:</span>
-                  <span class="ml-1">{device.location}</span>
-                </div>
-              {/if}
-
-              <!-- 설명 -->
-              {#if device.description}
-                <div class="text-sm text-gray-600">
-                  <p class="line-clamp-2">{device.description}</p>
+                  <Settings size="16" class="mr-2" />
+                  <span class="font-medium">MAC:</span>
+                  <span class="ml-1 font-mono">{device.macAddress}</span>
                 </div>
               {/if}
             </div>
 
-            <!-- 마지막 활동 시간 -->
+            <!-- 설치일 -->
             <div class="mt-4 pt-4 border-t border-gray-200">
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-500">마지막 활동</span>
+                <span class="text-gray-500">설치일</span>
                 <span class="font-medium text-gray-900">
-                  {device.lastActiveAt ? new Date(device.lastActiveAt).toLocaleString('ko-KR') : '없음'}
+                  {device.installedDate ? new Date(device.installedDate).toLocaleDateString('ko-KR') : 'N/A'}
                 </span>
               </div>
+              {#if device.lastMaintenanceDate}
+                <div class="flex items-center justify-between text-sm mt-1">
+                  <span class="text-gray-500">최근 점검</span>
+                  <span class="font-medium text-gray-900">
+                    {new Date(device.lastMaintenanceDate).toLocaleDateString('ko-KR')}
+                  </span>
+                </div>
+              {/if}
             </div>
 
             <!-- 액션 버튼 -->
             <div class="mt-4 flex justify-end space-x-2">
               <button
                 type="button"
-                class="text-green-600 hover:text-green-900"
+                class="text-yellow-600 hover:text-yellow-900"
                 on:click={() => togglePosStatus(device)}
-                title={device.status === 'ONLINE' ? '오프라인으로 전환' : '온라인으로 전환'}
+                title={device.posStatus === 'MAINTENANCE' ? '점검 완료' : '점검 시작'}
               >
-                {#if device.status === 'ONLINE'}
-                  <PowerOff size="16" />
-                {:else}
+                {#if device.posStatus === 'MAINTENANCE'}
                   <Power size="16" />
+                {:else}
+                  <Settings size="16" />
                 {/if}
               </button>
               <button
@@ -402,17 +470,6 @@
   <form on:submit|preventDefault={createPosDevice} class="space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label for="posName" class="block text-sm font-medium text-gray-700">POS 이름 *</label>
-        <input
-          id="posName"
-          type="text"
-          required
-          bind:value={posForm.posName}
-          class="mt-1 input"
-          placeholder="POS 이름을 입력하세요"
-        />
-      </div>
-      <div>
         <label for="storeId" class="block text-sm font-medium text-gray-700">매장 *</label>
         <select
           id="storeId"
@@ -426,15 +483,37 @@
           {/each}
         </select>
       </div>
+      <div>
+        <label for="posNumber" class="block text-sm font-medium text-gray-700">POS 번호 *</label>
+        <input
+          id="posNumber"
+          type="number"
+          required
+          min="1"
+          bind:value={posForm.posNumber}
+          class="mt-1 input"
+          placeholder="1"
+        />
+      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label for="deviceType" class="block text-sm font-medium text-gray-700">기기 유형 *</label>
+        <label for="posName" class="block text-sm font-medium text-gray-700">POS 이름</label>
+        <input
+          id="posName"
+          type="text"
+          bind:value={posForm.posName}
+          class="mt-1 input"
+          placeholder="메인 POS"
+        />
+      </div>
+      <div>
+        <label for="posType" class="block text-sm font-medium text-gray-700">POS 유형 *</label>
         <select
-          id="deviceType"
+          id="posType"
           required
-          bind:value={posForm.deviceType}
+          bind:value={posForm.posType}
           class="mt-1 input"
         >
           {#each deviceTypes as type}
@@ -442,17 +521,30 @@
           {/each}
         </select>
         <p class="mt-1 text-sm text-gray-500">
-          {deviceTypes.find(t => t.value === posForm.deviceType)?.description}
+          {deviceTypes.find(t => t.value === posForm.posType)?.description}
         </p>
       </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label for="location" class="block text-sm font-medium text-gray-700">설치 위치</label>
+        <label for="ipAddress" class="block text-sm font-medium text-gray-700">IP 주소</label>
         <input
-          id="location"
+          id="ipAddress"
           type="text"
-          bind:value={posForm.location}
+          bind:value={posForm.ipAddress}
           class="mt-1 input"
-          placeholder="예: 카운터 1번"
+          placeholder="192.168.1.100"
+        />
+      </div>
+      <div>
+        <label for="macAddress" class="block text-sm font-medium text-gray-700">MAC 주소</label>
+        <input
+          id="macAddress"
+          type="text"
+          bind:value={posForm.macAddress}
+          class="mt-1 input"
+          placeholder="00:11:22:33:44:55"
         />
       </div>
     </div>
@@ -465,41 +557,18 @@
           type="text"
           bind:value={posForm.serialNumber}
           class="mt-1 input"
-          placeholder="시리얼 번호"
+          placeholder="POS001234567"
         />
       </div>
       <div>
-        <label for="ipAddress" class="block text-sm font-medium text-gray-700">IP 주소</label>
+        <label for="installedDate" class="block text-sm font-medium text-gray-700">설치일</label>
         <input
-          id="ipAddress"
-          type="text"
-          bind:value={posForm.ipAddress}
+          id="installedDate"
+          type="date"
+          bind:value={posForm.installedDate}
           class="mt-1 input"
-          placeholder="192.168.1.100"
         />
       </div>
-    </div>
-
-    <div>
-      <label for="macAddress" class="block text-sm font-medium text-gray-700">MAC 주소</label>
-      <input
-        id="macAddress"
-        type="text"
-        bind:value={posForm.macAddress}
-        class="mt-1 input"
-        placeholder="00:11:22:33:44:55"
-      />
-    </div>
-
-    <div>
-      <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
-      <textarea
-        id="description"
-        bind:value={posForm.description}
-        class="mt-1 input"
-        rows="3"
-        placeholder="POS 기기에 대한 추가 설명"
-      ></textarea>
     </div>
 
     <div class="flex justify-end space-x-3 pt-4">

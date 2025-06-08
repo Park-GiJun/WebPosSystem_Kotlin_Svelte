@@ -3,10 +3,9 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
+  import { userApi } from '$lib/api/admin.js';
   import { Plus, Search, Filter, Edit, Trash2, Shield, Unlock, UserCheck, AlertTriangle } from 'lucide-svelte';
   import CreateUserModal from '$lib/components/SuperAdmin/CreateUserModal.svelte';
-  import Custom404 from '$lib/components/Common/Custom404.svelte';
-  import { userApi } from '$lib/api/superAdmin.js';
 
   let users = [];
   let loading = true;
@@ -14,7 +13,15 @@
   let filterStatus = 'all';
   let filterRole = 'all';
   let showCreateModal = false;
-  let apiError = false;
+  let currentPage = 0;
+  let pageSize = 20;
+  let totalCount = 0;
+
+  // 인증 상태 구독
+  let authToken = '';
+  authStore.subscribe(state => {
+    authToken = state.token || '';
+  });
 
   // 탭 활성화
   onMount(() => {
@@ -23,69 +30,60 @@
   });
 
   async function loadUsers() {
+    if (!authToken) {
+      console.warn('인증 토큰이 없습니다.');
+      return;
+    }
+
     try {
-      const response = await userApi.getUsers();
+      loading = true;
       
-      if (response.success && response.data) {
-        users = response.data.users || response.data;
-        apiError = false;
-      } else if (response.error === 'API_NOT_FOUND') {
-        // 더미 데이터
-        users = [
-          {
-            id: '1',
-            username: 'admin',
-            email: 'admin@webpos.com',
-            roles: ['SUPER_ADMIN'],
-            userStatus: 'ACTIVE',
-            isEmailVerified: true,
-            lastLoginAt: new Date().toISOString(),
-            failedLoginAttempts: 0,
-            isLocked: false,
-            lockedUntil: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: '2',
-            username: 'manager1',
-            email: 'manager1@webpos.com',
-            roles: ['HQ_MANAGER'],
-            userStatus: 'ACTIVE',
-            isEmailVerified: true,
-            lastLoginAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            failedLoginAttempts: 0,
-            isLocked: false,
-            lockedUntil: null,
-            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          }
-        ];
-        apiError = true;
+      const params = {
+        page: currentPage,
+        size: pageSize
+      };
+
+      if (searchTerm.trim()) {
+        params.search = searchTerm.trim();
+      }
+
+      if (filterStatus !== 'all') {
+        params.status = filterStatus;
+      }
+
+      if (filterRole !== 'all') {
+        params.role = filterRole;
+      }
+
+      console.log('🔍 사용자 목록 조회 중...', params);
+      const response = await userApi.getUsers(params, authToken);
+      
+      if (response && response.users) {
+        users = response.users;
+        totalCount = response.totalCount || users.length;
+        console.log('✅ 사용자 목록 로드 완료:', users.length, '개');
       } else {
-        apiError = true;
+        console.warn('⚠️ 응답에 users 필드가 없습니다:', response);
         users = [];
-        toastStore.error(response.message || '사용자 목록을 불러오는데 실패했습니다.');
+        totalCount = 0;
       }
     } catch (error) {
-      console.error('Failed to load users:', error);
-      apiError = true;
+      console.error('❌ 사용자 목록 로드 실패:', error);
+      toastStore.error('사용자 목록을 불러오는데 실패했습니다: ' + error.message);
       users = [];
-      toastStore.error('사용자 목록을 불러오는데 실패했습니다.');
+      totalCount = 0;
     } finally {
       loading = false;
     }
   }
 
-  // 필터링된 사용자 목록
-  $: filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || user.userStatus === filterStatus;
-    const matchesRole = filterRole === 'all' || user.roles.includes(filterRole);
-    
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  // 검색어나 필터 변경 시 다시 로드
+  $: if (searchTerm !== undefined || filterStatus !== undefined || filterRole !== undefined) {
+    currentPage = 0;
+    if (!loading) {
+      loadUsers();
+    }
+  }
 
   function getRoleColor(role) {
     const colors = {
@@ -144,58 +142,81 @@
       return;
     }
 
-    try {
-      const response = await userApi.deleteUser(user.id);
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-      if (response.success) {
-        users = users.filter(u => u.id !== user.id);
-        toastStore.success('사용자가 삭제되었습니다.');
-      } else if (response.error === 'API_NOT_FOUND') {
-        // API가 없어도 로컬에서 삭제
-        users = users.filter(u => u.id !== user.id);
-        toastStore.success('사용자가 삭제되었습니다. (데모 모드)');
-      } else {
-        toastStore.error(response.message || '사용자 삭제에 실패했습니다.');
-      }
+    try {
+      console.log('🗑️ 사용자 삭제 중:', user.username);
+      await userApi.deleteUser(user.id, authToken);
+      
+      // 목록에서 제거
+      users = users.filter(u => u.id !== user.id);
+      totalCount = Math.max(0, totalCount - 1);
+      
+      toastStore.success('사용자가 삭제되었습니다.');
+      console.log('✅ 사용자 삭제 완료');
     } catch (error) {
-      console.error('Delete user error:', error);
-      toastStore.error('사용자 삭제에 실패했습니다.');
+      console.error('❌ 사용자 삭제 실패:', error);
+      toastStore.error('사용자 삭제에 실패했습니다: ' + error.message);
     }
   }
 
   async function unlockUser(user) {
-    try {
-      const response = await userApi.unlockUser(user.id);
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-      if (response.success) {
-        await loadUsers();
-        toastStore.success('사용자 잠금이 해제되었습니다.');
-      } else if (response.error === 'API_NOT_FOUND') {
-        // API가 없어도 로컬에서 처리
-        const userIndex = users.findIndex(u => u.id === user.id);
-        if (userIndex !== -1) {
-          users[userIndex] = { ...users[userIndex], isLocked: false, lockedUntil: null };
-          users = [...users];
-        }
-        toastStore.success('사용자 잠금이 해제되었습니다. (데모 모드)');
-      } else {
-        toastStore.error(response.message || '사용자 잠금 해제에 실패했습니다.');
-      }
+    try {
+      console.log('🔓 사용자 잠금 해제 중:', user.username);
+      await userApi.unlockUser(user.id, authToken);
+      
+      // 사용자 목록 다시 로드
+      await loadUsers();
+      toastStore.success('사용자 잠금이 해제되었습니다.');
+      console.log('✅ 사용자 잠금 해제 완료');
     } catch (error) {
-      console.error('Unlock user error:', error);
-      toastStore.error('사용자 잠금 해제에 실패했습니다.');
+      console.error('❌ 사용자 잠금 해제 실패:', error);
+      toastStore.error('사용자 잠금 해제에 실패했습니다: ' + error.message);
     }
   }
 
-  function handleUserCreated(event) {
+  async function handleUserCreated(event) {
     const newUser = event.detail;
+    
+    // 목록 맨 앞에 추가
     users = [newUser, ...users];
+    totalCount += 1;
+    
     toastStore.success('새 사용자가 생성되었습니다.');
+    console.log('✅ 새 사용자 생성 완료:', newUser.username);
   }
 
   function openCreateModal() {
     showCreateModal = true;
   }
+
+  function nextPage() {
+    if ((currentPage + 1) * pageSize < totalCount) {
+      currentPage += 1;
+      loadUsers();
+    }
+  }
+
+  function prevPage() {
+    if (currentPage > 0) {
+      currentPage -= 1;
+      loadUsers();
+    }
+  }
+
+  // 통계 계산
+  $: totalUsers = users.length;
+  $: activeUsers = users.filter(u => u.userStatus === 'ACTIVE').length;
+  $: adminUsers = users.filter(u => u.roles?.some(r => r.includes('ADMIN'))).length;
+  $: pendingUsers = users.filter(u => u.userStatus === 'PENDING_VERIFICATION').length;
 </script>
 
 <svelte:head>
@@ -210,12 +231,6 @@
       <p class="text-gray-600 mt-1">시스템 사용자를 관리합니다.</p>
     </div>
     <div class="flex items-center space-x-3">
-      {#if apiError}
-        <div class="flex items-center px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">
-          <AlertTriangle class="w-4 h-4 mr-1" />
-          데모 모드
-        </div>
-      {/if}
       <button 
         type="button" 
         class="btn btn-primary"
@@ -227,15 +242,6 @@
     </div>
   </div>
 
-  {#if apiError}
-    <Custom404
-      title="사용자 API를 찾을 수 없습니다"
-      message="사용자 관리 API가 구현되지 않았습니다. 현재 데모 데이터로 동작하고 있습니다."
-      showHomeButton={false}
-      onRetry={loadUsers}
-    />
-  {/if}
-
   <!-- 통계 카드 -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
     <div class="card p-6">
@@ -245,7 +251,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">총 사용자</p>
-          <p class="text-2xl font-bold text-gray-900">{users.length}</p>
+          <p class="text-2xl font-bold text-gray-900">{totalCount}</p>
         </div>
       </div>
     </div>
@@ -257,9 +263,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">활성 사용자</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {users.filter(u => u.userStatus === 'ACTIVE').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{activeUsers}</p>
         </div>
       </div>
     </div>
@@ -267,13 +271,11 @@
     <div class="card p-6">
       <div class="flex items-center">
         <div class="p-3 rounded-full bg-orange-100">
-          <Unlock class="h-6 w-6 text-orange-600" />
+          <Shield class="h-6 w-6 text-orange-600" />
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">관리자</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {users.filter(u => u.roles.some(r => r.includes('ADMIN'))).length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{adminUsers}</p>
         </div>
       </div>
     </div>
@@ -285,9 +287,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">인증 대기</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {users.filter(u => u.userStatus === 'PENDING_VERIFICATION').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{pendingUsers}</p>
         </div>
       </div>
     </div>
@@ -337,7 +337,7 @@
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
         <p class="mt-4 text-gray-600">로딩 중...</p>
       </div>
-    {:else if filteredUsers.length === 0}
+    {:else if users.length === 0}
       <div class="p-12 text-center">
         <Shield class="mx-auto h-12 w-12 text-gray-400" />
         <p class="mt-4 text-gray-500">조건에 맞는 사용자가 없습니다.</p>
@@ -368,18 +368,18 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            {#each filteredUsers as user}
+            {#each users as user}
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
                     <div class="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center">
                       <span class="text-white font-medium text-sm">
-                        {user.username.charAt(0).toUpperCase()}
+                        {user.username?.charAt(0)?.toUpperCase() || '?'}
                       </span>
                     </div>
                     <div class="ml-4">
-                      <div class="text-sm font-medium text-gray-900">{user.username}</div>
-                      <div class="text-sm text-gray-500">{user.email}</div>
+                      <div class="text-sm font-medium text-gray-900">{user.username || 'N/A'}</div>
+                      <div class="text-sm text-gray-500">{user.email || 'N/A'}</div>
                       {#if user.isEmailVerified}
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
                           인증완료
@@ -394,7 +394,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex flex-wrap gap-1">
-                    {#each user.roles as role}
+                    {#each (user.roles || []) as role}
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getRoleColor(role)}">
                         {getRoleText(role)}
                       </span>
@@ -420,7 +420,7 @@
                   {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString('ko-KR') : '없음'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.createdAt).toLocaleDateString('ko-KR')}
+                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString('ko-KR') : 'N/A'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div class="flex justify-end space-x-2">
@@ -456,6 +456,55 @@
             {/each}
           </tbody>
         </table>
+      </div>
+
+      <!-- 페이지네이션 -->
+      <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+          <button
+            on:click={prevPage}
+            disabled={currentPage === 0}
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            이전
+          </button>
+          <button
+            on:click={nextPage}
+            disabled={(currentPage + 1) * pageSize >= totalCount}
+            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            다음
+          </button>
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-gray-700">
+              총 <span class="font-medium">{totalCount}</span>개 중 
+              <span class="font-medium">{currentPage * pageSize + 1}</span>-<span class="font-medium">{Math.min((currentPage + 1) * pageSize, totalCount)}</span> 표시
+            </p>
+          </div>
+          <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              <button
+                on:click={prevPage}
+                disabled={currentPage === 0}
+                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                이전
+              </button>
+              <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                {currentPage + 1}
+              </span>
+              <button
+                on:click={nextPage}
+                disabled={(currentPage + 1) * pageSize >= totalCount}
+                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                다음
+              </button>
+            </nav>
+          </div>
+        </div>
       </div>
     {/if}
   </div>

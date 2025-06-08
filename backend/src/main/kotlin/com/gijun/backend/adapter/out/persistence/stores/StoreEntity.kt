@@ -15,7 +15,7 @@ import org.springframework.data.relational.core.mapping.Table
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@Table("store")
+@Table("stores")
 data class StoreEntity(
     @Id
     val storeId: StoreId,

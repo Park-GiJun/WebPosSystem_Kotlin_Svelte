@@ -107,7 +107,7 @@
       <div class="flex items-center space-x-3">
         <!-- 시스템 아이콘 -->
         <div class="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
-          <IconComponent size="20" class="{config.iconColor}" />
+          <svelte:component this={IconComponent} size="20" class="{config.iconColor}" />
         </div>
         
         <!-- 제목 -->

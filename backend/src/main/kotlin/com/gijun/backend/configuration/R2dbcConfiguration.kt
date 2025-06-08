@@ -17,7 +17,8 @@ import java.time.ZoneId
 @Configuration
 @EnableR2dbcRepositories(basePackages = [
     "com.gijun.backend.adapter.out.persistence.user",
-    "com.gijun.backend.adapter.out.persistence.permission"
+    "com.gijun.backend.adapter.out.persistence.permission",
+    "com.gijun.backend.adapter.out.persistence.stores"
 ])
 @EnableTransactionManagement
 class R2dbcConfiguration(

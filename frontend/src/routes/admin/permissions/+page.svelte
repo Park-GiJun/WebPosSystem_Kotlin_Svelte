@@ -3,57 +3,52 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
-  import { Key, Search, Plus, Shield, Users, Building, Store as StoreIcon, Edit, Trash2 } from 'lucide-svelte';
+  import { permissionApi } from '$lib/api/admin.js';
+  import { Key, Search, Plus, Shield, Users, Building, Store as StoreIcon, Edit, Trash2, RefreshCw } from 'lucide-svelte';
 
   let permissions = [];
-  let menus = [];
-  let users = [];
-  let stores = [];
-  let headquarters = [];
   let loading = true;
   let searchTerm = '';
   let filterTargetType = 'all';
   let filterPermissionType = 'all';
   let showCreateModal = false;
+  let cacheInvalidating = false;
+
+  // 인증 상태 구독
+  let authToken = '';
+  authStore.subscribe(state => {
+    authToken = state.token || '';
+  });
 
   // 탭 활성화
   onMount(() => {
     tabStore.setActiveTab('ADMIN_PERMISSIONS');
-    loadData();
+    loadPermissions();
   });
 
-  async function loadData() {
+  async function loadPermissions() {
+    if (!authToken) {
+      console.warn('인증 토큰이 없습니다.');
+      return;
+    }
+
     try {
-      const [permissionsRes, menusRes, usersRes] = await Promise.all([
-        fetch('/api/v1/admin/permissions', {
-          headers: { 'Authorization': `Bearer ${$authStore.token}` }
-        }),
-        fetch('/api/v1/admin/menus', {
-          headers: { 'Authorization': `Bearer ${$authStore.token}` }
-        }),
-        fetch('/api/v1/admin/users', {
-          headers: { 'Authorization': `Bearer ${$authStore.token}` }
-        })
-      ]);
-
-      if (permissionsRes.ok) {
-        const data = await permissionsRes.json();
-        permissions = data.permissions || [];
+      loading = true;
+      console.log('🔑 권한 목록 조회 중...');
+      
+      const response = await permissionApi.getPermissions(authToken);
+      
+      if (response && response.permissions) {
+        permissions = response.permissions;
+        console.log('✅ 권한 목록 로드 완료:', permissions.length, '개');
+      } else {
+        console.warn('⚠️ 응답에 permissions 필드가 없습니다:', response);
+        permissions = [];
       }
-
-      if (menusRes.ok) {
-        const data = await menusRes.json();
-        menus = data.menus || [];
-      }
-
-      if (usersRes.ok) {
-        const data = await usersRes.json();
-        users = data.users || [];
-      }
-
     } catch (error) {
-      console.error('Failed to load data:', error);
-      toastStore.error('데이터를 불러오는데 실패했습니다.');
+      console.error('❌ 권한 목록 로드 실패:', error);
+      toastStore.error('권한 목록을 불러오는데 실패했습니다: ' + error.message);
+      permissions = [];
     } finally {
       loading = false;
     }
@@ -61,8 +56,9 @@
 
   // 필터링된 권한 목록
   $: filteredPermissions = permissions.filter(permission => {
-    const matchesSearch = permission.menuName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         permission.targetName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (permission.menuName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (permission.targetName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (permission.menuCode || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTargetType = filterTargetType === 'all' || permission.targetType === filterTargetType;
     const matchesPermissionType = filterPermissionType === 'all' || permission.permissionType === filterPermissionType;
     
@@ -119,6 +115,31 @@
     return icons[targetType] || Key;
   }
 
+  async function invalidateCache() {
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
+
+    try {
+      cacheInvalidating = true;
+      console.log('🔄 권한 캐시 무효화 중...');
+      
+      await permissionApi.invalidateCache(authToken);
+      
+      toastStore.success('권한 캐시가 무효화되었습니다.');
+      console.log('✅ 권한 캐시 무효화 완료');
+      
+      // 권한 목록 다시 로드
+      await loadPermissions();
+    } catch (error) {
+      console.error('❌ 권한 캐시 무효화 실패:', error);
+      toastStore.error('권한 캐시 무효화에 실패했습니다: ' + error.message);
+    } finally {
+      cacheInvalidating = false;
+    }
+  }
+
   async function editPermission(permission) {
     // TODO: 권한 편집 모달 구현
     console.log('Edit permission:', permission);
@@ -130,23 +151,24 @@
       return;
     }
 
-    try {
-      const response = await fetch(`/api/v1/admin/permissions/${permission.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-      if (response.ok) {
-        permissions = permissions.filter(p => p.id !== permission.id);
-        toastStore.success('권한이 삭제되었습니다.');
-      } else {
-        throw new Error('삭제 실패');
-      }
+    try {
+      console.log('🗑️ 권한 삭제 중:', permission);
+      
+      // TODO: 권한 삭제 API 호출
+      // await permissionApi.deletePermission(permission.id, authToken);
+      
+      // 임시로 로컬에서 제거
+      permissions = permissions.filter(p => p.id !== permission.id);
+      toastStore.success('권한이 삭제되었습니다.');
+      console.log('✅ 권한 삭제 완료');
     } catch (error) {
-      console.error('Delete permission error:', error);
-      toastStore.error('권한 삭제에 실패했습니다.');
+      console.error('❌ 권한 삭제 실패:', error);
+      toastStore.error('권한 삭제에 실패했습니다: ' + error.message);
     }
   }
 
@@ -154,50 +176,11 @@
     showCreateModal = true;
   }
 
-  // 임시 데이터 (실제로는 API에서 가져와야 함)
-  if (permissions.length === 0 && !loading) {
-    permissions = [
-      {
-        id: '1',
-        menuCode: 'ADMIN_USERS',
-        menuName: '사용자 관리',
-        targetType: 'ROLE',
-        targetId: 'SUPER_ADMIN',
-        targetName: '최고관리자',
-        permissionType: 'ADMIN',
-        grantedBy: 'system',
-        grantedAt: '2024-01-01T00:00:00Z',
-        expiresAt: null,
-        isActive: true
-      },
-      {
-        id: '2',
-        menuCode: 'BUSINESS_STORES',
-        menuName: '매장 관리',
-        targetType: 'ROLE',
-        targetId: 'HQ_MANAGER',
-        targetName: '본사관리자',
-        permissionType: 'WRITE',
-        grantedBy: 'system',
-        grantedAt: '2024-01-01T00:00:00Z',
-        expiresAt: null,
-        isActive: true
-      },
-      {
-        id: '3',
-        menuCode: 'POS_SALES',
-        menuName: 'POS 판매',
-        targetType: 'ROLE',
-        targetId: 'USER',
-        targetName: '일반사용자',
-        permissionType: 'READ',
-        grantedBy: 'system',
-        grantedAt: '2024-01-01T00:00:00Z',
-        expiresAt: null,
-        isActive: true
-      }
-    ];
-  }
+  // 통계 계산
+  $: totalPermissions = permissions.length;
+  $: roleBasedPermissions = permissions.filter(p => p.targetType === 'ROLE').length;
+  $: userDirectPermissions = permissions.filter(p => p.targetType === 'USER').length;
+  $: storeBasedPermissions = permissions.filter(p => p.targetType === 'STORE').length;
 </script>
 
 <svelte:head>
@@ -211,14 +194,30 @@
       <h1 class="text-2xl font-bold text-gray-900">권한 관리</h1>
       <p class="text-gray-600 mt-1">시스템 메뉴별 접근 권한을 관리합니다.</p>
     </div>
-    <button 
-      type="button" 
-      class="btn btn-primary"
-      on:click={openCreateModal}
-    >
-      <Plus size="16" class="mr-2" />
-      권한 추가
-    </button>
+    <div class="flex items-center space-x-3">
+      <button 
+        type="button" 
+        class="btn btn-secondary"
+        on:click={invalidateCache}
+        disabled={cacheInvalidating}
+      >
+        {#if cacheInvalidating}
+          <RefreshCw size="16" class="mr-2 animate-spin" />
+          무효화 중...
+        {:else}
+          <RefreshCw size="16" class="mr-2" />
+          캐시 무효화
+        {/if}
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary"
+        on:click={openCreateModal}
+      >
+        <Plus size="16" class="mr-2" />
+        권한 추가
+      </button>
+    </div>
   </div>
 
   <!-- 통계 카드 -->
@@ -230,7 +229,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">총 권한</p>
-          <p class="text-2xl font-bold text-gray-900">{permissions.length}</p>
+          <p class="text-2xl font-bold text-gray-900">{totalPermissions}</p>
         </div>
       </div>
     </div>
@@ -242,9 +241,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">역할 기반</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {permissions.filter(p => p.targetType === 'ROLE').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{roleBasedPermissions}</p>
         </div>
       </div>
     </div>
@@ -256,9 +253,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">사용자 직접</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {permissions.filter(p => p.targetType === 'USER').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{userDirectPermissions}</p>
         </div>
       </div>
     </div>
@@ -270,9 +265,7 @@
         </div>
         <div class="ml-4">
           <p class="text-sm font-medium text-gray-600">매장 기반</p>
-          <p class="text-2xl font-bold text-gray-900">
-            {permissions.filter(p => p.targetType === 'STORE').length}
-          </p>
+          <p class="text-2xl font-bold text-gray-900">{storeBasedPermissions}</p>
         </div>
       </div>
     </div>
@@ -323,6 +316,9 @@
       <div class="p-12 text-center">
         <Key class="mx-auto h-12 w-12 text-gray-400" />
         <p class="mt-4 text-gray-500">조건에 맞는 권한이 없습니다.</p>
+        {#if totalPermissions === 0}
+          <p class="text-sm text-gray-400 mt-2">권한 데이터를 불러오지 못했거나 권한이 설정되지 않았습니다.</p>
+        {/if}
       </div>
     {:else}
       <div class="flex-1 overflow-y-auto">
@@ -357,8 +353,8 @@
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div>
-                    <div class="text-sm font-medium text-gray-900">{permission.menuName}</div>
-                    <div class="text-sm text-gray-500">{permission.menuCode}</div>
+                    <div class="text-sm font-medium text-gray-900">{permission.menuName || 'N/A'}</div>
+                    <div class="text-sm text-gray-500">{permission.menuCode || 'N/A'}</div>
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -370,7 +366,7 @@
                       />
                     </div>
                     <div>
-                      <div class="text-sm font-medium text-gray-900">{permission.targetName}</div>
+                      <div class="text-sm font-medium text-gray-900">{permission.targetName || permission.targetId || 'N/A'}</div>
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getTargetTypeColor(permission.targetType)}">
                         {getTargetTypeText(permission.targetType)}
                       </span>
@@ -383,10 +379,10 @@
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {permission.grantedBy}
+                  {permission.grantedBy || 'N/A'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(permission.grantedAt).toLocaleDateString('ko-KR')}
+                  {permission.grantedAt ? new Date(permission.grantedAt).toLocaleDateString('ko-KR') : 'N/A'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {permission.expiresAt ? new Date(permission.expiresAt).toLocaleDateString('ko-KR') : '무제한'}

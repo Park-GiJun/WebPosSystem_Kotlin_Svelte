@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { authApi } from '$lib/api/auth.js';
 
 // 디버깅 유틸리티 함수들
 function logApiCall(url, method, headers, body, response) {
@@ -68,210 +69,193 @@ function createAuthStore() {
       try {
         console.log('🔐 로그인 시도:', credentials.username);
         
-        const response = await fetch('/api/v1/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(credentials),
-        });
+        const response = await authApi.login(credentials);
+        console.log('📡 로그인 응답:', response);
 
-        console.log('📡 로그인 응답 상태:', response.status);
+        if (response && response.token) {
+          const authData = {
+            isAuthenticated: true,
+            user: {
+              id: response.id,
+              username: response.username,
+              email: response.email,
+              roles: response.roles || [],
+              userStatus: response.userStatus,
+              isEmailVerified: response.isEmailVerified,
+              lastLoginAt: response.lastLoginAt
+            },
+            token: response.token,
+            permissions: [],
+            menus: []
+          };
 
-        if (!response.ok) {
-          const contentType = response.headers.get('content-type');
-          console.log('❌ 응답 Content-Type:', contentType);
-          
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            throw new Error(error.message || '로그인에 실패했습니다.');
-          } else {
-            const text = await response.text();
-            console.log('❌ 비-JSON 응답:', text);
-            throw new Error('서버 오류가 발생했습니다.');
+          // 토큰을 localStorage에 저장
+          if (browser) {
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('authUser', JSON.stringify(authData.user));
           }
-        }
 
-        const data = await response.json();
-        console.log('✅ 로그인 성공:', { username: data.username, roles: data.roles });
-        
-        // 토큰을 localStorage에 저장
-        if (browser) {
-          localStorage.setItem('auth_token', data.token);
-          console.log('💾 토큰 저장됨');
-        }
+          set(authData);
 
-        // 사용자 정보와 권한 정보 로드
-        console.log('📋 사용자 프로필 및 메뉴 로딩 시작...');
-        await this.loadUserProfile(data.token);
-        
-        return { success: true, data };
+          // 메뉴와 권한 정보 로드
+          await this.loadUserMenusAndPermissions();
+
+          console.log('✅ 로그인 성공');
+          return { success: true, user: authData.user };
+        } else {
+          throw new Error('토큰이 응답에 포함되지 않았습니다.');
+        }
       } catch (error) {
-        console.error('❌ 로그인 오류:', error);
-        return { success: false, error: error.message };
+        console.error('❌ 로그인 실패:', error);
+        throw error;
       }
     },
 
     // 로그아웃
     logout() {
       console.log('🚪 로그아웃');
+      
       if (browser) {
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
       }
+      
       set(initialState);
     },
 
-    // 사용자 프로필 및 권한 정보 로드
-    async loadUserProfile(token) {
+    // 토큰으로 자동 로그인 시도
+    async tryAutoLogin() {
+      if (!browser) return false;
+
+      const token = localStorage.getItem('authToken');
+      const userStr = localStorage.getItem('authUser');
+      
+      if (!token || !userStr) {
+        console.log('🔍 자동 로그인: 저장된 인증 정보 없음');
+        return false;
+      }
+
       try {
-        console.log('👤 사용자 프로필 요청...');
+        console.log('🔍 자동 로그인 시도');
         
-        const profileResponse = await fetch('/api/v1/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        console.log('📡 프로필 응답 상태:', profileResponse.status);
-
-        if (!profileResponse.ok) {
-          console.error('❌ 프로필 로드 실패:', profileResponse.status);
-          throw new Error('사용자 정보를 불러올 수 없습니다.');
-        }
-
-        const profile = await profileResponse.json();
-        console.log('✅ 프로필 로드 성공:', { username: profile.username, roles: profile.roles });
+        // 토큰 유효성 검증
+        const userProfile = await authApi.getMe(token);
         
-        let permissions = [];
-        let menus = [];
-
-        // 메뉴 및 권한 정보 로드
-        try {
-          console.log('📋 메뉴 권한 요청...');
-          
-          const permissionsResponse = await fetch('/api/v1/permissions/my-menus', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-
-          // API 호출 로그
-          logApiCall('/api/v1/permissions/my-menus', 'GET', { 'Authorization': `Bearer ${token.substring(0, 20)}...` }, null, permissionsResponse);
-
-          if (permissionsResponse.ok) {
-            const permissionData = await permissionsResponse.json();
-            console.log('✅ 권한 데이터 수신:', permissionData);
-            
-            permissions = permissionData.permissions || [];
-            menus = permissionData.menus || [];
-            
-            // 메뉴 데이터 상세 분석
-            logMenuData(menus, permissions);
-            
-          } else {
-            console.warn('⚠️ 권한 정보 로드 실패:', permissionsResponse.status, permissionsResponse.statusText);
-            const errorText = await permissionsResponse.text();
-            console.warn('⚠️ 권한 오류 응답:', errorText);
-            
-            // 백엔드 연결 테스트
-            testBackendConnection();
-          }
-        } catch (permError) {
-          console.warn('⚠️ 권한 로드 중 예외:', permError);
-          
-          // 백엔드 연결 테스트
-          testBackendConnection();
-        }
-
-        // 상태 업데이트
-        update(state => {
-          const newState = {
-            ...state,
+        if (userProfile) {
+          const user = JSON.parse(userStr);
+          const authData = {
             isAuthenticated: true,
-            user: profile,
+            user: {
+              ...user,
+              ...userProfile // 최신 사용자 정보로 업데이트
+            },
             token,
-            permissions: permissions,
-            menus: menus
+            permissions: [],
+            menus: []
           };
-          
-          console.log('📊 인증 상태 업데이트:', {
-            isAuthenticated: newState.isAuthenticated,
-            username: newState.user?.username,
-            menuCount: newState.menus.length,
-            permissionCount: newState.permissions.length
-          });
-          
-          return newState;
+
+          set(authData);
+
+          // 메뉴와 권한 정보 로드
+          await this.loadUserMenusAndPermissions();
+
+          console.log('✅ 자동 로그인 성공');
+          return true;
+        }
+      } catch (error) {
+        console.error('❌ 자동 로그인 실패:', error);
+        
+        // 유효하지 않은 토큰이므로 정리
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        set(initialState);
+      }
+
+      return false;
+    },
+
+    // 사용자 메뉴와 권한 로드
+    async loadUserMenusAndPermissions() {
+      try {
+        const token = browser ? localStorage.getItem('authToken') : null;
+        if (!token) return;
+
+        console.log('📋 메뉴와 권한 정보 로드 중...');
+
+        // 메뉴 정보 조회 - 실제 API 호출
+        const menuResponse = await fetch('/api/v1/auth/user-menus', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
-      } catch (error) {
-        console.error('❌ 프로필 로딩 오류:', error);
-        this.logout();
-        throw error;
-      }
-    },
+        if (menuResponse.ok) {
+          const menuData = await menuResponse.json();
+          
+          update(state => ({
+            ...state,
+            menus: menuData.menus || [],
+            permissions: menuData.permissions || []
+          }));
 
-    // 인증 상태 확인
-    async checkAuth() {
-      if (!browser) {
-        console.log('🌐 서버 사이드 렌더링 - 인증 체크 스킵');
-        return;
-      }
-      
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        console.log('🔒 저장된 토큰 없음');
-        set(initialState);
-        return;
-      }
-
-      console.log('🔍 저장된 토큰으로 인증 상태 확인...');
-      
-      try {
-        await this.loadUserProfile(token);
-        console.log('✅ 인증 상태 확인 완료');
-      } catch (error) {
-        console.error('❌ 인증 확인 실패:', error);
-        this.logout();
-      }
-    },
-
-    // 권한 확인 (동기 버전)
-    hasPermission(menuCode, requiredPermission = 'READ') {
-      let hasPermission = false;
-      this.subscribe(state => {
-        const permission = state.permissions.find(p => p.menuCode === menuCode);
-        if (permission) {
-          switch (requiredPermission.toLowerCase()) {
-            case 'read':
-              hasPermission = permission.hasRead;
-              break;
-            case 'write':
-              hasPermission = permission.hasWrite;
-              break;
-            case 'delete':
-              hasPermission = permission.hasDelete;
-              break;
-            case 'admin':
-              hasPermission = permission.hasAdmin;
-              break;
-            default:
-              hasPermission = false;
-          }
+          logMenuData(menuData.menus || [], menuData.permissions || []);
+          console.log('✅ 메뉴와 권한 정보 로드 완료');
+        } else {
+          console.warn('⚠️ 메뉴 정보 로드 실패:', menuResponse.status);
         }
-      })();
+      } catch (error) {
+        console.error('❌ 메뉴와 권한 정보 로드 오류:', error);
+      }
+    },
+
+    // 권한 체크
+    hasPermission(menuCode, permissionType = 'READ') {
+      let hasPermission = false;
+      
+      update(state => {
+        const permission = state.permissions.find(p => 
+          p.menuCode === menuCode && p.permissionType === permissionType
+        );
+        hasPermission = !!permission;
+        return state;
+      });
+      
       return hasPermission;
     },
 
-    // 역할 확인
-    hasRole(role) {
+    // 역할 체크
+    hasRole(roleName) {
       let hasRole = false;
-      this.subscribe(state => {
-        hasRole = state.user?.roles?.includes(role) || false;
-      })();
+      
+      update(state => {
+        hasRole = state.user?.roles?.includes(roleName) || false;
+        return state;
+      });
+      
       return hasRole;
+    },
+
+    // 비밀번호 변경
+    async changePassword(passwordData) {
+      try {
+        const token = browser ? localStorage.getItem('authToken') : null;
+        if (!token) throw new Error('인증 토큰이 없습니다.');
+
+        await authApi.changePassword(passwordData, token);
+        console.log('✅ 비밀번호 변경 성공');
+        return { success: true };
+      } catch (error) {
+        console.error('❌ 비밀번호 변경 실패:', error);
+        throw error;
+      }
     }
   };
 }
 
 export const authStore = createAuthStore();
+
+// 브라우저 환경에서 페이지 로드 시 자동 로그인 시도
+if (browser) {
+  authStore.tryAutoLogin();
+  testBackendConnection();
+}

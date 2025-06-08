@@ -10,7 +10,7 @@ import java.time.LocalDateTime
 @Table("users")
 data class UserEntity(
     @Id
-    val id: UserId,
+    val id: String,
 
     @Column("username")
     val username: String,
