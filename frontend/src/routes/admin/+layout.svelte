@@ -70,7 +70,16 @@
   function handleTabSwitch(event) {
     const targetTab = adminTabs.find(tab => tab.id === event.detail.tabId);
     if (targetTab) {
+      console.log('🔐 Admin 탭 스위치:', {
+        targetTab,
+        currentActiveTab: activeTabId,
+        allAdminTabs: adminTabs
+      });
+      
+      // 먼저 탭을 활성화
       tabStore.setActiveTab(event.detail.tabId);
+      
+      // 그 다음 페이지 이동
       goto(targetTab.path);
     }
   }

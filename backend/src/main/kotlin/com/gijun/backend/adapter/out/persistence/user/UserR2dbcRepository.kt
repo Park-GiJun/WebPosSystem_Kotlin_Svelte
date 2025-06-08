@@ -40,9 +40,7 @@ interface UserR2dbcRepository : CoroutineCrudRepository<UserEntity, String> {
         SELECT * FROM users 
         WHERE (:search IS NULL OR 
                username LIKE CONCAT('%', :search, '%') OR 
-               email LIKE CONCAT('%', :search, '%') OR
-               first_name LIKE CONCAT('%', :search, '%') OR
-               last_name LIKE CONCAT('%', :search, '%')) 
+               email LIKE CONCAT('%', :search, '%')) 
         AND is_active = true
         ORDER BY created_at DESC
         LIMIT :size OFFSET :offset
@@ -53,9 +51,7 @@ interface UserR2dbcRepository : CoroutineCrudRepository<UserEntity, String> {
         SELECT COUNT(*) FROM users 
         WHERE (:search IS NULL OR 
                username LIKE CONCAT('%', :search, '%') OR 
-               email LIKE CONCAT('%', :search, '%') OR
-               first_name LIKE CONCAT('%', :search, '%') OR
-               last_name LIKE CONCAT('%', :search, '%'))
+               email LIKE CONCAT('%', :search, '%'))
         AND is_active = true
     """)
     suspend fun countWithSearch(search: String?): Long

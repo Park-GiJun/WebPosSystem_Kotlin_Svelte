@@ -17,6 +17,9 @@
   let pageSize = 20;
   let totalCount = 0;
 
+  // 초기화 완료 플래그
+  let initialized = false;
+
   // 인증 상태 구독
   let authToken = '';
   authStore.subscribe(state => {
@@ -26,7 +29,9 @@
   // 탭 활성화
   onMount(() => {
     tabStore.setActiveTab('ADMIN_USERS');
-    loadUsers();
+    loadUsers().then(() => {
+      initialized = true;
+    });
   });
 
   async function loadUsers() {
@@ -56,6 +61,8 @@
       }
 
       console.log('🔍 사용자 목록 조회 중...', params);
+      console.log('🔐 사용중인 토큰:', authToken ? authToken.substring(0, 20) + '...' : 'null');
+      
       const response = await userApi.getUsers(params, authToken);
       
       if (response && response.users) {
@@ -69,6 +76,11 @@
       }
     } catch (error) {
       console.error('❌ 사용자 목록 로드 실패:', error);
+      console.error('❌ 에러 상세:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       toastStore.error('사용자 목록을 불러오는데 실패했습니다: ' + error.message);
       users = [];
       totalCount = 0;
@@ -77,10 +89,22 @@
     }
   }
 
-  // 검색어나 필터 변경 시 다시 로드
-  $: if (searchTerm !== undefined || filterStatus !== undefined || filterRole !== undefined) {
-    currentPage = 0;
-    if (!loading) {
+  // 검색 및 필터 변경 핸들러
+  let searchTimeout;
+  
+  function handleSearchChange() {
+    if (initialized && !loading) {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        currentPage = 0;
+        loadUsers();
+      }, 300); // 300ms 디바운스
+    }
+  }
+  
+  function handleFilterChange() {
+    if (initialized && !loading) {
+      currentPage = 0;
       loadUsers();
     }
   }
@@ -303,12 +327,13 @@
           type="text"
           placeholder="사용자명 또는 이메일 검색..."
           bind:value={searchTerm}
+          on:input={handleSearchChange}
           class="input pl-10"
         />
       </div>
 
       <!-- 상태 필터 -->
-      <select bind:value={filterStatus} class="input">
+      <select bind:value={filterStatus} class="input" on:change={handleFilterChange}>
         <option value="all">모든 상태</option>
         <option value="ACTIVE">활성</option>
         <option value="INACTIVE">비활성</option>
@@ -318,7 +343,7 @@
       </select>
 
       <!-- 역할 필터 -->
-      <select bind:value={filterRole} class="input">
+      <select bind:value={filterRole} class="input" on:change={handleFilterChange}>
         <option value="all">모든 역할</option>
         <option value="SUPER_ADMIN">최고관리자</option>
         <option value="SYSTEM_ADMIN">시스템관리자</option>

@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth.js';
+  import { tabStore } from '$lib/stores/tabs.js';
   import { createEventDispatcher } from 'svelte';
   import { ShoppingCart, Computer, Users, Settings, Calculator, CreditCard, Package, BarChart, Printer, Clock, ChevronDown, ChevronRight } from 'lucide-svelte';
 
@@ -9,6 +10,21 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
+  $: allTabs = $tabStore;
+  $: activePosTab = allTabs.find(tab => tab.system === 'pos' && tab.active);
+  
+  // 활성 탭의 경로를 우선으로 사용하고, 없으면 현재 URL 경로 사용
+  $: effectivePath = activePosTab?.path || currentPath;
+  
+  // 경로 변경 감지 및 디버깅
+  $: {
+    console.log('🛒 PosSidebar 상태:', {
+      currentPath,
+      activePosTab,
+      effectivePath,
+      allPosTabs: allTabs.filter(t => t.system === 'pos')
+    });
+  }
   
   // POS 시스템 전용 메뉴만 필터링 (실제 API 응답 구조에 맞게)
   $: allMenus = $authStore.menus || [];
@@ -82,7 +98,27 @@
   $: organizedMenus = organizeMenus(posMenus);
 
   function isActive(menuPath) {
-    return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
+    if (!menuPath) return false;
+    
+    // 활성 탭의 경로를 우선 사용
+    const checkPath = effectivePath;
+    
+    // 정확한 경로 매칭
+    if (checkPath === menuPath) return true;
+    
+    // 하위 경로 매칭 (더 엄격하게)
+    if (checkPath.startsWith(menuPath + '/')) return true;
+    
+    // 디버깅용 로그
+    console.log('🔍 POS Active check:', {
+      checkPath,
+      menuPath,
+      isExact: checkPath === menuPath,
+      isChild: checkPath.startsWith(menuPath + '/'),
+      result: checkPath === menuPath || checkPath.startsWith(menuPath + '/')
+    });
+    
+    return false;
   }
 
   function hasActiveChild(menu) {

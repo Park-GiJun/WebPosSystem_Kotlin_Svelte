@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.gijun.backend.common.util.awaitSingleOrNull
+import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.reactive.awaitSingleOrNull
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
@@ -56,29 +59,29 @@ class RedisOperations(
         return template.opsForValue()
             .get(key)
             .map { it as T }
-            .block()
+            .awaitSingleOrNull()
     }
 
     suspend fun set(key: String, value: Any, ttl: Duration? = null) {
         if (ttl != null) {
             template.opsForValue()
                 .set(key, value, ttl)
-                .block()
+                .awaitSingle()
         } else {
             template.opsForValue()
                 .set(key, value)
-                .block()
+                .awaitSingle()
         }
     }
 
     suspend fun delete(key: String): Boolean {
         return template.delete(key)
             .map { it > 0 }
-            .block() ?: false
+            .awaitSingleOrNull() ?: false
     }
 
     suspend fun hasKey(key: String): Boolean {
         return template.hasKey(key)
-            .block() ?: false
+            .awaitSingleOrNull() ?: false
     }
 }

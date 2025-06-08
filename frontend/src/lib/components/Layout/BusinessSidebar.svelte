@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth.js';
+  import { tabStore } from '$lib/stores/tabs.js';
   import { createEventDispatcher } from 'svelte';
   import { Building, BarChart, Computer, Users, Settings, MapPin, Truck, FileText, DollarSign, ChevronDown, ChevronRight, Package } from 'lucide-svelte';
 
@@ -9,6 +10,21 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
+  $: allTabs = $tabStore;
+  $: activeBusinessTab = allTabs.find(tab => tab.system === 'business' && tab.active);
+  
+  // 활성 탭의 경로를 우선으로 사용하고, 없으면 현재 URL 경로 사용
+  $: effectivePath = activeBusinessTab?.path || currentPath;
+  
+  // 경로 변경 감지 및 디버깅
+  $: {
+    console.log('🏢 BusinessSidebar 상태:', {
+      currentPath,
+      activeBusinessTab,
+      effectivePath,
+      allBusinessTabs: allTabs.filter(t => t.system === 'business')
+    });
+  }
   
   // 영업정보시스템 전용 메뉴만 필터링 (실제 API 응답 구조에 맞게)
   $: allMenus = $authStore.menus || [];
@@ -82,7 +98,27 @@
   $: organizedMenus = organizeMenus(businessMenus);
 
   function isActive(menuPath) {
-    return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
+    if (!menuPath) return false;
+    
+    // 활성 탭의 경로를 우선 사용
+    const checkPath = effectivePath;
+    
+    // 정확한 경로 매칭
+    if (checkPath === menuPath) return true;
+    
+    // 하위 경로 매칭 (더 엄격하게)
+    if (checkPath.startsWith(menuPath + '/')) return true;
+    
+    // 디버깅용 로그
+    console.log('🔍 Business Active check:', {
+      checkPath,
+      menuPath,
+      isExact: checkPath === menuPath,
+      isChild: checkPath.startsWith(menuPath + '/'),
+      result: checkPath === menuPath || checkPath.startsWith(menuPath + '/')
+    });
+    
+    return false;
   }
 
   function hasActiveChild(menu) {

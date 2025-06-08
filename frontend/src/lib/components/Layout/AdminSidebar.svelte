@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth.js';
+  import { tabStore } from '$lib/stores/tabs.js';
   import { createEventDispatcher } from 'svelte';
   import { Users, Building, Key, Settings, Shield, Server, Database, ClipboardList, BarChart, Lock, ChevronDown, ChevronRight, FileText } from 'lucide-svelte';
 
@@ -9,6 +10,22 @@
 
   $: currentPath = $page.url.pathname;
   $: user = $authStore.user;
+  $: allTabs = $tabStore;
+  $: activeAdminTab = allTabs.find(tab => tab.system === 'admin' && tab.active);
+  
+  // 활성 탭의 경로를 우선으로 사용하고, 없으면 현재 URL 경로 사용
+  $: effectivePath = activeAdminTab?.path || currentPath;
+  
+  // 탭 상태 변경 감지
+  $: {
+    console.log('🔐 AdminSidebar 탭 상태 변경 감지:', {
+      allTabs: allTabs.length,
+      adminTabs: allTabs.filter(t => t.system === 'admin'),
+      activeAdminTab: activeAdminTab,
+      currentPath,
+      effectivePath
+    });
+  }
   
   // 슈퍼어드민 전용 메뉴만 필터링 (실제 API 응답 구조에 맞게)
   $: allMenus = $authStore.menus || [];
@@ -114,7 +131,19 @@
   }
 
   function isActive(menuPath) {
-    return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
+    if (!menuPath) return false;
+    
+    // 현재 활성 탭의 경로를 확인
+    const activeTab = allTabs.find(tab => tab.system === 'admin' && tab.active);
+    const checkPath = activeTab?.path || currentPath;
+    
+    // 정확한 경로 매칭
+    if (checkPath === menuPath) return true;
+    
+    // 하위 경로 매칭 (더 엄격하게)
+    if (checkPath.startsWith(menuPath + '/')) return true;
+    
+    return false;
   }
 
   function hasActiveChild(menu) {
@@ -137,6 +166,22 @@
     // 카테고리가 아닌 실제 메뉴인 경우에만 네비게이션
     if (menu.menuType !== 'CATEGORY' && menu.menuPath) {
       console.log('🔗 네비게이션 실행:', menu.menuPath);
+      
+      // 먼저 탭을 생성하고 활성화
+      const tabData = {
+        id: `admin-${menu.menuCode || 'unknown'}`,
+        title: menu.menuName || 'Unknown Menu',
+        path: menu.menuPath,
+        system: 'admin',
+        closeable: true,
+        secure: true,
+        priority: menu.menuCode?.includes('USERS') ? 'HIGH' : 'MEDIUM'
+      };
+      
+      console.log('🔐 생성/활성화할 탭 데이터:', tabData);
+      tabStore.openTab(tabData);
+      
+      // 그 다음 페이지 이동
       goto(menu.menuPath);
       
       // 탭 생성도 함께 실행
