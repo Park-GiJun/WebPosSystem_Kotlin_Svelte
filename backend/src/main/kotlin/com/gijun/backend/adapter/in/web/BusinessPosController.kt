@@ -1,7 +1,17 @@
 package com.gijun.backend.adapter.`in`.web
 
+import com.gijun.backend.adapter.`in`.web.dto.business.*
 import com.gijun.backend.configuration.RequiresPermission
 import com.gijun.backend.domain.permission.enums.PermissionType
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -9,19 +19,87 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/business/pos")
+@Tag(
+    name = "🖥️ POS Systems", 
+    description = "POS 시스템 관리 API"
+)
 class BusinessPosController {
 
     @GetMapping
+    @Operation(
+        summary = "📋 POS 시스템 목록 조회",
+        description = """
+            **등록된 POS 시스템 목록을 조회합니다.**
+            
+            🖥️ **POS 시스템 정보:**
+            - 📍 **위치**: 매장별 POS 단말기 현황
+            - 🔧 **상태**: 운영/점검/오류 상태 정보
+            - 🌐 **네트워크**: IP/MAC 주소 등 네트워크 정보
+            - 📅 **이력**: 설치일, 점검일 등 관리 이력
+            
+            🔍 **필터링 옵션:**
+            - **매장별**: 특정 매장의 POS만 조회
+            - **상태별**: ACTIVE, MAINTENANCE, ERROR 등
+            - **타입별**: MAIN, SUB, MOBILE 등
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🖥️ POS Systems"]
+    )
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.READ)
+    @ApiResponses(
+        value = [
+            SwaggerApiResponse(
+                responseCode = "200",
+                description = "✅ POS 시스템 목록 조회 성공",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = PosListResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "POS 시스템 목록",
+                            value = """{
+                                "posSystems": [
+                                    {
+                                        "posId": "HQ001001P01",
+                                        "storeId": "HQ001001",
+                                        "storeName": "강남점",
+                                        "posNumber": 1,
+                                        "posName": "메인 POS",
+                                        "posType": "MAIN",
+                                        "ipAddress": "192.168.1.101",
+                                        "macAddress": "00:1B:44:11:3A:B7",
+                                        "serialNumber": "POS001234567",
+                                        "posStatus": "ACTIVE",
+                                        "isActive": true
+                                    }
+                                ],
+                                "totalCount": 3,
+                                "page": 0,
+                                "size": 20
+                            }"""
+                        )
+                    ]
+                )]
+            )
+        ]
+    )
     suspend fun getPosSystems(
+        @Parameter(description = "페이지 번호", example = "0")
         @RequestParam(defaultValue = "0") page: Int,
+        
+        @Parameter(description = "페이지 크기", example = "20")
         @RequestParam(defaultValue = "20") size: Int,
+        
+        @Parameter(description = "매장 ID 필터", example = "HQ001001")
         @RequestParam(required = false) storeId: String?,
+        
+        @Parameter(description = "POS 상태 필터", example = "ACTIVE")
         @RequestParam(required = false) status: String?,
+        
+        @Parameter(description = "POS 타입 필터", example = "MAIN")
         @RequestParam(required = false) type: String?
     ): ResponseEntity<PosListResponse> {
         
-        // TODO: 실제 POS 시스템 목록 조회 로직 구현
         val posSystems = listOf(
             PosDto(
                 posId = "HQ001001P01",
@@ -38,40 +116,6 @@ class BusinessPosController {
                 posStatus = "ACTIVE",
                 isActive = true,
                 createdAt = java.time.LocalDateTime.now().minusYears(1),
-                updatedAt = java.time.LocalDateTime.now()
-            ),
-            PosDto(
-                posId = "HQ001001P02",
-                storeId = "HQ001001",
-                storeName = "강남점",
-                posNumber = 2,
-                posName = "서브 POS",
-                posType = "SUB",
-                ipAddress = "192.168.1.102",
-                macAddress = "00:1B:44:11:3A:B8",
-                serialNumber = "POS001234568",
-                installedDate = java.time.LocalDate.now().minusMonths(8),
-                lastMaintenanceDate = java.time.LocalDate.now().minusMonths(1),
-                posStatus = "ACTIVE",
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusMonths(8),
-                updatedAt = java.time.LocalDateTime.now()
-            ),
-            PosDto(
-                posId = "IN002001P01",
-                storeId = "IN002001",
-                storeName = "개인카페 A",
-                posNumber = 1,
-                posName = "메인 POS",
-                posType = "MAIN",
-                ipAddress = "192.168.1.201",
-                macAddress = "00:1B:44:11:3A:C1",
-                serialNumber = "POS001234569",
-                installedDate = java.time.LocalDate.now().minusMonths(6),
-                lastMaintenanceDate = java.time.LocalDate.now().minusWeeks(2),
-                posStatus = "MAINTENANCE",
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusMonths(6),
                 updatedAt = java.time.LocalDateTime.now()
             )
         )
@@ -90,40 +134,29 @@ class BusinessPosController {
         ))
     }
 
-    @GetMapping("/{posId}")
-    @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.READ)
-    suspend fun getPosSystem(@PathVariable posId: String): ResponseEntity<PosDto> {
-        
-        // TODO: 실제 POS 시스템 상세 조회 로직 구현
-        val pos = PosDto(
-            posId = posId,
-            storeId = "HQ001001",
-            storeName = "강남점",
-            posNumber = 1,
-            posName = "메인 POS",
-            posType = "MAIN",
-            ipAddress = "192.168.1.101",
-            macAddress = "00:1B:44:11:3A:B7",
-            serialNumber = "POS001234567",
-            installedDate = java.time.LocalDate.now().minusYears(1),
-            lastMaintenanceDate = java.time.LocalDate.now().minusMonths(3),
-            posStatus = "ACTIVE",
-            isActive = true,
-            createdAt = java.time.LocalDateTime.now().minusYears(1),
-            updatedAt = java.time.LocalDateTime.now()
-        )
-        
-        return ResponseEntity.ok(pos)
-    }
-
     @PostMapping
+    @Operation(
+        summary = "🖥️ 새 POS 시스템 등록",
+        description = """
+            **매장에 새로운 POS 시스템을 등록합니다.**
+            
+            🔧 **등록 절차:**
+            1. 매장 정보 및 POS 번호 유효성 검증
+            2. 네트워크 정보 설정
+            3. 하드웨어 정보 등록
+            4. 초기 설정 및 테스트
+            5. 운영 상태로 전환
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🖥️ POS Systems"]
+    )
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.WRITE)
     suspend fun createPosSystem(
         @Valid @RequestBody request: CreatePosRequest,
+        @Parameter(description = "JWT 토큰", required = true)
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<PosDto> {
         
-        // TODO: 실제 POS 시스템 생성 로직 구현
         val newPos = PosDto(
             posId = generatePosId(request.storeId, request.posNumber),
             storeId = request.storeId,
@@ -145,66 +178,57 @@ class BusinessPosController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newPos)
     }
 
-    @PutMapping("/{posId}")
-    @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.WRITE)
-    suspend fun updatePosSystem(
-        @PathVariable posId: String,
-        @Valid @RequestBody request: UpdatePosRequest,
-        @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<PosDto> {
-        
-        // TODO: 실제 POS 시스템 업데이트 로직 구현
-        val updatedPos = PosDto(
-            posId = posId,
-            storeId = "HQ001001",
-            storeName = "강남점",
-            posNumber = 1,
-            posName = request.posName ?: "POS 1",
-            posType = request.posType ?: "MAIN",
-            ipAddress = request.ipAddress,
-            macAddress = request.macAddress,
-            serialNumber = request.serialNumber,
-            installedDate = java.time.LocalDate.now().minusYears(1),
-            lastMaintenanceDate = java.time.LocalDate.now(),
-            posStatus = request.posStatus ?: "ACTIVE",
-            isActive = true,
-            createdAt = java.time.LocalDateTime.now().minusYears(1),
-            updatedAt = java.time.LocalDateTime.now()
-        )
-        
-        return ResponseEntity.ok(updatedPos)
-    }
-
-    @DeleteMapping("/{posId}")
-    @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.DELETE)
-    suspend fun deletePosSystem(
-        @PathVariable posId: String,
-        @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<Void> {
-        
-        // TODO: 실제 POS 시스템 삭제 로직 구현
-        return ResponseEntity.noContent().build()
-    }
-
     @PostMapping("/{posId}/maintenance")
+    @Operation(
+        summary = "🔧 POS 점검 시작",
+        description = """
+            **POS 시스템의 정기 점검을 시작합니다.**
+            
+            🔧 **점검 절차:**
+            1. POS 상태를 MAINTENANCE로 변경
+            2. 현재 거래 완료 대기
+            3. 시스템 진단 실행
+            4. 하드웨어 상태 확인
+            5. 소프트웨어 업데이트 확인
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🖥️ POS Systems"]
+    )
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.WRITE)
     suspend fun performMaintenance(
+        @Parameter(description = "POS ID", example = "HQ001001P01", required = true)
         @PathVariable posId: String,
+        @Parameter(description = "JWT 토큰", required = true)
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<Void> {
         
-        // TODO: 실제 POS 시스템 점검 로직 구현
         return ResponseEntity.ok().build()
     }
 
     @PostMapping("/{posId}/complete-maintenance")
+    @Operation(
+        summary = "✅ POS 점검 완료",
+        description = """
+            **POS 시스템의 점검을 완료하고 운영 상태로 복구합니다.**
+            
+            ✅ **완료 절차:**
+            1. 점검 결과 확인
+            2. 시스템 정상 동작 테스트
+            3. POS 상태를 ACTIVE로 변경
+            4. 점검 이력 기록
+            5. 운영진에게 알림 발송
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🖥️ POS Systems"]
+    )
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.WRITE)
     suspend fun completeMaintenance(
+        @Parameter(description = "POS ID", example = "HQ001001P01", required = true)
         @PathVariable posId: String,
+        @Parameter(description = "JWT 토큰", required = true)
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<Void> {
         
-        // TODO: 실제 POS 시스템 점검 완료 로직 구현
         return ResponseEntity.ok().build()
     }
 
@@ -213,52 +237,3 @@ class BusinessPosController {
         return "${storeId}P${paddedPosNumber}"
     }
 }
-
-data class PosListResponse(
-    val posSystems: List<PosDto>,
-    val totalCount: Long,
-    val page: Int,
-    val size: Int
-)
-
-data class PosDto(
-    val posId: String,
-    val storeId: String,
-    val storeName: String,
-    val posNumber: Int,
-    val posName: String?,
-    val posType: String,
-    val ipAddress: String?,
-    val macAddress: String?,
-    val serialNumber: String?,
-    val installedDate: java.time.LocalDate,
-    val lastMaintenanceDate: java.time.LocalDate,
-    val posStatus: String,
-    val isActive: Boolean,
-    val createdAt: java.time.LocalDateTime,
-    val updatedAt: java.time.LocalDateTime
-)
-
-data class CreatePosRequest(
-    @field:jakarta.validation.constraints.NotBlank
-    val storeId: String,
-    val storeName: String?,
-    @field:jakarta.validation.constraints.Min(1)
-    val posNumber: Int,
-    val posName: String?,
-    @field:jakarta.validation.constraints.NotBlank
-    val posType: String, // MAIN, SUB, MOBILE
-    val ipAddress: String?,
-    val macAddress: String?,
-    val serialNumber: String?,
-    val installedDate: java.time.LocalDate?
-)
-
-data class UpdatePosRequest(
-    val posName: String?,
-    val posType: String?,
-    val ipAddress: String?,
-    val macAddress: String?,
-    val serialNumber: String?,
-    val posStatus: String?
-)

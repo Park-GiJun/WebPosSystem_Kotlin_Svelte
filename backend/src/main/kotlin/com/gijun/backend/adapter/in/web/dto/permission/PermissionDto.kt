@@ -1,114 +1,88 @@
 package com.gijun.backend.adapter.`in`.web.dto.permission
 
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
-// Menu DTOs
-data class MenuDto(
-    val menuId: String,
-    val menuCode: String,
-    val menuName: String,
-    val menuPath: String,
-    val parentMenuId: String?,
-    val menuLevel: Int,
-    val displayOrder: Int,
-    val iconName: String?,
-    val description: String?,
-    val menuType: String,
-    val isActive: Boolean,
-    val children: List<MenuDto> = emptyList()
-)
-
-data class CreateMenuRequest(
-    @field:jakarta.validation.constraints.NotBlank
-    val menuCode: String,
-    
-    @field:jakarta.validation.constraints.NotBlank
-    val menuName: String,
-    
-    @field:jakarta.validation.constraints.NotBlank
-    val menuPath: String,
-    
-    val parentMenuId: String?,
-    val menuLevel: Int = 1,
-    val displayOrder: Int = 0,
-    val iconName: String?,
-    val description: String?,
-    val menuType: String = "MENU"
-)
-
-data class UpdateMenuRequest(
-    val menuName: String?,
-    val menuPath: String?,
-    val iconName: String?,
-    val description: String?,
-    val displayOrder: Int?
-)
-
-// Permission DTOs
-data class PermissionDto(
-    val permissionId: String,
-    val menuId: String,
-    val targetType: String,
-    val targetId: String,
-    val permissionType: String,
-    val grantedAt: LocalDateTime,
-    val grantedBy: String,
-    val expiresAt: LocalDateTime?,
-    val isActive: Boolean
-)
-
-data class GrantPermissionRequest(
-    @field:jakarta.validation.constraints.NotBlank
-    val menuId: String,
-    
-    @field:jakarta.validation.constraints.NotBlank
-    val targetType: String, // USER, ROLE, STORE, HEADQUARTERS
-    
-    @field:jakarta.validation.constraints.NotBlank
-    val targetId: String,
-    
-    @field:jakarta.validation.constraints.NotBlank
-    val permissionType: String, // READ, WRITE, DELETE, ADMIN
-    
-    val expiresAt: LocalDateTime?
-)
-
-data class RevokePermissionRequest(
-    @field:jakarta.validation.constraints.NotBlank
-    val permissionId: String,
-    
-    val reason: String?
-)
-
-data class BulkPermissionRequest(
-    val permissions: List<GrantPermissionRequest>
-)
-
-data class UserMenuPermissionsResponse(
-    val userId: String,
-    val username: String,
-    val menus: List<MenuWithPermissionDto>
-)
-
-data class MenuWithPermissionDto(
-    val menuId: String,
-    val menuCode: String,
-    val menuName: String,
-    val menuPath: String,
-    val menuType: String,
-    val permissionType: String?,
-    val hasAccess: Boolean,
-    val children: List<MenuWithPermissionDto> = emptyList()
-)
-
-data class PermissionListResponse(
-    val permissions: List<PermissionDto>,
-    val totalCount: Long,
-    val page: Int,
-    val size: Int
-)
-
-data class MenuListResponse(
+@Schema(description = "내 메뉴 권한 응답")
+data class MyMenusResponse(
+    @Schema(description = "접근 가능한 메뉴 목록")
     val menus: List<MenuDto>,
-    val totalCount: Long
+    
+    @Schema(description = "메뉴별 권한 정보")
+    val permissions: List<PermissionDto>
+)
+
+@Schema(description = "메뉴 정보")
+data class MenuDto(
+    @Schema(description = "메뉴 ID", example = "menu-001")
+    val menuId: String,
+    
+    @Schema(description = "메뉴 코드", example = "DASHBOARD")
+    val menuCode: String,
+    
+    @Schema(description = "메뉴명", example = "대시보드")
+    val menuName: String,
+    
+    @Schema(description = "메뉴 경로", example = "/dashboard")
+    val menuPath: String,
+    
+    @Schema(description = "부모 메뉴 ID")
+    val parentMenuId: String?,
+    
+    @Schema(description = "메뉴 레벨", example = "1")
+    val menuLevel: Int,
+    
+    @Schema(description = "표시 순서", example = "1")
+    val displayOrder: Int,
+    
+    @Schema(description = "아이콘명", example = "dashboard")
+    val iconName: String?,
+    
+    @Schema(description = "메뉴 타입", example = "MENU")
+    val menuType: String
+)
+
+@Schema(description = "권한 정보")
+data class PermissionDto(
+    @Schema(description = "메뉴 코드", example = "DASHBOARD")
+    val menuCode: String,
+    
+    @Schema(description = "권한 타입", example = "READ")
+    val permissionType: String,
+    
+    @Schema(description = "읽기 권한", example = "true")
+    val hasRead: Boolean,
+    
+    @Schema(description = "쓰기 권한", example = "false")
+    val hasWrite: Boolean,
+    
+    @Schema(description = "삭제 권한", example = "false")
+    val hasDelete: Boolean,
+    
+    @Schema(description = "관리자 권한", example = "false")
+    val hasAdmin: Boolean
+)
+
+@Schema(description = "권한 확인 요청")
+data class CheckPermissionRequest(
+    @Schema(description = "메뉴 코드", example = "ADMIN_USERS", required = true)
+    val menuCode: String,
+    
+    @Schema(description = "확인할 권한 타입", example = "WRITE", required = true)
+    val requiredPermission: String
+)
+
+@Schema(description = "권한 확인 응답")
+data class CheckPermissionResponse(
+    @Schema(description = "권한 보유 여부", example = "true")
+    val hasPermission: Boolean,
+    
+    @Schema(description = "권한 확인 메시지", example = "ADMIN_USERS 메뉴에 대한 WRITE 권한이 있습니다")
+    val message: String? = null,
+    
+    @Schema(description = "권한 레벨", example = "ADMIN")
+    val permissionLevel: String? = null,
+    
+    @Schema(description = "권한 부여 시간")
+    val grantedAt: LocalDateTime? = null
 )

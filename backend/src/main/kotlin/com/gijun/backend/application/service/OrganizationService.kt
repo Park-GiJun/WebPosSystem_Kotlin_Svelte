@@ -2,17 +2,14 @@ package com.gijun.backend.application.service
 
 import com.gijun.backend.adapter.`in`.web.dto.organization.*
 import com.gijun.backend.application.port.out.UserRepository
-import com.gijun.backend.domain.store.entities.Headquarters
-import com.gijun.backend.domain.store.entities.Store
-import com.gijun.backend.domain.store.vo.*
-import com.gijun.backend.domain.store.enums.*
 import com.gijun.backend.domain.user.entities.User
 import com.gijun.backend.domain.user.enums.UserRole
 import com.gijun.backend.domain.user.enums.UserStatus
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.*
 
 @Service
 @Transactional
@@ -23,112 +20,87 @@ class OrganizationService(
 
     suspend fun createHeadquarters(request: CreateHeadquartersRequest, token: String): HeadquartersResponse {
         val currentUser = getCurrentUser(token)
-        require(currentUser.hasRole(UserRole.SUPER_ADMIN)) { "Only super admin can create headquarters" }
+        require(currentUser.hasRole(UserRole.ADMIN)) { "Only admin can create headquarters" }
 
-        // 1. 본사 생성
-        val headquarters = Headquarters.create(
-            hqCode = request.hqCode,
-            hqName = request.hqName,
-            createdBy = currentUser.username,
-            businessLicense = request.businessLicense?.let { BusinessLicense.fromString(it) },
-            ceoName = request.ceoName,
-            headquartersAddress = request.address,
-            contactPhone = request.contactPhone?.let { PhoneNumber.fromString(it) },
-            website = request.website
-        )
-
+        // 1. 본사 ID 생성
+        val headquartersId = UUID.randomUUID().toString()
+        
         // 2. 본사 관리자 계정 생성
         val adminUser = User(
-            id = "HQ-${headquarters.hqId.value}-ADMIN",
-            username = "${request.hqCode}_admin",
-            email = "${request.hqCode}_admin@${request.hqCode.lowercase()}.webpos.com",
-            passwordHash = passwordEncoder.encode(request.adminPassword),
-            roles = setOf(UserRole.HQ_MANAGER),
-            organizationId = headquarters.hqId.value,
+            id = UUID.randomUUID().toString(),
+            username = request.adminUsername,
+            email = request.email,
+            passwordHash = passwordEncoder.encode("temp123!"), // 임시 패스워드
+            roles = setOf(UserRole.HEADQUARTERS_ADMIN),
+            organizationId = headquartersId,
             organizationType = "HEADQUARTERS",
             userStatus = UserStatus.ACTIVE,
             createdBy = currentUser.id
         )
 
-        // TODO: HeadquartersRepository.save(headquarters)
+        // TODO: HeadquartersRepository.save() 구현 필요
         val savedUser = userRepository.save(adminUser)
 
         return HeadquartersResponse(
-            hqId = headquarters.hqId.value,
-            hqCode = headquarters.hqCode,
-            hqName = headquarters.hqName,
-            businessLicense = headquarters.businessLicense?.value,
-            ceoName = headquarters.ceoName,
-            address = headquarters.headquartersAddress,
-            contactPhone = headquarters.contactPhone?.value,
-            website = headquarters.website,
-            adminUser = UserResponse(
+            id = headquartersId,
+            name = request.name,
+            businessNumber = request.businessNumber,
+            address = request.address,
+            phoneNumber = request.phoneNumber,
+            email = request.email,
+            adminUser = AdminUserInfo(
                 id = savedUser.id,
                 username = savedUser.username,
                 email = savedUser.email,
                 roles = savedUser.roles.map { it.name },
                 userStatus = savedUser.userStatus.name
             ),
-            createdAt = headquarters.createdAt
+            createdAt = LocalDateTime.now(),
+            updatedAt = LocalDateTime.now()
         )
     }
 
     suspend fun createIndividualStore(request: CreateIndividualStoreRequest, token: String): StoreResponse {
         val currentUser = getCurrentUser(token)
-        require(currentUser.hasRole(UserRole.SUPER_ADMIN)) { "Only super admin can create individual stores" }
+        require(currentUser.hasRole(UserRole.ADMIN)) { "Only admin can create individual stores" }
 
-        // 1. 개인매장 생성
-        val store = Store.createIndividualStore(
-            storeName = request.storeName,
-            regionCode = request.regionCode,
-            storeNumber = request.storeNumber,
-            ownerName = request.ownerName,
-            createdBy = currentUser.username,
-            businessLicense = request.businessLicense?.let { BusinessLicense.fromString(it) },
-            phoneNumber = request.phoneNumber?.let { PhoneNumber.fromString(it) },
-            address = request.address,
-            postalCode = request.postalCode,
-            openingDate = request.openingDate ?: LocalDate.now()
-        )
-
+        // 1. 개인매장 ID 생성
+        val storeId = UUID.randomUUID().toString()
+        
         // 2. 매장 관리자 계정 생성
         val adminUser = User(
-            id = "ST-${store.storeId.value}-ADMIN",
-            username = "IN_${request.regionCode}${request.storeNumber}_admin",
-            email = "IN_${request.regionCode}${request.storeNumber}_admin@store.webpos.com",
-            passwordHash = passwordEncoder.encode(request.adminPassword),
-            roles = setOf(UserRole.STORE_MANAGER),
-            organizationId = store.storeId.value,
-            organizationType = "STORE",
+            id = UUID.randomUUID().toString(),
+            username = request.ownerUsername,
+            email = request.email,
+            passwordHash = passwordEncoder.encode("temp123!"), // 임시 패스워드
+            roles = setOf(UserRole.STORE_ADMIN),
+            organizationId = storeId,
+            organizationType = "INDIVIDUAL_STORE",
             userStatus = UserStatus.ACTIVE,
             createdBy = currentUser.id
         )
 
-        // TODO: StoreRepository.save(store)
+        // TODO: StoreRepository.save() 구현 필요
         val savedUser = userRepository.save(adminUser)
 
         return StoreResponse(
-            storeId = store.storeId.value,
-            storeName = store.storeName,
-            storeType = store.storeType.name,
-            operationType = store.operationType?.name,
-            regionCode = store.regionCode,
-            storeNumber = store.storeNumber,
-            ownerName = store.ownerName,
-            businessLicense = store.businessLicense?.value,
-            phoneNumber = store.phoneNumber?.value,
-            address = store.address,
-            postalCode = store.postalCode,
-            openingDate = store.openingDate,
-            storeStatus = store.storeStatus.name,
-            managerUser = UserResponse(
+            id = storeId,
+            name = request.name,
+            businessNumber = request.businessNumber,
+            address = request.address,
+            phoneNumber = request.phoneNumber,
+            email = request.email,
+            storeType = "INDIVIDUAL",
+            adminUser = AdminUserInfo(
                 id = savedUser.id,
                 username = savedUser.username,
                 email = savedUser.email,
                 roles = savedUser.roles.map { it.name },
                 userStatus = savedUser.userStatus.name
             ),
-            createdAt = store.createdAt
+            posCount = 1, // 기본 POS 1대
+            isActive = true,
+            createdAt = LocalDateTime.now()
         )
     }
 

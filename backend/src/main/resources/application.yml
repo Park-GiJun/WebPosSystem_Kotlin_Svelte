@@ -15,51 +15,9 @@ server:
 # SpringDoc OpenAPI Configuration
 springdoc:
   api-docs:
-    path: ${SPRINGDOC_API_DOCS_PATH:/api-docs}
     enabled: true
   swagger-ui:
-    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
     enabled: true
-    try-it-out-enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-    filter: true
-    syntax-highlight:
-      theme: tomorrow-night
-    display-request-duration: true
-    show-extensions: true
-    show-common-extensions: true
-    custom-css-url: /swagger-ui-custom.css
-    custom-js-url: /swagger-ui-custom.js
-    config-url: /v3/api-docs/swagger-config
-    oauth:
-      client-id: webpos-swagger
-      client-secret: swagger-secret
-      realm: webpos
-      app-name: WebPos API
-      scope-separator: " "
-      additional-query-string-params:
-        audience: webpos-api
-    supported-submit-methods:
-      - get
-      - post
-      - put
-      - delete
-      - patch
-      - head
-      - options
-  groups-enabled: true
-  cache:
-    disabled: false
-  default-consumes-media-type: application/json
-  default-produces-media-type: application/json
-  writer-with-default-pretty-printer: true
-  model-and-view-allowed: false
-  override-with-generic-response: false
-  remove-broken-reference-definitions: true
-  auto-tag-classes: true
-  show-actuator: true
-  use-management-port: false
 
 # Management Endpoints
 management:
