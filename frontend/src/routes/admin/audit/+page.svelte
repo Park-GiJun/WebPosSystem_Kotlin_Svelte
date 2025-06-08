@@ -28,7 +28,7 @@
   let endDate = '';
   let showFilters = false;
   let showStatistics = false;
-  let showDetailModal = false;
+  let isDetailModalOpen = false;
   let selectedAuditLog = null;
 
   // 인증 토큰
@@ -130,7 +130,7 @@
 
   function openDetailModal(auditLog) {
     selectedAuditLog = auditLog;
-    showDetailModal = true;
+    isDetailModalOpen = true;
   }
 
   function applyFilters() {
@@ -538,7 +538,7 @@
 
 <!-- 감사 로그 상세 모달 -->
 <AuditLogDetailModal
-  bind:open={showDetailModal}
+  bind:open={isDetailModalOpen}
   auditLog={selectedAuditLog}
-  on:close={() => showDetailModal = false}
+  on:close={() => isDetailModalOpen = false}
 />
