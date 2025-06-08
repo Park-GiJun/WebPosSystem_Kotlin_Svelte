@@ -85,6 +85,7 @@
   }
 
   function handleTabClose(event) {
+    console.log('🗑️ Admin 레이아웃에서 탭 닫기 처리:', event.detail.tabId);
     tabStore.closeTab(event.detail.tabId);
   }
 

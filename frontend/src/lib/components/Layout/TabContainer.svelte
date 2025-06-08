@@ -12,7 +12,9 @@
   }
 
   function closeTab(tabId, event) {
+    event.preventDefault();
     event.stopPropagation();
+    console.log('🗑️ 기본 탭 닫기 클릭:', tabId);
     dispatch('tab-close', { tabId });
   }
 </script>
@@ -34,10 +36,10 @@
               {#if tab.closeable}
                 <button
                   type="button"
-                  class="ml-2 p-1 rounded hover:bg-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  class="ml-2 p-1.5 rounded hover:bg-gray-200 opacity-70 group-hover:opacity-100 transition-opacity duration-150 hover:scale-110 active:scale-95 flex items-center justify-center min-w-[24px] min-h-[24px] relative z-10"
                   on:click={(e) => closeTab(tab.id, e)}
                 >
-                  <X size="14" />
+                  <X size="14" class="pointer-events-none" />
                 </button>
               {/if}
             </span>

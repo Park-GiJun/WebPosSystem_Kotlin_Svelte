@@ -12,7 +12,9 @@
   }
 
   function closeTab(tabId, event) {
+    event.preventDefault();
     event.stopPropagation();
+    console.log('🗑️ POS 탭 닫기 클릭:', tabId);
     dispatch('tab-close', { tabId });
   }
 
@@ -125,7 +127,7 @@
               {/if}
               
               <!-- 액션 버튼들 -->
-              <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+              <div class="flex items-center space-x-1 opacity-70 group-hover:opacity-100 transition-opacity duration-150">
                 {#if tab.printable}
                   <button
                     type="button"
@@ -140,11 +142,11 @@
                 {#if tab.closeable}
                   <button
                     type="button"
-                    class="p-1 rounded-md hover:bg-emerald-400/40 transition-all duration-200 hover:scale-110"
+                    class="p-1.5 ml-1 rounded-md hover:bg-emerald-400/60 active:bg-emerald-400/80 transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center min-w-[24px] min-h-[24px] relative z-10"
                     on:click={(e) => closeTab(tab.id, e)}
                     title="탭 닫기"
                   >
-                    <X size="12" class="text-emerald-200 hover:text-white" />
+                    <X size="14" class="text-emerald-200 hover:text-white pointer-events-none" />
                   </button>
                 {/if}
               </div>
@@ -156,7 +158,7 @@
             {/if}
 
             <!-- 호버 효과 -->
-            <div class="absolute inset-0 bg-gradient-to-t from-emerald-400/0 to-emerald-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-emerald-400/0 to-emerald-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
           </button>
         {/each}
       </div>

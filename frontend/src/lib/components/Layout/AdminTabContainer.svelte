@@ -12,7 +12,9 @@
   }
 
   function closeTab(tabId, event) {
+    event.preventDefault();
     event.stopPropagation();
+    console.log('🗑️ 관리자 탭 닫기 클릭:', tabId);
     dispatch('tab-close', { tabId });
   }
 
@@ -102,11 +104,11 @@
               {#if tab.closeable}
                 <button
                   type="button"
-                  class="ml-1 p-1 rounded-md hover:bg-red-400/40 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                  class="ml-1 p-1.5 rounded-md hover:bg-red-400/60 active:bg-red-400/80 opacity-70 group-hover:opacity-100 transition-all duration-150 hover:scale-110 active:scale-95 flex items-center justify-center min-w-[24px] min-h-[24px] relative z-10"
                   on:click={(e) => closeTab(tab.id, e)}
                   title="탭 닫기"
                 >
-                  <X size="12" class="text-red-200 hover:text-white" />
+                  <X size="14" class="text-red-200 hover:text-white pointer-events-none" />
                 </button>
               {/if}
             </div>
@@ -117,7 +119,7 @@
             {/if}
 
             <!-- 호버 효과 -->
-            <div class="absolute inset-0 bg-gradient-to-t from-red-400/0 to-red-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-red-400/0 to-red-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
           </button>
         {/each}
       </div>

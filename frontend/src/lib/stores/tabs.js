@@ -31,12 +31,18 @@ function createTabStore() {
 
     // 탭 닫기
     closeTab(tabId) {
+      console.log('🗑️ TabStore closeTab 호출:', tabId);
       update(tabs => {
         const tabIndex = tabs.findIndex(t => t.id === tabId);
-        if (tabIndex === -1) return tabs;
+        if (tabIndex === -1) {
+          console.log('❌ 탭을 찾을 수 없음:', tabId);
+          return tabs;
+        }
 
         const closingTab = tabs[tabIndex];
+        console.log('🗑️ 닫을 탭:', closingTab);
         const newTabs = tabs.filter(t => t.id !== tabId);
+        console.log('🗑️ 남은 탭들:', newTabs);
         
         // 닫힌 탭이 활성 탭이었다면 같은 시스템의 다른 탭을 활성화
         if (closingTab.active && newTabs.length > 0) {
@@ -47,6 +53,7 @@ function createTabStore() {
             const nextTabGlobalIndex = newTabs.findIndex(t => t.id === nextTab.id);
             if (nextTabGlobalIndex !== -1) {
               newTabs[nextTabGlobalIndex].active = true;
+              console.log('🔄 다음 활성 탭:', newTabs[nextTabGlobalIndex]);
             }
           }
         }
