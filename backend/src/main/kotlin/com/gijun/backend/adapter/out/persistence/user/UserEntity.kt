@@ -1,5 +1,6 @@
 package com.gijun.backend.adapter.out.persistence.user
 
+import com.gijun.backend.domain.user.vo.UserId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.Version
 import org.springframework.data.relational.core.mapping.Column
@@ -9,7 +10,7 @@ import java.time.LocalDateTime
 @Table("users")
 data class UserEntity(
     @Id
-    val id: String,
+    val id: UserId,
 
     @Column("username")
     val username: String,

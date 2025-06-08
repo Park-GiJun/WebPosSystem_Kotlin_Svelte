@@ -1,14 +1,15 @@
 package com.gijun.backend.adapter.out.persistence.stores
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.gijun.backend.domain.store.entities.Store
 import org.springframework.stereotype.Component
 
 @Component
-class StoreMapper(
-    private val objectMapper: ObjectMapper,
-) {
-    fun toDomain(entity: StoreEntity): Store{
+class StoreMapper {
+    
+    /**
+     * Entity를 Domain으로 변환
+     */
+    fun toDomain(entity: StoreEntity): Store {
         return Store(
             storeId = entity.storeId,
             storeName = entity.storeName,
@@ -30,11 +31,14 @@ class StoreMapper(
             updatedAt = entity.updatedAt,
             updatedBy = entity.updatedBy,
             deletedAt = entity.deletedAt,
-            deletedBy = entity.deletedBy,
+            deletedBy = entity.deletedBy
         )
     }
 
-    fun toEntity(domain: StoreEntity): StoreEntity{
+    /**
+     * Domain을 Entity로 변환
+     */
+    fun toEntity(domain: Store): StoreEntity {
         return StoreEntity(
             storeId = domain.storeId,
             storeName = domain.storeName,
@@ -56,7 +60,22 @@ class StoreMapper(
             updatedAt = domain.updatedAt,
             updatedBy = domain.updatedBy,
             deletedAt = domain.deletedAt,
-            deletedBy = domain.deletedBy
+            deletedBy = domain.deletedBy,
+            version = 0L // 새로 생성시 기본값
         )
+    }
+
+    /**
+     * Entity 리스트를 Domain 리스트로 변환
+     */
+    fun toDomainList(entities: List<StoreEntity>): List<Store> {
+        return entities.map { toDomain(it) }
+    }
+
+    /**
+     * Domain 리스트를 Entity 리스트로 변환
+     */
+    fun toEntityList(domains: List<Store>): List<StoreEntity> {
+        return domains.map { toEntity(it) }
     }
 }
