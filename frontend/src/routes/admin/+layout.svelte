@@ -15,11 +15,13 @@
     // 슈퍼어드민 권한 확인
     const unsubscribe = authStore.subscribe(async auth => {
       if (auth.isAuthenticated) {
-        if (!auth.user?.roles?.includes('SUPER_ADMIN')) {
-          // 권한이 없으면 대시보드로 리다이렉트
-          goto('/dashboard');
+        if (!auth.user?.roles?.includes('SUPER_ADMIN') && !auth.user?.roles?.includes('SYSTEM_ADMIN')) {
+          // 권한이 없으면 시스템 선택으로 리다이렉트
+          console.log('❌ Admin 시스템 접근 권한 없음:', auth.user?.roles);
+          goto('/system-select');
           return;
         }
+        console.log('✅ Admin 시스템 접근 허용:', auth.user?.roles);
         loading = false;
       }
     });

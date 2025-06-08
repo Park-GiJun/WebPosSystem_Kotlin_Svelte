@@ -16,13 +16,15 @@
     const unsubscribe = authStore.subscribe(async auth => {
       if (auth.isAuthenticated) {
         const hasBusinessAccess = auth.user?.roles?.some(role => 
-          ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'HQ_MANAGER'].includes(role)
+          ['SUPER_ADMIN', 'SYSTEM_ADMIN', 'HQ_MANAGER', 'STORE_MANAGER'].includes(role)
         );
         
         if (!hasBusinessAccess) {
-          goto('/dashboard');
+          console.log('❌ Business 시스템 접근 권한 없음:', auth.user?.roles);
+          goto('/system-select');
           return;
         }
+        console.log('✅ Business 시스템 접근 허용:', auth.user?.roles);
         loading = false;
       }
     });

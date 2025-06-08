@@ -16,10 +16,11 @@
     isAuthenticated = state.isAuthenticated;
   });
 
-  onMount(() => {
-    // 이미 로그인된 경우 대시보드로 리다이렉트
+  onMount(async () => {
+    // 이미 로그인된 경우 권한에 따라 리다이렉트
     if (isAuthenticated) {
-      goto('/dashboard');
+      await redirectBasedOnPermissions();
+      return;
     }
 
     // URL에서 에러 메시지 확인
@@ -40,7 +41,7 @@
 
     try {
       console.log('🔐 로그인 시도:', { username, rememberMe });
-      
+
       const result = await authStore.login({
         username: username.trim(),
         password: password.trim()
@@ -48,7 +49,7 @@
 
       if (result.success) {
         toastStore.success(`환영합니다, ${result.user.username}님!`);
-        
+
         // Remember Me 처리
         if (rememberMe && typeof localStorage !== 'undefined') {
           localStorage.setItem('rememberMe', 'true');
@@ -58,16 +59,16 @@
           localStorage.removeItem('rememberedUsername');
         }
 
-        // 잠시 후 대시보드로 이동
-        setTimeout(() => {
-          goto('/dashboard');
-        }, 1000);
+        // 사용자의 메뉴 권한에 따라 적절한 페이지로 리다이렉트
+        setTimeout(async () => {
+          await redirectBasedOnPermissions();
+        }, 500); // 메뉴 로드 시간을 위해 약간의 딜레이
       }
     } catch (error) {
       console.error('❌ 로그인 오류:', error);
-      
+
       let errorMessage = '로그인에 실패했습니다.';
-      
+
       if (error.message.includes('사용자명') || error.message.includes('패스워드')) {
         errorMessage = '사용자명 또는 비밀번호가 올바르지 않습니다.';
       } else if (error.message.includes('잠겨')) {
@@ -77,7 +78,7 @@
       } else if (error.message.includes('인증')) {
         errorMessage = '이메일 인증이 필요합니다.';
       }
-      
+
       toastStore.error(errorMessage);
       password = ''; // 비밀번호 필드 초기화
     } finally {
@@ -100,13 +101,89 @@
     if (typeof localStorage !== 'undefined') {
       const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
       const savedUsername = localStorage.getItem('rememberedUsername');
-      
+
       if (savedRememberMe && savedUsername) {
         username = savedUsername;
         rememberMe = true;
       }
     }
   });
+
+  // 사용자 권한에 따라 적절한 페이지로 리다이렉트
+  async function redirectBasedOnPermissions() {
+    let currentState;
+    const unsubscribe = authStore.subscribe(state => {
+      currentState = state;
+    });
+    unsubscribe();
+
+    const user = currentState?.user;
+    const menus = currentState?.menus || [];
+
+    console.log('🔍 권한 기반 리다이렉트 확인:', { user, menusCount: menus.length });
+
+    if (!user || !user.roles || user.roles.length === 0) {
+      console.log('❌ 사용자 정보 없음, 시스템 선택으로 이동');
+      goto('/system-select');
+      return;
+    }
+
+    // 메뉴 데이터를 기반으로 접근 가능한 시스템들 확인
+    const hasAdminMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('ADMIN'));
+    const hasBusinessMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('BUSINESS'));
+    const hasPosMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('POS'));
+
+    console.log('🔍 메뉴 기반 시스템 접근 권한:', { hasAdminMenus, hasBusinessMenus, hasPosMenus });
+
+    // 사용자가 접근 가능한 시스템들을 메뉴 기반으로 확인
+    const accessibleSystems = [];
+
+    // Admin 시스템 권한 확인 (메뉴 + 역할)
+    if (hasAdminMenus && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN'))) {
+      accessibleSystems.push('admin');
+    }
+
+    // Business 시스템 권한 확인 (메뉴 + 역할)
+    if (hasBusinessMenus && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN') ||
+        user.roles.includes('HQ_MANAGER') || user.roles.includes('STORE_MANAGER'))) {
+      accessibleSystems.push('business');
+    }
+
+    // POS 시스템 권한 확인 (메뉴 + 역할)
+    if (hasPosMenus && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN') ||
+        user.roles.includes('STORE_MANAGER') || user.roles.includes('USER'))) {
+      accessibleSystems.push('pos');
+    }
+
+    console.log('✅ 접근 가능한 시스템들:', accessibleSystems);
+
+    // 접근 가능한 시스템이 하나만 있다면 바로 이동
+    if (accessibleSystems.length === 1) {
+      const system = accessibleSystems[0];
+      console.log(`🎯 단일 시스템 접근: /${system}`);
+
+      // 각 시스템의 기본 페이지로 이동
+      if (system === 'admin') {
+        goto('/admin/users');
+      } else if (system === 'business') {
+        // 역할에 따라 다른 기본 페이지
+        if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN')) {
+          goto('/business/stores');
+        } else if (user.roles.includes('HQ_MANAGER')) {
+          goto('/business/headquarters/stores');
+        } else if (user.roles.includes('STORE_MANAGER')) {
+          goto('/business/pos');
+        }
+      } else if (system === 'pos') {
+        goto('/pos/sales');
+      }
+    }
+    // 여러 시스템에 접근 가능하거나 접근 가능한 시스템이 없다면 시스템 선택 페이지로
+    else {
+      console.log('🎯 시스템 선택 페이지로 이동');
+      goto('/system-select');
+    }
+  }
 </script>
 
 <svelte:head>
@@ -129,7 +206,7 @@
     <!-- 로그인 폼 -->
     <div class="bg-white rounded-xl shadow-lg p-8">
       <h2 class="text-2xl font-semibold text-gray-900 mb-6 text-center">로그인</h2>
-      
+
       <form on:submit|preventDefault={handleLogin} class="space-y-6">
         <!-- 사용자명 입력 -->
         <div>
@@ -204,7 +281,7 @@
         >
           계정이 없으신가요? 회원가입
         </button>
-        
+
         <div class="text-xs text-gray-500">
           <p>문의사항이 있으시면 관리자에게 연락하세요.</p>
         </div>
@@ -223,11 +300,11 @@
   .gradient-bg {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
-  
+
   input:focus {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }
-  
+
   button:focus {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }

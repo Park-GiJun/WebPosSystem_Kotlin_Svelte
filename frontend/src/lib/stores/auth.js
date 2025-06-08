@@ -17,21 +17,27 @@ function logMenuData(menus, permissions) {
   console.log('📊 메뉴 통계:', {
     총개수: menus.length,
     시스템별: {
-      ADMIN: menus.filter(m => m.menu_code?.startsWith('ADMIN')).length,
-      BUSINESS: menus.filter(m => m.menu_code?.startsWith('BUSINESS')).length,
-      POS: menus.filter(m => m.menu_code?.startsWith('POS')).length,
+      ADMIN: menus.filter(m => m.menuCode?.startsWith('ADMIN')).length,
+      BUSINESS: menus.filter(m => m.menuCode?.startsWith('BUSINESS')).length,
+      POS: menus.filter(m => m.menuCode?.startsWith('POS')).length,
     },
     레벨별: {
-      'Level 1': menus.filter(m => m.menu_level === 1).length,
-      'Level 2': menus.filter(m => m.menu_level === 2).length,
-      'Level 3': menus.filter(m => m.menu_level === 3).length,
+      'Level 1': menus.filter(m => m.menuLevel === 1).length,
+      'Level 2': menus.filter(m => m.menuLevel === 2).length,
+      'Level 3': menus.filter(m => m.menuLevel === 3).length,
     }
   });
   
   if (menus.length > 0) {
     console.log('🔍 첫 번째 메뉴 상세:', menus[0]);
     console.log('📋 ADMIN 메뉴들:', 
-      menus.filter(m => m.menu_code?.startsWith('ADMIN')).map(m => `${m.menu_code} - ${m.menu_name}`)
+      menus.filter(m => m.menuCode?.startsWith('ADMIN')).map(m => `${m.menuCode} - ${m.menuName}`)
+    );
+    console.log('📋 BUSINESS 메뉴들:', 
+      menus.filter(m => m.menuCode?.startsWith('BUSINESS')).map(m => `${m.menuCode} - ${m.menuName}`)
+    );
+    console.log('📋 POS 메뉴들:', 
+      menus.filter(m => m.menuCode?.startsWith('POS')).map(m => `${m.menuCode} - ${m.menuName}`)
     );
   }
   console.groupEnd();
@@ -174,6 +180,11 @@ function createAuthStore() {
       return false;
     },
 
+    // 인증 상태 확인
+    async checkAuth() {
+      return this.tryAutoLogin();
+    },
+
     // 사용자 메뉴와 권한 로드
     async loadUserMenusAndPermissions() {
       try {
@@ -183,7 +194,7 @@ function createAuthStore() {
         console.log('📋 메뉴와 권한 정보 로드 중...');
 
         // 메뉴 정보 조회 - 실제 API 호출
-        const menuResponse = await fetch('/api/v1/auth/user-menus', {
+        const menuResponse = await fetch('/api/v1/admin/permissions/menus', {
           headers: {
             'Authorization': `Bearer ${token}`
           }

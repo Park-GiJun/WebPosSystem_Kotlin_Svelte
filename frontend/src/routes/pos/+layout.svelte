@@ -20,9 +20,11 @@
         );
         
         if (!hasPosAccess) {
-          goto('/dashboard');
+          console.log('❌ POS 시스템 접근 권한 없음:', auth.user?.roles);
+          goto('/system-select');
           return;
         }
+        console.log('✅ POS 시스템 접근 허용:', auth.user?.roles);
         loading = false;
       }
     });

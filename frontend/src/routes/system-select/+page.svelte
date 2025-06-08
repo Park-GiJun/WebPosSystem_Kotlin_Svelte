@@ -1,18 +1,37 @@
 <script>
   import { authStore } from '$lib/stores/auth.js';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { Shield, Building, Monitor } from 'lucide-svelte';
+  import LoadingSpinner from '$lib/components/Common/LoadingSpinner.svelte';
 
-  $: user = $authStore.user;
+  $: authState = $authStore;
+  $: user = authState.user;
+  $: menus = authState.menus || [];
+  $: isLoading = authState.isAuthenticated && menus.length === 0; // 로그인은 되었지만 메뉴 로딩 중
 
   // 사용자 권한에 따른 시스템 접근 권한 확인
-  $: availableSystems = getAvailableSystems(user?.roles || []);
+  $: availableSystems = getAvailableSystems(user?.roles || [], menus);
 
-  function getAvailableSystems(roles) {
+  onMount(() => {
+    // 인증 상태 확인
+    if (!authState.isAuthenticated) {
+      goto('/login');
+    }
+  });
+
+  function getAvailableSystems(roles, menus) {
     const systems = [];
 
+    // 메뉴 데이터를 기반으로 접근 가능한 시스템들 확인
+    const hasAdminMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('ADMIN'));
+    const hasBusinessMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('BUSINESS'));
+    const hasPosMenus = menus.some(menu => menu.menuCode && menu.menuCode.startsWith('POS'));
+
+    console.log('🔍 시스템별 메뉴 접근 권한:', { hasAdminMenus, hasBusinessMenus, hasPosMenus });
+
     // 슈퍼어드민 시스템
-    if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN')) {
+    if (hasAdminMenus && (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN'))) {
       systems.push({
         id: 'admin',
         title: '슈퍼어드민',
@@ -26,47 +45,49 @@
     }
 
     // 영업정보시스템 - 사용자 권한에 따라 다른 기본 경로
-    if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN')) {
-      // 슈퍼어드민은 조직 관리로
-      systems.push({
-        id: 'business',
-        title: '영업정보시스템',
-        description: '본사, 매장, 매출 관리',
-        icon: Building,
-        color: 'bg-blue-100 text-blue-600',
-        hoverColor: 'hover:bg-blue-50',
-        borderColor: 'border-blue-200',
-        path: '/admin/organizations'
-      });
-    } else if (roles.includes('HQ_MANAGER')) {
-      // 본사 관리자는 가맹점 관리로
-      systems.push({
-        id: 'business',
-        title: '영업정보시스템',
-        description: '가맹점, POS, 매출 관리',
-        icon: Building,
-        color: 'bg-blue-100 text-blue-600',
-        hoverColor: 'hover:bg-blue-50',
-        borderColor: 'border-blue-200',
-        path: '/business/headquarters/stores'
-      });
-    } else if (roles.includes('STORE_MANAGER')) {
-      // 매장 관리자는 POS 관리로
-      systems.push({
-        id: 'business',
-        title: '영업정보시스템',
-        description: 'POS, 직원, 매출 관리',
-        icon: Building,
-        color: 'bg-blue-100 text-blue-600',
-        hoverColor: 'hover:bg-blue-50',
-        borderColor: 'border-blue-200',
-        path: '/business/pos'
-      });
+    if (hasBusinessMenus) {
+      if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN')) {
+        // 슈퍼어드민도 영업정보시스템으로 갈 수 있음 - 조직 관리는 admin 시스템임
+        systems.push({
+          id: 'business',
+          title: '영업정보시스템',
+          description: '본사, 매장, 매출 관리',
+          icon: Building,
+          color: 'bg-blue-100 text-blue-600',
+          hoverColor: 'hover:bg-blue-50',
+          borderColor: 'border-blue-200',
+          path: '/business/stores'
+        });
+      } else if (roles.includes('HQ_MANAGER')) {
+        // 본사 관리자는 가맹점 관리로
+        systems.push({
+          id: 'business',
+          title: '영업정보시스템',
+          description: '가맹점, POS, 매출 관리',
+          icon: Building,
+          color: 'bg-blue-100 text-blue-600',
+          hoverColor: 'hover:bg-blue-50',
+          borderColor: 'border-blue-200',
+          path: '/business/headquarters/stores'
+        });
+      } else if (roles.includes('STORE_MANAGER')) {
+        // 매장 관리자는 POS 관리로
+        systems.push({
+          id: 'business',
+          title: '영업정보시스템',
+          description: 'POS, 직원, 매출 관리',
+          icon: Building,
+          color: 'bg-blue-100 text-blue-600',
+          hoverColor: 'hover:bg-blue-50',
+          borderColor: 'border-blue-200',
+          path: '/business/pos'
+        });
+      }
     }
 
     // POS 시스템
-    if (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN') || 
-        roles.includes('STORE_MANAGER') || roles.includes('USER')) {
+    if (hasPosMenus && (roles.includes('SUPER_ADMIN') || roles.includes('SYSTEM_ADMIN') || 
+        roles.includes('STORE_MANAGER') || roles.includes('USER'))) {
       systems.push({
         id: 'pos',
         title: 'POS 시스템',
@@ -79,19 +100,23 @@
       });
     }
 
+    console.log('✅ 접근 가능한 시스템들:', systems.map(s => s.id));
     return systems;
   }
 
   function selectSystem(system) {
+    console.log('🎯 시스템 선택:', system.id, '→', system.path);
     try {
       goto(system.path);
     } catch (error) {
       console.error('Navigation error:', error);
       // 라우팅 에러 발생 시 대체 경로로 이동
       if (system.id === 'pos') {
-        goto('/pos/sales');
-      } else {
-        goto(system.path);
+        goto('/pos');
+      } else if (system.id === 'admin') {
+        goto('/admin');
+      } else if (system.id === 'business') {
+        goto('/business');
       }
     }
   }
@@ -145,7 +170,12 @@
 
   <!-- 시스템 선택 -->
   <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-    {#if availableSystems.length === 0}
+    {#if isLoading}
+      <div class="bg-white py-8 px-6 shadow rounded-lg border border-gray-200 text-center">
+        <LoadingSpinner size="lg" />
+        <p class="mt-4 text-gray-500">메뉴 정보를 로딩 중입니다...</p>
+      </div>
+    {:else if availableSystems.length === 0}
       <div class="bg-white py-8 px-6 shadow rounded-lg border border-gray-200 text-center">
         <p class="text-gray-500">접근 가능한 시스템이 없습니다.</p>
         <button
