@@ -20,7 +20,7 @@ data class AuditLogEntity(
     @Column("record_id")
     val recordId: String,
     
-    @Column("action_type")
+    @Column("action")
     val actionType: AuditActionType,
     
     @Column("old_values")

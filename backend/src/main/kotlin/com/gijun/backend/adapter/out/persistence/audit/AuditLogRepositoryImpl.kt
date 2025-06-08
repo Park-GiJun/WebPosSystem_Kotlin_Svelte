@@ -119,7 +119,7 @@ class AuditLogRepositoryImpl(
     override suspend fun getActionStatistics(since: LocalDateTime): Map<AuditActionType, Long> {
         val stats = r2dbcRepository.getActionStatistics(since).toList()
         return stats.associate { 
-            AuditActionType.fromString(it["action_type"] as String) to (it["count"] as Number).toLong()
+            AuditActionType.fromString(it["action"] as String) to (it["count"] as Number).toLong()
         }
     }
 
@@ -133,7 +133,7 @@ class AuditLogRepositoryImpl(
     override suspend fun getUserStatistics(since: LocalDateTime): Map<String, Long> {
         val stats = r2dbcRepository.getUserStatistics(since).toList()
         return stats.associate { 
-            it["user_name"] as String to (it["count"] as Number).toLong()
+            it["user_id"] as String to (it["count"] as Number).toLong()
         }
     }
 }

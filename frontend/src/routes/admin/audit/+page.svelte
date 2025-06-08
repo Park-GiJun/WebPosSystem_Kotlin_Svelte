@@ -5,13 +5,15 @@
   import { toastStore } from '$lib/stores/toast.js';
   import { auditLogApi } from '$lib/api/admin.js';
   import { 
-    Search, Filter, Calendar, Eye, RefreshCw, BarChart3, 
+    Search, FilterIcon, Eye, RefreshCw, ChartBar, 
     FileText, User, Database, Clock, MapPin, Monitor,
-    ChevronLeft, ChevronRight, Download
+    ChevronLeft, ChevronRight
   } from 'lucide-svelte';
   import AuditLogDetailModal from '$lib/components/Admin/AuditLogDetailModal.svelte';
 
+  /** @type {any[]} */
   let auditLogs = [];
+  /** @type {any} */
   let statistics = null;
   let loading = false;
   let totalCount = 0;
@@ -29,6 +31,7 @@
   let showFilters = false;
   let showStatistics = false;
   let isDetailModalOpen = false;
+  /** @type {any} */
   let selectedAuditLog = null;
 
   // 인증 토큰
@@ -56,18 +59,32 @@
     { value: 'DELETE', label: '삭제' }
   ];
 
-  onMount(() => {
-    tabStore.setActiveTab('ADMIN_AUDIT');
-    
-    // 기본 날짜 설정 (최근 7일)
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    endDate = now.toISOString().slice(0, 16);
-    startDate = weekAgo.toISOString().slice(0, 16);
-    
-    loadAuditLogs();
-    loadStatistics();
+  onMount(async () => {
+    try {
+      console.log('📋 감사 로그 페이지 마운트 시작');
+      
+      // 탭 설정
+      tabStore.setActiveTab('ADMIN_AUDIT');
+      
+      // 기본 날짜 설정 (최근 7일)
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      endDate = now.toISOString().slice(0, 16);
+      startDate = weekAgo.toISOString().slice(0, 16);
+      
+      console.log('📋 기본 설정 완료, 데이터 로드 시작');
+      
+      // 순차적으로 데이터 로드
+      await loadAuditLogs();
+      await loadStatistics();
+      
+      console.log('✅ 감사 로그 페이지 마운트 완료');
+    } catch (error) {
+      console.error('❌ 감사 로그 페이지 마운트 실패:', error);
+      const errorMessage = (error && error.message) ? error.message : '알 수 없는 오류';
+      toastStore.error('페이지 로드 중 오류가 발생했습니다: ' + errorMessage);
+    }
   });
 
   async function loadAuditLogs() {
@@ -80,6 +97,7 @@
       loading = true;
       console.log('📋 감사 로그 조회 중...');
 
+      /** @type {Record<string, any>} */
       const params = {
         page: currentPage,
         size: pageSize
@@ -100,7 +118,8 @@
       console.log('✅ 감사 로그 로드 완료:', auditLogs.length, '개');
     } catch (error) {
       console.error('❌ 감사 로그 로드 실패:', error);
-      toastStore.error('감사 로그를 불러오는데 실패했습니다: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      toastStore.error('감사 로그를 불러오는데 실패했습니다: ' + errorMessage);
       auditLogs = [];
     } finally {
       loading = false;
@@ -118,16 +137,19 @@
     }
   }
 
+  /** @param {any} auditLog */
   async function viewDetail(auditLog) {
     try {
       const detail = await auditLogApi.getAuditLogById(auditLog.id, authToken);
       openDetailModal(detail);
     } catch (error) {
       console.error('❌ 상세 조회 실패:', error);
-      toastStore.error('상세 정보 조회에 실패했습니다: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      toastStore.error('상세 정보 조회에 실패했습니다: ' + errorMessage);
     }
   }
 
+  /** @param {any} auditLog */
   function openDetailModal(auditLog) {
     selectedAuditLog = auditLog;
     isDetailModalOpen = true;
@@ -153,11 +175,13 @@
     loadAuditLogs();
   }
 
+  /** @param {number} newPage */
   function changePage(newPage) {
     currentPage = newPage;
     loadAuditLogs();
   }
 
+  /** @param {string} actionType */
   function getActionColor(actionType) {
     const colors = {
       'INSERT': 'bg-green-100 text-green-800',
@@ -167,6 +191,7 @@
     return colors[actionType] || 'bg-gray-100 text-gray-800';
   }
 
+  /** @param {string} tableName */
   function getTableIcon(tableName) {
     const icons = {
       'users': User,
@@ -179,6 +204,7 @@
     return icons[tableName] || Database;
   }
 
+  /** @param {string | Date} dateTime */
   function formatDateTime(dateTime) {
     return new Date(dateTime).toLocaleString('ko-KR', {
       year: 'numeric',
@@ -190,6 +216,7 @@
     });
   }
 
+  /** @param {any} changedFields */
   function formatChangedFields(changedFields) {
     if (!changedFields) return '';
     
@@ -202,6 +229,7 @@
   }
 
   // 검색어 디바운스
+  /** @type {any} */
   let searchDebounceTimer;
   $: {
     clearTimeout(searchDebounceTimer);
@@ -230,7 +258,7 @@
         class="btn btn-secondary"
         on:click={() => showStatistics = !showStatistics}
       >
-        <BarChart3 size="16" class="mr-2" />
+        <ChartBar size="16" class="mr-2" />
         통계 {showStatistics ? '숨기기' : '보기'}
       </button>
       <button 
@@ -238,7 +266,7 @@
         class="btn btn-secondary"
         on:click={() => showFilters = !showFilters}
       >
-        <Filter size="16" class="mr-2" />
+        <FilterIcon size="16" class="mr-2" />
         필터 {showFilters ? '숨기기' : '보기'}
       </button>
       <button 
@@ -247,7 +275,7 @@
         on:click={loadAuditLogs}
         disabled={loading}
       >
-        <RefreshCw size="16" class="mr-2" class:animate-spin={loading} />
+        <RefreshCw size="16" class={`mr-2 ${loading ? 'animate-spin' : ''}`} />
         새로고침
       </button>
     </div>
