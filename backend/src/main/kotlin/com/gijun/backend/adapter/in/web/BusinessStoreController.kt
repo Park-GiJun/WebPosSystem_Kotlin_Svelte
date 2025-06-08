@@ -22,56 +22,59 @@ class BusinessStoreController {
     ): ResponseEntity<StoreListResponse> {
         
         // TODO: 실제 매장 목록 조회 로직 구현
-        val stores = listOf(
-            StoreDto(
-                storeId = "HQ001001",
-                storeName = "강남점",
-                storeType = "CHAIN",
-                operationType = "DIRECT",
-                hqId = "HQHQ1",
-                hqName = "커피왕 본사",
-                regionCode = "001",
-                regionName = "서울특별시",
-                storeNumber = "001",
-                businessLicense = "123-45-67890",
-                ownerName = "김사장",
-                phoneNumber = "02-1234-5678",
-                address = "서울특별시 강남구 테헤란로 123",
-                postalCode = "06142",
-                openingDate = java.time.LocalDate.now().minusYears(2),
-                storeStatus = "ACTIVE",
-                managerUsername = "manager1",
-                posCount = 3,
-                employeeCount = 5,
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusYears(2),
-                updatedAt = java.time.LocalDateTime.now()
-            ),
-            StoreDto(
-                storeId = "IN002001",
-                storeName = "개인카페 A",
-                storeType = "INDIVIDUAL",
-                operationType = null,
-                hqId = null,
-                hqName = null,
-                regionCode = "002",
-                regionName = "부산광역시",
-                storeNumber = "001",
-                businessLicense = "234-56-78901",
-                ownerName = "이사장",
-                phoneNumber = "051-2345-6789",
-                address = "부산광역시 해운대구 해운대로 456",
-                postalCode = "48094",
-                openingDate = java.time.LocalDate.now().minusMonths(6),
-                storeStatus = "ACTIVE",
-                managerUsername = null,
-                posCount = 1,
-                employeeCount = 2,
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusMonths(6),
-                updatedAt = java.time.LocalDateTime.now()
-            )
-        )
+
+
+
+//        val stores = listOf(
+//            StoreDto(
+//                storeId = "HQ001001",
+//                storeName = "강남점",
+//                storeType = "CHAIN",
+//                operationType = "DIRECT",
+//                hqId = "HQHQ1",
+//                hqName = "커피왕 본사",
+//                regionCode = "001",
+//                regionName = "서울특별시",
+//                storeNumber = "001",
+//                businessLicense = "123-45-67890",
+//                ownerName = "김사장",
+//                phoneNumber = "02-1234-5678",
+//                address = "서울특별시 강남구 테헤란로 123",
+//                postalCode = "06142",
+//                openingDate = java.time.LocalDate.now().minusYears(2),
+//                storeStatus = "ACTIVE",
+//                managerUsername = "manager1",
+//                posCount = 3,
+//                employeeCount = 5,
+//                isActive = true,
+//                createdAt = java.time.LocalDateTime.now().minusYears(2),
+//                updatedAt = java.time.LocalDateTime.now()
+//            ),
+//            StoreDto(
+//                storeId = "IN002001",
+//                storeName = "개인카페 A",
+//                storeType = "INDIVIDUAL",
+//                operationType = null,
+//                hqId = null,
+//                hqName = null,
+//                regionCode = "002",
+//                regionName = "부산광역시",
+//                storeNumber = "001",
+//                businessLicense = "234-56-78901",
+//                ownerName = "이사장",
+//                phoneNumber = "051-2345-6789",
+//                address = "부산광역시 해운대구 해운대로 456",
+//                postalCode = "48094",
+//                openingDate = java.time.LocalDate.now().minusMonths(6),
+//                storeStatus = "ACTIVE",
+//                managerUsername = null,
+//                posCount = 1,
+//                employeeCount = 2,
+//                isActive = true,
+//                createdAt = java.time.LocalDateTime.now().minusMonths(6),
+//                updatedAt = java.time.LocalDateTime.now()
+//            )
+//        )
         
         return ResponseEntity.ok(StoreListResponse(
             stores = stores,

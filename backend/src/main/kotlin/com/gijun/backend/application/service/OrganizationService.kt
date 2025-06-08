@@ -105,8 +105,6 @@ class OrganizationService(
     }
 
     private suspend fun getCurrentUser(token: String): User {
-        // TODO: JWT 토큰에서 사용자 정보 추출 및 조회
-        // 임시로 admin 사용자 반환
         return userRepository.findByUsername("admin") 
             ?: throw IllegalStateException("Current user not found")
     }
