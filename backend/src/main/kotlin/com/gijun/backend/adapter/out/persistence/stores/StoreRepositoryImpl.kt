@@ -27,7 +27,7 @@ class StoreRepositoryImpl(
     }
 
     override suspend fun findByStoreId(storeId: StoreId): Store? {
-        return r2dbcRepository.findByStoreId(storeId)?.let { 
+        return r2dbcRepository.findByStoreId(storeId.value)?.let { 
             storeMapper.toDomain(it) 
         }
     }
@@ -85,15 +85,15 @@ class StoreRepositoryImpl(
     // ===== 본사 관련 조회 =====
     
     override suspend fun findByHqId(hqId: HeadquartersId): Flow<Store> {
-        return r2dbcRepository.findByHqId(hqId).map { storeMapper.toDomain(it) }
+        return r2dbcRepository.findByHqId(hqId.value).map { storeMapper.toDomain(it) }
     }
 
     override suspend fun findByHqIdAndIsActive(hqId: HeadquartersId, isActive: Boolean): Flow<Store> {
-        return r2dbcRepository.findByHqIdAndIsActive(hqId, isActive).map { storeMapper.toDomain(it) }
+        return r2dbcRepository.findByHqIdAndIsActive(hqId.value, isActive).map { storeMapper.toDomain(it) }
     }
 
     override suspend fun countByHqIdAndIsActive(hqId: HeadquartersId): Long {
-        return r2dbcRepository.countByHqIdAndIsActive(hqId)
+        return r2dbcRepository.countByHqIdAndIsActive(hqId.value)
     }
 
     // ===== 지역별 조회 =====

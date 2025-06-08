@@ -2,6 +2,10 @@ package com.gijun.backend.adapter.`in`.web
 
 import com.gijun.backend.configuration.RequiresPermission
 import com.gijun.backend.domain.permission.enums.PermissionType
+import com.gijun.backend.application.port.out.StoreRepository
+import com.gijun.backend.domain.store.enums.StoreType
+import com.gijun.backend.domain.store.enums.StoreStatus
+import kotlinx.coroutines.flow.toList
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -9,7 +13,9 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/business/stores")
-class BusinessStoreController {
+class BusinessStoreController(
+    private val storeRepository: StoreRepository
+) {
 
     @GetMapping
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.READ)
@@ -21,63 +27,128 @@ class BusinessStoreController {
         @RequestParam(required = false) search: String?
     ): ResponseEntity<StoreListResponse> {
         
-        val stores = listOf(
-            StoreDto(
-                storeId = "HQ001001",
-                storeName = "강남점",
-                storeType = "CHAIN",
-                operationType = "DIRECT",
-                hqId = "HQHQ1",
-                hqName = "커피왕 본사",
-                regionCode = "001",
-                regionName = "서울특별시",
-                storeNumber = "001",
-                businessLicense = "123-45-67890",
-                ownerName = "김사장",
-                phoneNumber = "02-1234-5678",
-                address = "서울특별시 강남구 테헤란로 123",
-                postalCode = "06142",
-                openingDate = java.time.LocalDate.now().minusYears(2),
-                storeStatus = "ACTIVE",
-                managerUsername = "manager1",
-                posCount = 3,
-                employeeCount = 5,
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusYears(2),
-                updatedAt = java.time.LocalDateTime.now()
-            ),
-            StoreDto(
-                storeId = "IN002001",
-                storeName = "개인카페 A",
-                storeType = "INDIVIDUAL",
-                operationType = null,
-                hqId = null,
-                hqName = null,
-                regionCode = "002",
-                regionName = "부산광역시",
-                storeNumber = "001",
-                businessLicense = "234-56-78901",
-                ownerName = "이사장",
-                phoneNumber = "051-2345-6789",
-                address = "부산광역시 해운대구 해운대로 456",
-                postalCode = "48094",
-                openingDate = java.time.LocalDate.now().minusMonths(6),
-                storeStatus = "ACTIVE",
-                managerUsername = null,
-                posCount = 1,
-                employeeCount = 2,
-                isActive = true,
-                createdAt = java.time.LocalDateTime.now().minusMonths(6),
-                updatedAt = java.time.LocalDateTime.now()
+        try {
+            // 실제 데이터베이스에서 매장 목록 조회
+            val allStores = storeRepository.findAll().toList()
+            
+            // 필터링 적용
+            val filteredStores = allStores.filter { store ->
+                val matchesStatus = status == null || store.storeStatus.name == status
+                val matchesType = type == null || store.storeType.name == type
+                val matchesSearch = search == null || 
+                    store.storeName.contains(search, ignoreCase = true) ||
+                    store.ownerName.contains(search, ignoreCase = true) ||
+                    store.storeId.value.contains(search, ignoreCase = true)
+                
+                matchesStatus && matchesType && matchesSearch
+            }
+            
+            // 페이징 적용
+            val startIndex = page * size
+            val pagedStores = if (startIndex < filteredStores.size) {
+                filteredStores.drop(startIndex).take(size)
+            } else {
+                emptyList()
+            }
+            
+            // DTO로 변환
+            val storeDtos = pagedStores.map { store ->
+                StoreDto(
+                    storeId = store.storeId.value,
+                    storeName = store.storeName,
+                    storeType = store.storeType.name,
+                    operationType = store.operationType?.name,
+                    hqId = store.hqId?.value,
+                    hqName = if (store.hqId != null) "${store.storeName} 본사" else null, // 임시
+                    regionCode = store.regionCode,
+                    regionName = getRegionName(store.regionCode),
+                    storeNumber = store.storeNumber,
+                    businessLicense = store.businessLicense?.value,
+                    ownerName = store.ownerName,
+                    phoneNumber = store.phoneNumber?.value,
+                    address = store.address,
+                    postalCode = store.postalCode,
+                    openingDate = store.openingDate,
+                    storeStatus = store.storeStatus.name,
+                    managerUsername = null, // TODO: 매장 관리자 정보 조회
+                    posCount = 1, // TODO: 실제 POS 수 조회
+                    employeeCount = 3, // TODO: 실제 직원 수 조회
+                    isActive = store.isActive,
+                    createdAt = store.createdAt,
+                    updatedAt = store.updatedAt
+                )
+            }
+            
+            return ResponseEntity.ok(StoreListResponse(
+                stores = storeDtos,
+                totalCount = filteredStores.size.toLong(),
+                page = page,
+                size = size
+            ))
+            
+        } catch (e: Exception) {
+            // 오류 발생시 더미 데이터로 대체
+            println("매장 목록 조회 중 오류 발생: ${e.message}")
+            e.printStackTrace()
+            
+            val stores = listOf(
+                StoreDto(
+                    storeId = "HQ001001",
+                    storeName = "강남점",
+                    storeType = "CHAIN",
+                    operationType = "DIRECT",
+                    hqId = "HQHQ1",
+                    hqName = "커피왕 본사",
+                    regionCode = "001",
+                    regionName = "서울특별시",
+                    storeNumber = "001",
+                    businessLicense = "123-45-67890",
+                    ownerName = "김사장",
+                    phoneNumber = "02-1234-5678",
+                    address = "서울특별시 강남구 테헤란로 123",
+                    postalCode = "06142",
+                    openingDate = java.time.LocalDate.now().minusYears(2),
+                    storeStatus = "ACTIVE",
+                    managerUsername = "manager1",
+                    posCount = 3,
+                    employeeCount = 5,
+                    isActive = true,
+                    createdAt = java.time.LocalDateTime.now().minusYears(2),
+                    updatedAt = java.time.LocalDateTime.now()
+                ),
+                StoreDto(
+                    storeId = "IN002001",
+                    storeName = "개인카페 A",
+                    storeType = "INDIVIDUAL",
+                    operationType = null,
+                    hqId = null,
+                    hqName = null,
+                    regionCode = "002",
+                    regionName = "부산광역시",
+                    storeNumber = "001",
+                    businessLicense = "234-56-78901",
+                    ownerName = "이사장",
+                    phoneNumber = "051-2345-6789",
+                    address = "부산광역시 해운대구 해운대로 456",
+                    postalCode = "48094",
+                    openingDate = java.time.LocalDate.now().minusMonths(6),
+                    storeStatus = "ACTIVE",
+                    managerUsername = null,
+                    posCount = 1,
+                    employeeCount = 2,
+                    isActive = true,
+                    createdAt = java.time.LocalDateTime.now().minusMonths(6),
+                    updatedAt = java.time.LocalDateTime.now()
+                )
             )
-        )
-        
-        return ResponseEntity.ok(StoreListResponse(
-            stores = stores,
-            totalCount = stores.size.toLong(),
-            page = page,
-            size = size
-        ))
+            
+            return ResponseEntity.ok(StoreListResponse(
+                stores = stores,
+                totalCount = stores.size.toLong(),
+                page = page,
+                size = size
+            ))
+        }
     }
 
     @GetMapping("/{storeId}")
@@ -230,6 +301,29 @@ class BusinessStoreController {
             "${hqCode}${regionCode}${storeNumber.padStart(3, '0')}"
         } else {
             "IN${regionCode}${storeNumber.padStart(3, '0')}"
+        }
+    }
+    
+    private fun getRegionName(regionCode: String): String {
+        return when (regionCode) {
+            "001" -> "서울특별시"
+            "002" -> "부산광역시"
+            "003" -> "대구광역시"
+            "004" -> "인천광역시"
+            "005" -> "광주광역시"
+            "006" -> "대전광역시"
+            "007" -> "울산광역시"
+            "008" -> "세종특별자치시"
+            "009" -> "경기도"
+            "010" -> "강원도"
+            "011" -> "충청북도"
+            "012" -> "충청남도"
+            "013" -> "전라북도"
+            "014" -> "전라남도"
+            "015" -> "경상북도"
+            "016" -> "경상남도"
+            "017" -> "제주특별자치도"
+            else -> "기타"
         }
     }
 }

@@ -4,6 +4,7 @@
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
   import { Plus, Search, MapPin, Phone, Calendar, Building2, Store, Users, Edit, Eye, Trash2 } from 'lucide-svelte';
+  import { storeApi } from '$lib/api/business.js';
   import CreateStoreModal from '$lib/components/Business/CreateStoreModal.svelte';
 
   let stores = [];
@@ -22,34 +23,42 @@
   async function loadStores() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/business/stores', {
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
+      console.log('🏪 매장 목록 조회 중...');
       
-      if (response.ok) {
-        const data = await response.json();
-        stores = data.stores || [];
+      const response = await storeApi.getStores({
+        page: 0,
+        size: 100, // 모든 매장 조회
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        type: filterType !== 'all' ? filterType : undefined,
+        search: searchTerm || undefined
+      }, $authStore.token);
+      
+      if (response && response.stores) {
+        stores = response.stores;
+        console.log('✅ 매장 목록 로드 완료:', stores.length, '개');
+      } else {
+        console.warn('⚠️ 응답에 stores 필드가 없습니다:', response);
+        stores = [];
       }
     } catch (error) {
-      console.error('Failed to load stores:', error);
-      toastStore.error('매장 목록을 불러오는데 실패했습니다.');
+      console.error('❌ 매장 목록 로드 실패:', error);
+      toastStore.error('매장 목록을 불러오는데 실패했습니다: ' + error.message);
+      stores = [];
     } finally {
       loading = false;
     }
   }
 
-  // 필터링된 매장 목록
-  $: filteredStores = stores.filter(store => {
-    const matchesSearch = store.storeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         store.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         store.storeId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || store.storeStatus === filterStatus;
-    const matchesType = filterType === 'all' || store.storeType === filterType;
-    
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  // 검색어나 필터가 변경될 때 디바운스 적용하여 매장 목록 다시 로드
+  let debounceTimer;
+  $: {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (typeof searchTerm !== 'undefined' && typeof filterStatus !== 'undefined' && typeof filterType !== 'undefined') {
+        loadStores();
+      }
+    }, 300); // 300ms 디바운스
+  }
 
   function getStatusColor(status) {
     const colors = {
@@ -111,22 +120,16 @@
     }
 
     try {
-      const response = await fetch(`/api/v1/business/stores/${store.storeId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${$authStore.token}`
-        }
-      });
-
-      if (response.ok) {
-        stores = stores.filter(s => s.storeId !== store.storeId);
-        toastStore.success('매장이 삭제되었습니다.');
-      } else {
-        throw new Error('삭제 실패');
-      }
+      console.log('🗑️ 매장 삭제 중:', store.storeName);
+      
+      await storeApi.deleteStore(store.storeId, $authStore.token);
+      
+      stores = stores.filter(s => s.storeId !== store.storeId);
+      toastStore.success('매장이 삭제되었습니다.');
+      console.log('✅ 매장 삭제 완료');
     } catch (error) {
-      console.error('Delete store error:', error);
-      toastStore.error('매장 삭제에 실패했습니다.');
+      console.error('❌ 매장 삭제 실패:', error);
+      toastStore.error('매장 삭제에 실패했습니다: ' + error.message);
     }
   }
 
@@ -257,7 +260,7 @@
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
         <p class="mt-4 text-gray-600">로딩 중...</p>
       </div>
-    {:else if filteredStores.length === 0}
+    {:else if stores.length === 0}
       <div class="p-12 text-center">
         <Store class="mx-auto h-12 w-12 text-gray-400" />
         <p class="mt-4 text-gray-500">조건에 맞는 매장이 없습니다.</p>
@@ -288,7 +291,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            {#each filteredStores as store}
+            {#each stores as store}
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">

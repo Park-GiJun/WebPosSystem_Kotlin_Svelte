@@ -247,3 +247,52 @@ export const organizationApi = {
         });
     }
 };
+
+// 감사 로그 API
+export const auditLogApi = {
+    // 감사 로그 목록 조회
+    async getAuditLogs(params = {}, token) {
+        const queryParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                queryParams.append(key, value);
+            }
+        });
+        
+        const queryString = queryParams.toString();
+        const endpoint = `/admin/audit${queryString ? `?${queryString}` : ''}`;
+        
+        return await apiRequest(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    },
+
+    // 감사 로그 상세 조회
+    async getAuditLogById(id, token) {
+        return await apiRequest(`/admin/audit/${id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    },
+
+    // 특정 레코드 변경 이력 조회
+    async getRecordHistory(tableName, recordId, token) {
+        return await apiRequest(`/admin/audit/record/${tableName}/${recordId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    },
+
+    // 감사 로그 통계 조회
+    async getStatistics(days = 7, token) {
+        return await apiRequest(`/admin/audit/statistics?days=${days}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    }
+};

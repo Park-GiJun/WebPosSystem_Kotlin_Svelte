@@ -14,12 +14,12 @@ import org.springframework.stereotype.Repository
 interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
 
     // 기본 조회 메서드
-    suspend fun findByStoreId(storeId: StoreId): StoreEntity?
+    suspend fun findByStoreId(storeId: String): StoreEntity?
     suspend fun findByStoreName(storeName: String): StoreEntity?
     suspend fun findByStoreNameAndIsActive(storeName: String, isActive: Boolean): StoreEntity?
     suspend fun findByStoreType(storeType: StoreType): Flow<StoreEntity>
     suspend fun findByOperationType(operationType: OperationType): Flow<StoreEntity>
-    suspend fun findByHqId(hqId: HeadquartersId): Flow<StoreEntity>
+    suspend fun findByHqId(hqId: String): Flow<StoreEntity>
     suspend fun findByRegionCode(regionCode: String): Flow<StoreEntity>
     suspend fun findByStoreStatus(storeStatus: StoreStatus): Flow<StoreEntity>
     suspend fun findByOwnerName(ownerName: String): Flow<StoreEntity>
@@ -30,7 +30,7 @@ interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
 
     // 본사별 매장 조회
     @Query("SELECT * FROM stores WHERE hq_id = :hqId AND is_active = :isActive ORDER BY store_name")
-    fun findByHqIdAndIsActive(hqId: HeadquartersId, isActive: Boolean): Flow<StoreEntity>
+    fun findByHqIdAndIsActive(hqId: String, isActive: Boolean): Flow<StoreEntity>
 
     // 지역별 매장 조회
     @Query("SELECT * FROM stores WHERE region_code = :regionCode AND is_active = :isActive ORDER BY store_name")
@@ -50,7 +50,7 @@ interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
 
     // 본사별 매장 수 계산
     @Query("SELECT COUNT(*) FROM stores WHERE hq_id = :hqId AND is_active = true")
-    suspend fun countByHqIdAndIsActive(hqId: HeadquartersId): Long
+    suspend fun countByHqIdAndIsActive(hqId: String): Long
 
     // 지역별 매장 수 계산
     @Query("SELECT COUNT(*) FROM stores WHERE region_code = :regionCode AND is_active = true")

@@ -18,7 +18,8 @@ import java.time.LocalDateTime
 @Table("stores")
 data class StoreEntity(
     @Id
-    val storeId: StoreId,
+    @Column("store_id")
+    val storeId: String, // StoreId -> String으로 변경
 
     @Column("store_name")
     val storeName: String,
@@ -30,7 +31,7 @@ data class StoreEntity(
     val operationType: OperationType? = null,
 
     @Column("hq_id")
-    val hqId: HeadquartersId? = null,
+    val hqId: String? = null, // HeadquartersId -> String으로 변경
 
     @Column("region_code")
     val regionCode: String,
@@ -39,13 +40,13 @@ data class StoreEntity(
     val storeNumber: String,
 
     @Column("business_license")
-    val businessLicense: BusinessLicense? = null,
+    val businessLicense: String? = null, // BusinessLicense -> String으로 변경
 
     @Column("owner_name")
     val ownerName: String,
 
     @Column("phone_number")
-    val phoneNumber: PhoneNumber? = null,
+    val phoneNumber: String? = null, // PhoneNumber -> String으로 변경
 
     @Column("address")
     val address: String? = null,

@@ -70,6 +70,7 @@
     'server': Server,
     'database': Database,
     'document-text': FileText,
+    'document-magnifying-glass': FileText,
     'clipboard-document-list': ClipboardList,
     'chart-bar': BarChart,
     'chart-bar-square': BarChart,

@@ -46,7 +46,7 @@ class StoreQueryRepository(
      * 본사별 매장 통계 조회
      */
     suspend fun getStoreStatisticsByHq(hqId: HeadquartersId): HqStoreStatistics {
-        val totalStores = r2dbcRepository.countByHqIdAndIsActive(hqId)
+        val totalStores = r2dbcRepository.countByHqIdAndIsActive(hqId.value)
         
         val directStores = r2dbcRepository.findByOperationTypeAndIsActive(OperationType.DIRECT)
             .map { storeMapper.toDomain(it) }

@@ -369,19 +369,11 @@ class OrganizationController(
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<OrganizationsResponse> {
         return try {
-            // TODO: 조직 목록 조회 구현
-            val response = OrganizationsResponse(
-                headquarters = emptyList(),
-                individualStores = emptyList(),
-                totalCount = 0,
-                summary = OrganizationSummary(
-                    totalHeadquarters = 0,
-                    totalStores = 0,
-                    totalIndividualStores = 0,
-                    totalUsers = 1
-                )
-            )
+            val token = authorization.removePrefix("Bearer ")
+            val response = organizationService.getOrganizations(token)
             ResponseEntity.ok(response)
+        } catch (e: IllegalStateException) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, e.message)
         } catch (e: Exception) {
             throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직 목록 조회 중 오류가 발생했습니다: ${e.message}")
         }

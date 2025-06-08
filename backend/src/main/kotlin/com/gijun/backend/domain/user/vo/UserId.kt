@@ -6,16 +6,6 @@ import java.util.UUID
 value class UserId(val value: String) {
     init {
         require(value.isNotBlank()) { "사용자 ID는 필수입니다." }
-        require(isValidUuid(value)) { "올바른 UUID 형식이 아닙니다." }
-    }
-
-    private fun isValidUuid(value: String): Boolean {
-        return try {
-            UUID.fromString(value)
-            true
-        } catch (e: IllegalArgumentException) {
-            false
-        }
     }
 
     companion object {

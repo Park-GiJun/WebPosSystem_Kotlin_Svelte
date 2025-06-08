@@ -95,11 +95,22 @@
       
       const response = await organizationApi.getOrganizations({}, authToken);
       
-      if (response && response.organizations) {
-        organizations = response.organizations;
+      if (response) {
+        // API 응답 구조에 맞게 수정
+        organizations = [
+          ...response.headquarters.map(hq => ({
+            ...hq,
+            type: 'HEADQUARTERS'
+          })),
+          ...response.individualStores.map(store => ({
+            ...store,
+            type: 'STORE'
+          }))
+        ];
         console.log('✅ 조직 목록 로드 완료:', organizations.length, '개');
+        console.log('📊 조직 통계:', response.summary);
       } else {
-        console.warn('⚠️ 응답에 organizations 필드가 없습니다:', response);
+        console.warn('⚠️ 응답이 비어있습니다:', response);
         organizations = [];
       }
     } catch (error) {
@@ -120,14 +131,38 @@
     try {
       console.log('🏢 체인본부 생성 중:', hqForm.name);
       
-      const response = await organizationApi.createOrganization(hqForm, authToken);
+      // 백엔드 API에 맞는 요청 구조로 변경
+      const request = {
+        name: hqForm.name,
+        businessNumber: hqForm.businessLicense,
+        address: hqForm.address,
+        phoneNumber: hqForm.contactPhone,
+        email: hqForm.adminEmail,
+        adminUsername: hqForm.adminUsername
+      };
       
-      if (response) {
-        organizations = [...organizations, response];
+      const response = await fetch('/api/v1/admin/organizations/headquarters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(request)
+      });
+      
+      if (response.ok) {
+        const newHq = await response.json();
+        organizations = [...organizations, {
+          ...newHq,
+          type: 'HEADQUARTERS'
+        }];
         toastStore.success('체인본부가 성공적으로 생성되었습니다.');
         showCreateHqModal = false;
         resetHqForm();
         console.log('✅ 체인본부 생성 완료');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '체인본부 생성에 실패했습니다.');
       }
     } catch (error) {
       console.error('❌ 체인본부 생성 실패:', error);
@@ -144,14 +179,38 @@
     try {
       console.log('🏪 개인매장 생성 중:', storeForm.name);
       
-      const response = await organizationApi.createOrganization(storeForm, authToken);
+      // 백엔드 API에 맞는 요청 구조로 변경
+      const request = {
+        name: storeForm.name,
+        businessNumber: storeForm.businessLicense,
+        address: storeForm.address,
+        phoneNumber: storeForm.phoneNumber,
+        email: storeForm.adminEmail,
+        ownerUsername: storeForm.adminUsername
+      };
       
-      if (response) {
-        organizations = [...organizations, response];
+      const response = await fetch('/api/v1/admin/organizations/individual-stores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(request)
+      });
+      
+      if (response.ok) {
+        const newStore = await response.json();
+        organizations = [...organizations, {
+          ...newStore,
+          type: 'STORE'
+        }];
         toastStore.success('개인매장이 성공적으로 생성되었습니다.');
         showCreateStoreModal = false;
         resetStoreForm();
         console.log('✅ 개인매장 생성 완료');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '개인매장 생성에 실패했습니다.');
       }
     } catch (error) {
       console.error('❌ 개인매장 생성 실패:', error);

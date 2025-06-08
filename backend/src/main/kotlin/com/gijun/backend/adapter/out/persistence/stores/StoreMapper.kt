@@ -1,6 +1,10 @@
 package com.gijun.backend.adapter.out.persistence.stores
 
 import com.gijun.backend.domain.store.entities.Store
+import com.gijun.backend.domain.store.vo.StoreId
+import com.gijun.backend.domain.store.vo.HeadquartersId
+import com.gijun.backend.domain.store.vo.BusinessLicense
+import com.gijun.backend.domain.store.vo.PhoneNumber
 import org.springframework.stereotype.Component
 
 @Component
@@ -11,16 +15,16 @@ class StoreMapper {
      */
     fun toDomain(entity: StoreEntity): Store {
         return Store(
-            storeId = entity.storeId,
+            storeId = StoreId(entity.storeId),
             storeName = entity.storeName,
             storeType = entity.storeType,
             operationType = entity.operationType,
-            hqId = entity.hqId,
+            hqId = entity.hqId?.takeIf { it.isNotBlank() }?.let { HeadquartersId(it) },
             regionCode = entity.regionCode,
             storeNumber = entity.storeNumber,
-            businessLicense = entity.businessLicense,
+            businessLicense = BusinessLicense.fromStringOrNull(entity.businessLicense),
             ownerName = entity.ownerName,
-            phoneNumber = entity.phoneNumber,
+            phoneNumber = PhoneNumber.fromStringOrNull(entity.phoneNumber),
             address = entity.address,
             postalCode = entity.postalCode,
             openingDate = entity.openingDate,
@@ -40,16 +44,16 @@ class StoreMapper {
      */
     fun toEntity(domain: Store): StoreEntity {
         return StoreEntity(
-            storeId = domain.storeId,
+            storeId = domain.storeId.value,
             storeName = domain.storeName,
             storeType = domain.storeType,
             operationType = domain.operationType,
-            hqId = domain.hqId,
+            hqId = domain.hqId?.value,
             regionCode = domain.regionCode,
             storeNumber = domain.storeNumber,
-            businessLicense = domain.businessLicense,
+            businessLicense = domain.businessLicense?.value,
             ownerName = domain.ownerName,
-            phoneNumber = domain.phoneNumber,
+            phoneNumber = domain.phoneNumber?.value,
             address = domain.address,
             postalCode = domain.postalCode,
             openingDate = domain.openingDate,
