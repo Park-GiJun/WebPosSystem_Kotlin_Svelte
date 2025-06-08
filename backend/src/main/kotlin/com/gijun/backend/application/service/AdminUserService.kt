@@ -23,13 +23,96 @@ class AdminUserService(
         search: String? = null
     ): AdminUserListResult {
         
-        // 모든 사용자 조회
-        val allUsers = userRepository.findAll()
+        // 검색어가 있으면 Repository의 페이징 기능 사용
+        if (!search.isNullOrBlank()) {
+            val users = userRepository.findAllWithPaging(page, size, search)
+            val totalCount = userRepository.countWithSearch(search)
+            
+            // 추가 필터링 (상태, 역할)
+            var filteredUsers = users
+            
+            // 상태 필터
+            if (!status.isNullOrBlank() && status != "all") {
+                val userStatus = try {
+                    UserStatus.valueOf(status.uppercase())
+                } catch (e: Exception) {
+                    null
+                }
+                if (userStatus != null) {
+                    filteredUsers = filteredUsers.filter { it.userStatus == userStatus }
+                }
+            }
+            
+            // 역할 필터
+            if (!role.isNullOrBlank() && role != "all") {
+                val userRole = try {
+                    UserRole.valueOf(role.uppercase())
+                } catch (e: Exception) {
+                    null
+                }
+                if (userRole != null) {
+                    filteredUsers = filteredUsers.filter { it.roles.contains(userRole) }
+                }
+            }
+            
+            return AdminUserListResult(
+                users = filteredUsers,
+                totalCount = totalCount,
+                page = page,
+                size = size
+            )
+        }
         
-        // 필터링
-        var filteredUsers = allUsers
+        // 역할 필터가 있으면 역할별 조회 사용
+        if (!role.isNullOrBlank() && role != "all") {
+            val userRole = try {
+                UserRole.valueOf(role.uppercase())
+            } catch (e: Exception) {
+                null
+            }
+            
+            if (userRole != null) {
+                val roleUsers = userRepository.findByRole(userRole.name)
+                
+                // 상태 필터 적용
+                var filteredUsers = roleUsers
+                if (!status.isNullOrBlank() && status != "all") {
+                    val userStatus = try {
+                        UserStatus.valueOf(status.uppercase())
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (userStatus != null) {
+                        filteredUsers = filteredUsers.filter { it.userStatus == userStatus }
+                    }
+                }
+                
+                // 페이징 적용
+                val totalCount = filteredUsers.size.toLong()
+                val startIndex = page * size
+                val endIndex = minOf(startIndex + size, filteredUsers.size)
+                
+                val pagedUsers = if (startIndex < filteredUsers.size) {
+                    filteredUsers.subList(startIndex, endIndex)
+                } else {
+                    emptyList()
+                }
+                
+                return AdminUserListResult(
+                    users = pagedUsers,
+                    totalCount = totalCount,
+                    page = page,
+                    size = size
+                )
+            }
+        }
         
-        // 상태 필터
+        // 기본 페이징 조회
+        val users = userRepository.findAllWithPaging(page, size, null)
+        val totalCount = userRepository.countWithSearch(null)
+        
+        // 상태 필터만 적용
+        var filteredUsers = users
         if (!status.isNullOrBlank() && status != "all") {
             val userStatus = try {
                 UserStatus.valueOf(status.uppercase())
@@ -41,39 +124,8 @@ class AdminUserService(
             }
         }
         
-        // 역할 필터
-        if (!role.isNullOrBlank() && role != "all") {
-            val userRole = try {
-                UserRole.valueOf(role.uppercase())
-            } catch (e: Exception) {
-                null
-            }
-            if (userRole != null) {
-                filteredUsers = filteredUsers.filter { it.roles.contains(userRole) }
-            }
-        }
-        
-        // 검색 필터
-        if (!search.isNullOrBlank()) {
-            filteredUsers = filteredUsers.filter { user ->
-                user.username.contains(search, ignoreCase = true) ||
-                user.email.contains(search, ignoreCase = true)
-            }
-        }
-        
-        // 페이징
-        val totalCount = filteredUsers.size.toLong()
-        val startIndex = page * size
-        val endIndex = minOf(startIndex + size, filteredUsers.size)
-        
-        val pagedUsers = if (startIndex < filteredUsers.size) {
-            filteredUsers.subList(startIndex, endIndex)
-        } else {
-            emptyList()
-        }
-        
         return AdminUserListResult(
-            users = pagedUsers,
+            users = filteredUsers,
             totalCount = totalCount,
             page = page,
             size = size

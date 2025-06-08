@@ -34,4 +34,52 @@ interface UserR2dbcRepository : CoroutineCrudRepository<UserEntity, String> {
 
     @Query("SELECT * FROM users WHERE JSON_CONTAINS(roles, :role) AND is_active = true")
     suspend fun findByRole(role: String): List<UserEntity>
+
+    // 페이징과 검색 기능 추가
+    @Query("""
+        SELECT * FROM users 
+        WHERE (:search IS NULL OR 
+               username LIKE CONCAT('%', :search, '%') OR 
+               email LIKE CONCAT('%', :search, '%') OR
+               first_name LIKE CONCAT('%', :search, '%') OR
+               last_name LIKE CONCAT('%', :search, '%')) 
+        AND is_active = true
+        ORDER BY created_at DESC
+        LIMIT :size OFFSET :offset
+    """)
+    suspend fun findAllWithPaging(search: String?, size: Int, offset: Int): List<UserEntity>
+
+    @Query("""
+        SELECT COUNT(*) FROM users 
+        WHERE (:search IS NULL OR 
+               username LIKE CONCAT('%', :search, '%') OR 
+               email LIKE CONCAT('%', :search, '%') OR
+               first_name LIKE CONCAT('%', :search, '%') OR
+               last_name LIKE CONCAT('%', :search, '%'))
+        AND is_active = true
+    """)
+    suspend fun countWithSearch(search: String?): Long
+
+    // 여러 역할에 해당하는 사용자 조회
+    @Query("""
+        SELECT DISTINCT u.* FROM users u
+        WHERE is_active = true 
+        AND (
+            JSON_CONTAINS(u.roles, JSON_QUOTE(:role1)) OR
+            JSON_CONTAINS(u.roles, JSON_QUOTE(:role2)) OR
+            JSON_CONTAINS(u.roles, JSON_QUOTE(:role3)) OR
+            JSON_CONTAINS(u.roles, JSON_QUOTE(:role4)) OR
+            JSON_CONTAINS(u.roles, JSON_QUOTE(:role5))
+        )
+    """)
+    suspend fun findByRoles(role1: String?, role2: String?, role3: String?, role4: String?, role5: String?): List<UserEntity>
+
+    // 특정 조직에서 특정 역할을 가진 사용자 조회
+    @Query("""
+        SELECT * FROM users 
+        WHERE organization_id = :organizationId 
+        AND JSON_CONTAINS(roles, JSON_QUOTE(:role))
+        AND is_active = true
+    """)
+    suspend fun findByOrganizationIdAndRole(organizationId: String, role: String): List<UserEntity>
 }

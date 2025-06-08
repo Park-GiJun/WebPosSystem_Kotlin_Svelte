@@ -15,11 +15,19 @@ import org.springframework.stereotype.Service
 class PermissionService(
     private val menuRepository: MenuRepository,
     private val permissionRepository: PermissionRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val permissionCacheRepository: com.gijun.backend.adapter.out.persistence.permission.PermissionCacheRepository
 ) {
     private val logger = logger()
 
     suspend fun getUserMenus(username: String): List<UserMenuPermission> {
+        // 캐시에서 먼저 조회
+        val cachedPermissions = permissionCacheRepository.getCachedUserMenuPermissions(username)
+        if (cachedPermissions != null) {
+            logger.debug("Retrieved user menu permissions from cache for user: $username")
+            return cachedPermissions
+        }
+
         val user = userRepository.findByUsername(username)
             ?: throw IllegalArgumentException("User not found: $username")
 
@@ -49,7 +57,7 @@ class PermissionService(
         
         menusToShow.toList().forEach { addParentCategories(it) }
 
-        return menusToShow.map { menu ->
+        val result = menusToShow.map { menu ->
             val permission = userPermissions.find { it.menuId.value == menu.menuId.value }
             
             if (menu.menuType.name == "CATEGORY") {
@@ -96,6 +104,12 @@ class PermissionService(
                 .thenBy { it.displayOrder }
                 .thenBy { it.menuName }
         )
+
+        // 결과를 캐시에 저장
+        permissionCacheRepository.cacheUserMenuPermissions(username, result)
+        logger.debug("Cached user menu permissions for user: $username")
+
+        return result
     }
 
     suspend fun getAllMenus(): List<MenuSummary> {
@@ -122,6 +136,17 @@ class PermissionService(
     }
 
     suspend fun checkUserPermission(username: String, menuCode: String, requiredPermission: PermissionType): Boolean {
+        // 사용자 권한 요약을 캐시에서 먼저 확인
+        val permissionSummary = permissionCacheRepository.getCachedUserPermissionSummary(username)
+        if (permissionSummary != null) {
+            val menuPermissionLevel = permissionSummary[menuCode] as? Int
+            if (menuPermissionLevel != null) {
+                val hasPermission = menuPermissionLevel >= getPermissionLevel(requiredPermission)
+                logger.debug("Permission check from cache for user:$username, menu:$menuCode, required:${requiredPermission.name}, result:$hasPermission")
+                return hasPermission
+            }
+        }
+
         val user = userRepository.findByUsername(username)
             ?: return false
 
@@ -131,9 +156,16 @@ class PermissionService(
         val userPermissions = getUserEffectivePermissions(user)
         val menuPermission = userPermissions.find { it.menuId.value == menu.menuId.value }
 
-        return menuPermission?.let {
+        val result = menuPermission?.let {
             hasPermission(it.permissionType, requiredPermission)
         } ?: false
+
+        // 권한 요약 정보 캐시 업데이트
+        val currentSummary = permissionSummary?.toMutableMap() ?: mutableMapOf()
+        currentSummary[menuCode] = menuPermission?.let { getPermissionLevel(it.permissionType) } ?: 0
+        permissionCacheRepository.cacheUserPermissionSummary(username, currentSummary)
+
+        return result
     }
 
     private suspend fun getUserEffectivePermissions(user: User): List<Permission> {
@@ -151,11 +183,19 @@ class PermissionService(
             )
         }
 
-        // 3. 매장 기반 권한 (사용자가 접근 권한이 있는 매장들)
-        // TODO: 사용자-매장 권한 관계를 조회하여 매장 기반 권한 추가
+        // 3. 매장 기반 권한 (사용자의 조직이 매장인 경우)
+        if (user.organizationType?.name == "STORE" && user.organizationId != null) {
+            allPermissions.addAll(
+                permissionRepository.findByTargetId(PermissionTargetType.STORE, user.organizationId)
+            )
+        }
 
-        // 4. 본사 기반 권한 (사용자가 소속된 본사들)
-        // TODO: 사용자-본사 관계를 조회하여 본사 기반 권한 추가
+        // 4. 본사 기반 권한 (사용자의 조직이 본사인 경우)
+        if (user.organizationType?.name == "HEADQUARTERS" && user.organizationId != null) {
+            allPermissions.addAll(
+                permissionRepository.findByTargetId(PermissionTargetType.HEADQUARTERS, user.organizationId)
+            )
+        }
 
         // 활성 권한만 필터링하고 메뉴별로 최고 권한만 유지
         return allPermissions
@@ -209,7 +249,13 @@ class PermissionService(
             }
         }
 
-        return permissionRepository.save(permission)
+        val result = permissionRepository.save(permission)
+        
+        // 권한 변경 시 관련 캐시 무효화
+        permissionCacheRepository.invalidatePermissionCaches(targetType.name, targetId)
+        logger.info("Permission granted and related caches invalidated for ${targetType.name}:$targetId on menu:$menuCode")
+        
+        return result
     }
 
     suspend fun getAllRolePermissions(): List<RolePermissionDto> {
@@ -301,38 +347,18 @@ class PermissionService(
             ?: throw IllegalArgumentException("Menu not found: $menuCode")
 
         permissionRepository.revokePermission(menu.menuId.value, targetType, targetId)
+        
+        // 권한 취소 시 관련 캐시 무효화
+        permissionCacheRepository.invalidatePermissionCaches(targetType.name, targetId)
+        logger.info("Permission revoked and related caches invalidated for ${targetType.name}:$targetId on menu:$menuCode")
     }
 
     suspend fun getAllUsers(page: Int, size: Int, search: String?): List<User> {
-        // TODO: UserRepository에 페이징과 검색 기능 추가 필요
-        return userRepository.findAll()
-            .let { users ->
-                if (search.isNullOrBlank()) {
-                    users
-                } else {
-                    users.filter { 
-                        it.username.contains(search, ignoreCase = true) || 
-                        it.email.contains(search, ignoreCase = true) 
-                    }
-                }
-            }
-            .drop(page * size)
-            .take(size)
+        return userRepository.findAllWithPaging(page, size, search)
     }
 
     suspend fun getUserCount(search: String?): Long {
-        // TODO: UserRepository에 카운트 기능 추가 필요
-        return userRepository.findAll()
-            .let { users ->
-                if (search.isNullOrBlank()) {
-                    users.size.toLong()
-                } else {
-                    users.filter { 
-                        it.username.contains(search, ignoreCase = true) || 
-                        it.email.contains(search, ignoreCase = true) 
-                    }.size.toLong()
-                }
-            }
+        return userRepository.countWithSearch(search)
     }
 
     suspend fun getMenuPermissions(menuCode: String): List<MenuPermissionDetail> {
@@ -370,6 +396,157 @@ class PermissionService(
             menuType = menu.menuType.name,
             isActive = menu.isActive
         )
+    }
+
+    /**
+     * 사용자 권한 캐시 강제 갱신
+     */
+    suspend fun refreshUserPermissionCache(username: String) {
+        permissionCacheRepository.invalidateUserRelatedPermissions(username)
+        logger.info("User permission cache refreshed for user: $username")
+        
+        // 새로운 권한 정보로 캐시 재생성
+        getUserMenus(username)
+    }
+
+    /**
+     * 모든 사용자 권한 캐시 강제 갱신 (시스템 레벨 변경 시)
+     */
+    suspend fun refreshAllPermissionCache() {
+        permissionCacheRepository.invalidateAllUserMenuPermissions()
+        permissionCacheRepository.invalidateMenuHierarchy()
+        logger.info("All user permission caches have been refreshed")
+    }
+
+    /**
+     * 특정 메뉴와 관련된 모든 캐시 갱신
+     */
+    suspend fun refreshMenuRelatedCache(menuCode: String) {
+        permissionCacheRepository.invalidateMenuRelatedPermissions(menuCode)
+        logger.info("Menu related caches refreshed for menu: $menuCode")
+    }
+
+    /**
+     * 조직별 사용자 조회
+     */
+    suspend fun getUsersByOrganization(organizationId: String, organizationType: String? = null): List<User> {
+        return if (organizationType != null) {
+            userRepository.findByOrganizationIdAndType(organizationId, organizationType)
+        } else {
+            userRepository.findByOrganizationId(organizationId)
+        }
+    }
+
+    /**
+     * 역할별 사용자 조회
+     */
+    suspend fun getUsersByRole(roleName: String): List<User> {
+        return userRepository.findByRole(roleName)
+    }
+
+    /**
+     * 여러 역할에 해당하는 사용자 조회
+     */
+    suspend fun getUsersByRoles(roleNames: List<String>): List<User> {
+        return userRepository.findByRoles(roleNames)
+    }
+
+    /**
+     * 사용자의 조직 기반 권한 조회
+     */
+    suspend fun getUserOrganizationPermissions(username: String): List<OrganizationPermission> {
+        val user = userRepository.findByUsername(username)
+            ?: throw IllegalArgumentException("User not found: $username")
+
+        val orgPermissions = mutableListOf<OrganizationPermission>()
+
+        // 매장 권한
+        if (user.organizationType?.name == "STORE" && user.organizationId != null) {
+            val storePermissions = permissionRepository.findByTargetId(PermissionTargetType.STORE, user.organizationId)
+            storePermissions.forEach { permission ->
+                val menu = menuRepository.findById(permission.menuId.value)
+                orgPermissions.add(
+                    OrganizationPermission(
+                        organizationType = "STORE",
+                        organizationId = user.organizationId,
+                        menuCode = menu?.menuCode ?: "UNKNOWN",
+                        menuName = menu?.menuName ?: "Unknown Menu",
+                        permissionType = permission.permissionType.name,
+                        grantedAt = permission.grantedAt,
+                        expiresAt = permission.expiresAt
+                    )
+                )
+            }
+        }
+
+        // 본사 권한
+        if (user.organizationType?.name == "HEADQUARTERS" && user.organizationId != null) {
+            val hqPermissions = permissionRepository.findByTargetId(PermissionTargetType.HEADQUARTERS, user.organizationId)
+            hqPermissions.forEach { permission ->
+                val menu = menuRepository.findById(permission.menuId.value)
+                orgPermissions.add(
+                    OrganizationPermission(
+                        organizationType = "HEADQUARTERS",
+                        organizationId = user.organizationId,
+                        menuCode = menu?.menuCode ?: "UNKNOWN",
+                        menuName = menu?.menuName ?: "Unknown Menu",
+                        permissionType = permission.permissionType.name,
+                        grantedAt = permission.grantedAt,
+                        expiresAt = permission.expiresAt
+                    )
+                )
+            }
+        }
+
+        return orgPermissions
+    }
+
+    /**
+     * 조직에 권한 부여
+     */
+    suspend fun grantOrganizationPermission(
+        organizationType: String,
+        organizationId: String,
+        menuCode: String,
+        permissionType: PermissionType,
+        grantedBy: String
+    ): Permission {
+        val menu = menuRepository.findByCode(menuCode)
+            ?: throw IllegalArgumentException("Menu not found: $menuCode")
+
+        val targetType = when (organizationType.uppercase()) {
+            "STORE" -> PermissionTargetType.STORE
+            "HEADQUARTERS" -> PermissionTargetType.HEADQUARTERS
+            else -> throw IllegalArgumentException("Invalid organization type: $organizationType")
+        }
+
+        val permission = when (targetType) {
+            PermissionTargetType.STORE -> {
+                Permission.grantToStore(menu.menuId, com.gijun.backend.domain.store.vo.StoreId.fromString(organizationId), permissionType, grantedBy)
+            }
+            PermissionTargetType.HEADQUARTERS -> {
+                Permission.grantToHeadquarters(menu.menuId, com.gijun.backend.domain.store.vo.HeadquartersId.fromString(organizationId), permissionType, grantedBy)
+            }
+            else -> throw IllegalArgumentException("Unsupported target type for organization: $targetType")
+        }
+
+        val result = permissionRepository.save(permission)
+        
+        // 해당 조직 소속 모든 사용자의 캐시 무효화
+        invalidateOrganizationUsersCache(organizationId, organizationType)
+        
+        return result
+    }
+
+    /**
+     * 조직 소속 사용자들의 캐시 무효화
+     */
+    private suspend fun invalidateOrganizationUsersCache(organizationId: String, organizationType: String) {
+        val orgUsers = getUsersByOrganization(organizationId, organizationType)
+        orgUsers.forEach { user ->
+            permissionCacheRepository.invalidateUserRelatedPermissions(user.username)
+        }
+        logger.info("Invalidated cache for ${orgUsers.size} users in organization $organizationType:$organizationId")
     }
 }
 
@@ -439,4 +616,14 @@ data class MenuPermissionDetail(
     val grantedAt: java.time.LocalDateTime,
     val expiresAt: java.time.LocalDateTime?,
     val isActive: Boolean
+)
+
+data class OrganizationPermission(
+    val organizationType: String,
+    val organizationId: String,
+    val menuCode: String,
+    val menuName: String,
+    val permissionType: String,
+    val grantedAt: java.time.LocalDateTime,
+    val expiresAt: java.time.LocalDateTime?
 )

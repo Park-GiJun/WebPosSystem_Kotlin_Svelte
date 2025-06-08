@@ -27,4 +27,14 @@ interface UserRepository {
     suspend fun deleteById(id: String)
 
     suspend fun count(): Long
+
+    // 페이징과 검색 기능 추가
+    suspend fun findAllWithPaging(page: Int, size: Int, search: String? = null): List<User>
+
+    suspend fun countWithSearch(search: String? = null): Long
+
+    // 역할별 사용자 조회 기능 추가
+    suspend fun findByRole(roleName: String): List<User>
+
+    suspend fun findByRoles(roleNames: List<String>): List<User>
 }

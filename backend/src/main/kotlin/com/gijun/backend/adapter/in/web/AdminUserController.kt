@@ -531,4 +531,215 @@ class AdminUserController(
             throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 조회 중 오류가 발생했습니다: ${e.message}")
         }
     }
+
+    @GetMapping("/by-organization")
+    @Operation(
+        summary = "🏢 조직별 사용자 조회",
+        description = """
+            **특정 조직에 소속된 사용자들을 조회합니다.**
+            
+            🏢 **조회 옵션:**
+            - organizationId: 조직 ID (필수)
+            - organizationType: 조직 타입 (STORE, HEADQUARTERS)
+            
+            📋 **활용 사례:**
+            - 매장별 직원 관리
+            - 본사별 관리자 조회
+            - 조직 구조 파악
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["👥 User Management"]
+    )
+    suspend fun getUsersByOrganization(
+        @Parameter(description = "조직 ID", required = true)
+        @RequestParam organizationId: String,
+        
+        @Parameter(description = "조직 타입 (STORE, HEADQUARTERS)")
+        @RequestParam(required = false) organizationType: String?,
+        
+        @Parameter(description = "JWT 토큰", required = true)
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<List<AdminUserDto>> {
+        
+        val token = authorization.removePrefix("Bearer ")
+        val username = jwtUtil.getUsernameFromToken(token)
+        
+        val hasPermission = permissionService.checkUserPermission(
+            username, "ADMIN_USERS", PermissionType.READ
+        )
+        
+        if (!hasPermission) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
+        }
+        
+        try {
+            val users = permissionService.getUsersByOrganization(organizationId, organizationType)
+            
+            val userDtos = users.map { user ->
+                AdminUserDto(
+                    id = user.id,
+                    username = user.username,
+                    email = user.email,
+                    roles = user.roles.map { it.name },
+                    userStatus = user.userStatus.name,
+                    organizationId = user.organizationId,
+                    organizationType = user.organizationType,
+                    isEmailVerified = user.isEmailVerified(),
+                    lastLoginAt = user.lastLoginAt,
+                    failedLoginAttempts = user.failedLoginAttempts,
+                    isLocked = user.isLocked(),
+                    lockedUntil = user.lockedUntil,
+                    createdAt = user.createdAt,
+                    updatedAt = user.updatedAt
+                )
+            }
+            
+            return ResponseEntity.ok(userDtos)
+            
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직별 사용자 조회 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    @GetMapping("/by-role")
+    @Operation(
+        summary = "🎭 역할별 사용자 조회",
+        description = """
+            **특정 역할을 가진 사용자들을 조회합니다.**
+            
+            🎭 **조회 옵션:**
+            - role: 단일 역할 조회
+            - roles: 여러 역할 조회 (콤마로 구분)
+            
+            📊 **활용 사례:**
+            - 관리자 목록 조회
+            - 권한별 사용자 분석
+            - 역할 배정 현황 파악
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["👥 User Management"]
+    )
+    suspend fun getUsersByRole(
+        @Parameter(description = "역할명 (단일)")
+        @RequestParam(required = false) role: String?,
+        
+        @Parameter(description = "역할명들 (콤마로 구분)")
+        @RequestParam(required = false) roles: String?,
+        
+        @Parameter(description = "JWT 토큰", required = true)
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<List<AdminUserDto>> {
+        
+        val token = authorization.removePrefix("Bearer ")
+        val username = jwtUtil.getUsernameFromToken(token)
+        
+        val hasPermission = permissionService.checkUserPermission(
+            username, "ADMIN_USERS", PermissionType.READ
+        )
+        
+        if (!hasPermission) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
+        }
+        
+        if (role.isNullOrBlank() && roles.isNullOrBlank()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "role 또는 roles 파라미터가 필요합니다.")
+        }
+        
+        try {
+            val users = if (!role.isNullOrBlank()) {
+                permissionService.getUsersByRole(role)
+            } else {
+                val roleList = roles!!.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                permissionService.getUsersByRoles(roleList)
+            }
+            
+            val userDtos = users.map { user ->
+                AdminUserDto(
+                    id = user.id,
+                    username = user.username,
+                    email = user.email,
+                    roles = user.roles.map { it.name },
+                    userStatus = user.userStatus.name,
+                    organizationId = user.organizationId,
+                    organizationType = user.organizationType,
+                    isEmailVerified = user.isEmailVerified(),
+                    lastLoginAt = user.lastLoginAt,
+                    failedLoginAttempts = user.failedLoginAttempts,
+                    isLocked = user.isLocked(),
+                    lockedUntil = user.lockedUntil,
+                    createdAt = user.createdAt,
+                    updatedAt = user.updatedAt
+                )
+            }
+            
+            return ResponseEntity.ok(userDtos)
+            
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "역할별 사용자 조회 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
+
+    @GetMapping("/{userId}/organization-permissions")
+    @Operation(
+        summary = "🏢 사용자 조직 권한 조회",
+        description = """
+            **사용자가 조직을 통해 보유한 권한들을 조회합니다.**
+            
+            🔐 **조회 정보:**
+            - 매장 기반 권한
+            - 본사 기반 권한
+            - 조직별 메뉴 접근 권한
+            
+            💡 **활용:**
+            - 조직 변경 시 권한 검토
+            - 권한 상속 관계 파악
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["👥 User Management"]
+    )
+    suspend fun getUserOrganizationPermissions(
+        @Parameter(description = "사용자 ID", required = true)
+        @PathVariable userId: String,
+        
+        @Parameter(description = "JWT 토큰", required = true)
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<List<OrganizationPermissionDto>> {
+        
+        val token = authorization.removePrefix("Bearer ")
+        val username = jwtUtil.getUsernameFromToken(token)
+        
+        val hasPermission = permissionService.checkUserPermission(
+            username, "ADMIN_USERS", PermissionType.READ
+        )
+        
+        if (!hasPermission) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 없습니다.")
+        }
+        
+        try {
+            val user = permissionService.getUserById(userId)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+            
+            val orgPermissions = permissionService.getUserOrganizationPermissions(user.username)
+            
+            val permissionDtos = orgPermissions.map { orgPermission ->
+                OrganizationPermissionDto(
+                    organizationType = orgPermission.organizationType,
+                    organizationId = orgPermission.organizationId,
+                    menuCode = orgPermission.menuCode,
+                    menuName = orgPermission.menuName,
+                    permissionType = orgPermission.permissionType,
+                    grantedAt = orgPermission.grantedAt,
+                    expiresAt = orgPermission.expiresAt
+                )
+            }
+            
+            return ResponseEntity.ok(permissionDtos)
+            
+        } catch (e: ResponseStatusException) {
+            throw e
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직 권한 조회 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
 }

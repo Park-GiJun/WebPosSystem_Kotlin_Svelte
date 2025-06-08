@@ -86,3 +86,74 @@ data class CheckPermissionResponse(
     @Schema(description = "권한 부여 시간")
     val grantedAt: LocalDateTime? = null
 )
+
+@Schema(description = "캐시 갱신 요청")
+data class RefreshCacheRequest(
+    @Schema(
+        description = "갱신 타입", 
+        example = "USER",
+        allowableValues = ["USER", "MENU", "ALL"],
+        required = true
+    )
+    val type: String,
+    
+    @Schema(
+        description = "대상 ID (USER 타입인 경우 사용자명, MENU 타입인 경우 메뉴 코드)", 
+        example = "admin"
+    )
+    val targetId: String? = null
+)
+
+@Schema(description = "캐시 갱신 응답")
+data class RefreshCacheResponse(
+    @Schema(description = "성공 여부", example = "true")
+    val success: Boolean,
+    
+    @Schema(description = "결과 메시지", example = "권한 캐시가 성공적으로 갱신되었습니다")
+    val message: String,
+    
+    @Schema(description = "갱신 타입", example = "USER")
+    val refreshType: String,
+    
+    @Schema(description = "대상 ID", example = "admin")
+    val targetId: String?,
+    
+    @Schema(description = "갱신 시간")
+    val timestamp: LocalDateTime
+)
+
+@Schema(description = "조직 권한 부여 요청")
+data class GrantOrganizationPermissionRequest(
+    @Schema(description = "메뉴 코드", example = "DASHBOARD", required = true)
+    val menuCode: String,
+    
+    @Schema(description = "권한 타입", example = "READ", required = true)
+    val permissionType: String
+)
+
+@Schema(description = "조직 권한 부여 응답")
+data class GrantOrganizationPermissionResponse(
+    @Schema(description = "성공 여부", example = "true")
+    val success: Boolean,
+    
+    @Schema(description = "결과 메시지")
+    val message: String,
+    
+    @Schema(description = "조직 타입", example = "STORE")
+    val organizationType: String,
+    
+    @Schema(description = "조직 ID", example = "store-001")
+    val organizationId: String,
+    
+    @Schema(description = "메뉴 코드", example = "DASHBOARD")
+    val menuCode: String,
+    
+    @Schema(description = "권한 타입", example = "READ")
+    val permissionType: String,
+    
+    @Schema(description = "권한 ID")
+    val permissionId: String? = null,
+    
+    @Schema(description = "처리 시간")
+    val timestamp: LocalDateTime
+)

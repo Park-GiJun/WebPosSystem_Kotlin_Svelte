@@ -353,4 +353,271 @@ class PermissionController(
             return ResponseEntity.status(401).build()
         }
     }
+
+    @PostMapping("/cache/refresh")
+    @Operation(
+        summary = "🔄 권한 캐시 갱신",
+        description = """
+            **권한 캐시를 강제로 갱신합니다.**
+            
+            🔄 **캐시 갱신 옵션:**
+            - **사용자별 갱신**: 특정 사용자의 권한 캐시만 갱신
+            - **메뉴별 갱신**: 특정 메뉴와 관련된 모든 캐시 갱신
+            - **전체 갱신**: 모든 사용자의 권한 캐시 갱신
+            
+            💡 **사용 시점:**
+            - 권한 정책 변경 후
+            - 메뉴 구조 변경 후
+            - 사용자 역할 변경 후
+            - 캐시 동기화 이슈 발생 시
+            
+            ⚠️ **주의사항:**
+            - 전체 갱신은 성능에 영향을 줄 수 있습니다
+            - 관리자 권한이 필요한 기능입니다
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🔐 Permissions"]
+    )
+    @ApiResponses(
+        value = [
+            SwaggerApiResponse(
+                responseCode = "200",
+                description = "✅ 캐시 갱신 성공",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": true,
+                                "message": "권한 캐시가 성공적으로 갱신되었습니다",
+                                "refreshType": "USER",
+                                "targetId": "admin",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            ),
+            SwaggerApiResponse(
+                responseCode = "403",
+                description = "🚫 권한 부족",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": false,
+                                "message": "캐시 관리 권한이 없습니다",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            )
+        ]
+    )
+    suspend fun refreshPermissionCache(
+        @Parameter(
+            description = "JWT 인증 토큰", 
+            example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            required = true
+        )
+        @RequestHeader("Authorization") authorization: String,
+        @RequestBody request: RefreshCacheRequest
+    ): ResponseEntity<RefreshCacheResponse> {
+        val token = authorization.removePrefix("Bearer ")
+        
+        try {
+            val username = jwtUtil.getUsernameFromToken(token)
+            
+            // 캐시 관리 권한 체크
+            val hasPermission = permissionService.checkUserPermission(
+                username, 
+                "CACHE_MANAGEMENT", 
+                PermissionType.ADMIN
+            )
+            
+            if (!hasPermission) {
+                return ResponseEntity.status(403).body(
+                    RefreshCacheResponse(
+                        success = false,
+                        message = "캐시 관리 권한이 없습니다",
+                        refreshType = request.type,
+                        targetId = request.targetId,
+                        timestamp = java.time.LocalDateTime.now()
+                    )
+                )
+            }
+            
+            when (request.type.uppercase()) {
+                "USER" -> {
+                    if (request.targetId.isNullOrBlank()) {
+                        return ResponseEntity.badRequest().body(
+                            RefreshCacheResponse(
+                                success = false,
+                                message = "사용자 ID가 필요합니다",
+                                refreshType = request.type,
+                                targetId = request.targetId,
+                                timestamp = java.time.LocalDateTime.now()
+                            )
+                        )
+                    }
+                    permissionService.refreshUserPermissionCache(request.targetId)
+                }
+                "MENU" -> {
+                    if (request.targetId.isNullOrBlank()) {
+                        return ResponseEntity.badRequest().body(
+                            RefreshCacheResponse(
+                                success = false,
+                                message = "메뉴 코드가 필요합니다",
+                                refreshType = request.type,
+                                targetId = request.targetId,
+                                timestamp = java.time.LocalDateTime.now()
+                            )
+                        )
+                    }
+                    permissionService.refreshMenuRelatedCache(request.targetId)
+                }
+                "ALL" -> {
+                    permissionService.refreshAllPermissionCache()
+                }
+                else -> {
+                    return ResponseEntity.badRequest().body(
+                        RefreshCacheResponse(
+                            success = false,
+                            message = "지원하지 않는 갱신 타입입니다: ${request.type}",
+                            refreshType = request.type,
+                            targetId = request.targetId,
+                            timestamp = java.time.LocalDateTime.now()
+                        )
+                    )
+                }
+            }
+            
+            return ResponseEntity.ok(
+                RefreshCacheResponse(
+                    success = true,
+                    message = "권한 캐시가 성공적으로 갱신되었습니다",
+                    refreshType = request.type,
+                    targetId = request.targetId,
+                    timestamp = java.time.LocalDateTime.now()
+                )
+            )
+        } catch (e: Exception) {
+            return ResponseEntity.status(500).body(
+                RefreshCacheResponse(
+                    success = false,
+                    message = "캐시 갱신 중 오류가 발생했습니다: ${e.message}",
+                    refreshType = request.type,
+                    targetId = request.targetId,
+                    timestamp = java.time.LocalDateTime.now()
+                )
+            )
+        }
+    }
+
+    @PostMapping("/organization/{organizationType}/{organizationId}/grant")
+    @Operation(
+        summary = "🏢 조직 권한 부여",
+        description = """
+            **특정 조직(매장/본사)에 메뉴 권한을 부여합니다.**
+            
+            🏢 **조직 타입:**
+            - **STORE**: 매장
+            - **HEADQUARTERS**: 본사
+            
+            🔐 **권한 부여 효과:**
+            - 해당 조직 소속 모든 사용자에게 권한 상속
+            - 조직 레벨에서 권한 통합 관리
+            - 사용자 이동 시에도 권한 유지
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🔐 Permissions"]
+    )
+    suspend fun grantOrganizationPermission(
+        @Parameter(description = "조직 타입 (STORE, HEADQUARTERS)", required = true)
+        @PathVariable organizationType: String,
+        
+        @Parameter(description = "조직 ID", required = true)
+        @PathVariable organizationId: String,
+        
+        @RequestBody request: GrantOrganizationPermissionRequest,
+        
+        @Parameter(description = "JWT 토큰", required = true)
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<GrantOrganizationPermissionResponse> {
+        val token = authorization.removePrefix("Bearer ")
+        
+        try {
+            val username = jwtUtil.getUsernameFromToken(token)
+            
+            // 조직 권한 관리 권한 체크
+            val hasPermission = permissionService.checkUserPermission(
+                username, 
+                "ORGANIZATION_PERMISSIONS", 
+                PermissionType.ADMIN
+            )
+            
+            if (!hasPermission) {
+                return ResponseEntity.status(403).body(
+                    GrantOrganizationPermissionResponse(
+                        success = false,
+                        message = "조직 권한 관리 권한이 없습니다",
+                        organizationType = organizationType,
+                        organizationId = organizationId,
+                        menuCode = request.menuCode,
+                        permissionType = request.permissionType,
+                        timestamp = java.time.LocalDateTime.now()
+                    )
+                )
+            }
+            
+            val permissionType = PermissionType.valueOf(request.permissionType.uppercase())
+            
+            val permission = permissionService.grantOrganizationPermission(
+                organizationType = organizationType,
+                organizationId = organizationId,
+                menuCode = request.menuCode,
+                permissionType = permissionType,
+                grantedBy = username
+            )
+            
+            return ResponseEntity.ok(
+                GrantOrganizationPermissionResponse(
+                    success = true,
+                    message = "${organizationType}:${organizationId}에 ${request.menuCode} 메뉴의 ${request.permissionType} 권한이 부여되었습니다",
+                    organizationType = organizationType,
+                    organizationId = organizationId,
+                    menuCode = request.menuCode,
+                    permissionType = request.permissionType,
+                    permissionId = permission.permissionId.value,
+                    timestamp = java.time.LocalDateTime.now()
+                )
+            )
+        } catch (e: IllegalArgumentException) {
+            return ResponseEntity.badRequest().body(
+                GrantOrganizationPermissionResponse(
+                    success = false,
+                    message = e.message ?: "잘못된 요청입니다",
+                    organizationType = organizationType,
+                    organizationId = organizationId,
+                    menuCode = request.menuCode,
+                    permissionType = request.permissionType,
+                    timestamp = java.time.LocalDateTime.now()
+                )
+            )
+        } catch (e: Exception) {
+            return ResponseEntity.status(500).body(
+                GrantOrganizationPermissionResponse(
+                    success = false,
+                    message = "조직 권한 부여 중 오류가 발생했습니다: ${e.message}",
+                    organizationType = organizationType,
+                    organizationId = organizationId,
+                    menuCode = request.menuCode,
+                    permissionType = request.permissionType,
+                    timestamp = java.time.LocalDateTime.now()
+                )
+            )
+        }
+    }
 }

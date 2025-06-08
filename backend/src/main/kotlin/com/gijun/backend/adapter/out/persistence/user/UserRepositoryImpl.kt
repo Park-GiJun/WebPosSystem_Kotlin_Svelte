@@ -60,4 +60,32 @@ class UserRepositoryImpl(
     override suspend fun count(): Long {
         return r2dbcRepository.count()
     }
+
+    override suspend fun findAllWithPaging(page: Int, size: Int, search: String?): List<User> {
+        val offset = page * size
+        return r2dbcRepository.findAllWithPaging(search, size, offset)
+            .map { userMapper.toDomain(it) }
+    }
+
+    override suspend fun countWithSearch(search: String?): Long {
+        return r2dbcRepository.countWithSearch(search)
+    }
+
+    override suspend fun findByRole(roleName: String): List<User> {
+        return r2dbcRepository.findByRole("\"$roleName\"")
+            .map { userMapper.toDomain(it) }
+    }
+
+    override suspend fun findByRoles(roleNames: List<String>): List<User> {
+        // 최대 5개까지 역할을 지원 (더 많은 역할이 필요한 경우 다른 방식 사용)
+        val roles = roleNames.take(5)
+        val role1 = roles.getOrNull(0)
+        val role2 = roles.getOrNull(1)
+        val role3 = roles.getOrNull(2)
+        val role4 = roles.getOrNull(3)
+        val role5 = roles.getOrNull(4)
+        
+        return r2dbcRepository.findByRoles(role1, role2, role3, role4, role5)
+            .map { userMapper.toDomain(it) }
+    }
 }

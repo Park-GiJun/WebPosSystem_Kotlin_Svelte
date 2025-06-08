@@ -44,7 +44,7 @@ class PermissionChecker(
 
         // 권한 체크
         val hasPermission = permissionService.checkUserPermission(
-            user.id, 
+            username, 
             menuCode, 
             requiredPermission
         )

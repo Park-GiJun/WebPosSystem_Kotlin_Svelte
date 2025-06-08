@@ -101,3 +101,27 @@ data class AssignRoleRequest(
     @Schema(description = "할당할 역할 목록", example = "[\"ADMIN\", \"USER\"]")
     val roles: List<String>
 )
+
+@Schema(description = "조직 권한 정보")
+data class OrganizationPermissionDto(
+    @Schema(description = "조직 타입", example = "STORE")
+    val organizationType: String,
+    
+    @Schema(description = "조직 ID", example = "store-001")
+    val organizationId: String,
+    
+    @Schema(description = "메뉴 코드", example = "DASHBOARD")
+    val menuCode: String,
+    
+    @Schema(description = "메뉴 이름", example = "대시보드")
+    val menuName: String,
+    
+    @Schema(description = "권한 타입", example = "READ")
+    val permissionType: String,
+    
+    @Schema(description = "권한 부여 시간")
+    val grantedAt: LocalDateTime,
+    
+    @Schema(description = "권한 만료 시간")
+    val expiresAt: LocalDateTime?
+)
