@@ -327,6 +327,3 @@ data class RevokePermissionRequest(
     val targetType: String,
     val targetId: String
 )
-
-// RolePermissionDto와 PermissionSummaryDto는 PermissionService에서 가져와서 사용
-// 중복 정의 제거

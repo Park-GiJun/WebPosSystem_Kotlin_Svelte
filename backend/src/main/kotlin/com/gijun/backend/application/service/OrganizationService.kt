@@ -119,8 +119,6 @@ class OrganizationService(
     }
 
     suspend fun getOrganizations(token: String): OrganizationsResponse {
-        // TODO: JWT 토큰으로 현재 사용자 확인 및 권한 체크 로직 추가 필요
-        
         try {
             // 1. 모든 매장 목록 조회
             val allStores = storeRepository.findAll().toList()
@@ -181,7 +179,6 @@ class OrganizationService(
             )
             
         } catch (e: Exception) {
-            // 오류 발생시 빈 목록 반환
             println("조직 목록 조회 중 오류 발생: ${e.message}")
             e.printStackTrace()
             
