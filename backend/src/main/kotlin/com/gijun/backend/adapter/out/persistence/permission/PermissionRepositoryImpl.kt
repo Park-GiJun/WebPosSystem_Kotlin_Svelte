@@ -30,7 +30,7 @@ class PermissionRepositoryImpl(
     }
 
     override suspend fun findByMenuId(menuId: String): List<Permission> {
-        return r2dbcRepository.findByMenuId(menuId)
+        return r2dbcRepository.findByMenuCode(menuId)
             .map { permissionMapper.toDomain(it) }
             .toList()
     }

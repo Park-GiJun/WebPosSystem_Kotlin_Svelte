@@ -8,13 +8,13 @@ import java.time.LocalDateTime
 @Table("permissions")
 data class PermissionEntity(
     @Id
-    val permissionId: String,
+    val id: String,
 
-    @Column("menu_id")
-    val menuId: String,
+    @Column("menu_code")
+    val menuCode: String,
 
-    @Column("target_type")
-    val targetType: String,
+    @Column("permission_target_type")
+    val permissionTargetType: String,
 
     @Column("target_id")
     val targetId: String,
@@ -22,14 +22,8 @@ data class PermissionEntity(
     @Column("permission_type")
     val permissionType: String,
 
-    @Column("granted_at")
-    val grantedAt: LocalDateTime = LocalDateTime.now(),
-
     @Column("granted_by")
-    val grantedBy: String,
-
-    @Column("expires_at")
-    val expiresAt: LocalDateTime? = null,
+    val grantedBy: String?,
 
     @Column("is_active")
     val isActive: Boolean = true,

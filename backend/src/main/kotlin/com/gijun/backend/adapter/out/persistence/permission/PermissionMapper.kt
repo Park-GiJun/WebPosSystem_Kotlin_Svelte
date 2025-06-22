@@ -12,13 +12,12 @@ class PermissionMapper {
 
     fun toDomain(entity: PermissionEntity): Permission {
         return Permission(
-            permissionId = PermissionId.fromString(entity.permissionId),
-            menuId = MenuId.fromString(entity.menuId),
-            targetType = PermissionTargetType.valueOf(entity.targetType),
+            permissionId = PermissionId.fromString(entity.id),
+            menuId = MenuId.fromString(entity.menuCode),
+            targetType = PermissionTargetType.valueOf(entity.permissionTargetType),
             targetId = entity.targetId,
-            permissionType = PermissionType.valueOf(entity.permissionType),
-            grantedAt = entity.grantedAt,
-            grantedBy = entity.grantedBy,
+            permissionType = PermissionType.valueOf(entity.permissionType.uppercase()),
+            grantedBy = entity.grantedBy ?: "system",
             isActive = entity.isActive,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
@@ -27,12 +26,11 @@ class PermissionMapper {
 
     fun toEntity(domain: Permission): PermissionEntity {
         return PermissionEntity(
-            permissionId = domain.permissionId.value,
-            menuId = domain.menuId.value,
-            targetType = domain.targetType.name,
+            id = domain.permissionId.value,
+            menuCode = domain.menuId.value,
+            permissionTargetType = domain.targetType.name,
             targetId = domain.targetId,
-            permissionType = domain.permissionType.name,
-            grantedAt = domain.grantedAt,
+            permissionType = domain.permissionType.name.lowercase(),
             grantedBy = domain.grantedBy,
             isActive = domain.isActive,
             createdAt = domain.createdAt,

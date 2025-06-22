@@ -122,7 +122,7 @@ class AdminPermissionController(
                 "success" to true,
                 "message" to "권한이 성공적으로 부여되었습니다.",
                 "permissionId" to permission.permissionId.value,
-                "grantedAt" to permission.grantedAt
+                "createdAt" to permission.createdAt
             )
             
             ResponseEntity.ok(response)
@@ -265,7 +265,7 @@ class AdminPermissionController(
                         "targetId" to permission.targetId,
                         "permissionType" to permission.permissionType,
                         "grantedBy" to permission.grantedBy,
-                        "grantedAt" to permission.grantedAt,
+                        "createdAt" to permission.createdAt,
                         "isActive" to permission.isActive
                     )
                 }

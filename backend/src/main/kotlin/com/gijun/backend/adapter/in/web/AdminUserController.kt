@@ -703,7 +703,7 @@ class AdminUserController(
         
         @Parameter(description = "JWT 토큰", required = true)
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<List<OrganizationPermissionDto>> {
+    ): ResponseEntity<List<Map<String, Any>>> {
         
         val token = authorization.removePrefix("Bearer ")
         val username = jwtUtil.getUsernameFromToken(token)
@@ -723,13 +723,13 @@ class AdminUserController(
             val orgPermissions = permissionService.getUserOrganizationPermissions(user.username)
             
             val permissionDtos = orgPermissions.map { orgPermission ->
-                OrganizationPermissionDto(
-                    organizationType = orgPermission.organizationType,
-                    organizationId = orgPermission.organizationId,
-                    menuCode = orgPermission.menuCode,
-                    menuName = orgPermission.menuName,
-                    permissionType = orgPermission.permissionType,
-                    grantedAt = orgPermission.grantedAt
+                mapOf(
+                    "organizationType" to orgPermission.organizationType,
+                    "organizationId" to orgPermission.organizationId,
+                    "menuCode" to orgPermission.menuCode,
+                    "menuName" to orgPermission.menuName,
+                    "permissionType" to orgPermission.permissionType,
+                    "createdAt" to orgPermission.createdAt
                 )
             }
             

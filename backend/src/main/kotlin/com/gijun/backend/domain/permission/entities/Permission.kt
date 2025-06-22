@@ -14,16 +14,14 @@ data class Permission(
     val targetType: PermissionTargetType,
     val targetId: String, // UserId, OrganizationId, or Role name
     val permissionType: PermissionType,
-    val grantedAt: LocalDateTime = LocalDateTime.now(),
-    val grantedBy: String,
+    val grantedBy: String?,
     val isActive: Boolean = true,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now()
 ) {
-    // V13에서는 expires_at이 제거됨
     fun isValid(): Boolean = isActive
 
-    fun revoke(revokedBy: String): Permission =
+    fun revoke(): Permission =
         this.copy(
             isActive = false,
             updatedAt = LocalDateTime.now()
