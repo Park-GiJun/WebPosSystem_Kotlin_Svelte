@@ -7,6 +7,7 @@ import com.gijun.backend.domain.store.enums.StoreType
 import com.gijun.backend.domain.store.vo.HeadquartersId
 import org.springframework.stereotype.Component
 
+@Component
 class HeadquartersRepositoryImpl(
     private val r2dbcRepository: HeadquartersR2dbcRepository,
     private val headquartersMapper: HeadquartersMapper

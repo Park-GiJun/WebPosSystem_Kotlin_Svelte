@@ -4,14 +4,19 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
-		port: 3000,
+		port: 8080,
 		host: true,
 		proxy: {
 			'/api': {
-				target: 'http://localhost:8080',
+				target: 'http://localhost:9832',
 				changeOrigin: true
 			}
 		}
+	},
+	preview: {
+		port: 8080,
+		host: true,
+		allowedHosts: ['gijun.net', 'localhost']
 	},
 	ssr: {
 		noExternal: ['lucide-svelte']

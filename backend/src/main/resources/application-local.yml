@@ -1,29 +1,66 @@
+# Local Development Configuration (Docker 환경)
 spring:
   r2dbc:
-    url: r2dbc:mysql://localhost:3306/webpos?ssl=false
+    url: r2dbc:mysql://localhost:3306/webpos?ssl=false&allowPublicKeyRetrieval=true
     username: root
     password: password
+    pool:
+      initial-size: 5
+      max-size: 10
+      max-idle-time: 30m
   
   data:
     redis:
       host: localhost
       port: 6379
+      password: ""
   
   kafka:
     bootstrap-servers: localhost:9092
-
-logging:
-  level:
-    com.gijun.backend: DEBUG
-    org.springframework: DEBUG
-    io.r2dbc: DEBUG
+    consumer:
+      group-id: webpos-local-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 # 로컬 개발용 JWT
 jwt:
-  secret: local-dev-secret-key-for-testing
+  secret: local-dev-secret-key-for-testing-only-change-in-production
   expiration: 86400000
+  header: Authorization
+  prefix: Bearer
 
-# Swagger UI 활성화
+# 로컬 개발용 상세 로깅
+logging:
+  level:
+    com.gijun.backend: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.data.r2dbc: DEBUG
+    io.r2dbc: DEBUG
+    root: INFO
+
+# Swagger UI 활성화 (로컬에서만)
 springdoc:
   swagger-ui:
     enabled: true
+    path: /swagger-ui.html
+  api-docs:
+    enabled: true
+    path: /api-docs
+
+# Management endpoints (로컬에서 모든 정보 노출)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+
+# 로컬 서버 포트
+server:
+  port: 8080
