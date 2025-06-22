@@ -5,7 +5,7 @@ server:
 # R2DBC Configuration for Production
 spring:
   r2dbc:
-    url: r2dbc:mysql://${PRODUCTION_DB_HOST:210.121.177.150}:${PRODUCTION_DB_PORT:3306}/${PRODUCTION_DB_NAME:webpossystem}?useSSL=false&allowPublicKeyRetrieval=true&preserveInstants=false&connectionTimeZone=LOCAL&forceConnectionTimeZoneToSession=false
+    url: r2dbc:mysql://${PRODUCTION_DB_HOST:210.121.177.150}:${PRODUCTION_DB_PORT:3306}/${PRODUCTION_DB_NAME:WEBPOS}?useSSL=false&allowPublicKeyRetrieval=true&preserveInstants=false&connectionTimeZone=LOCAL&forceConnectionTimeZoneToSession=false
     username: ${PRODUCTION_DB_USERNAME:gijunpark}
     password: ${PRODUCTION_DB_PASSWORD:park9832}
     pool:
@@ -15,6 +15,10 @@ spring:
       max-idle-time: 30m
       max-acquire-time: 30s
       max-create-connection-time: 30s
+
+  # Flyway Configuration for Production
+  flyway:
+    enabled: false  # 수동으로 스키마 생성했으므로 비활성화
 
   # Redis Configuration for Production
   data:
@@ -61,19 +65,20 @@ management:
       show-details: when-authorized
       show-components: when-authorized
 
-# Production Logging Configuration - R2DBC 디버깅용
+# Production Logging Configuration - CORS 및 R2DBC 디버깅용
 logging:
   level:
     root: INFO
-    org.springframework.web: WARN
-    org.springframework.security: WARN
-    com.gijun.backend: INFO
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.cors: DEBUG
+    com.gijun.backend: DEBUG
     # R2DBC 연결 디버깅
-    io.r2dbc: DEBUG
-    io.r2dbc.mysql: DEBUG
-    io.r2dbc.pool: DEBUG
-    org.springframework.data.r2dbc: DEBUG
-    org.springframework.r2dbc: DEBUG
+    io.r2dbc: INFO
+    io.r2dbc.mysql: INFO
+    io.r2dbc.pool: INFO
+    org.springframework.data.r2dbc: INFO
+    org.springframework.r2dbc: INFO
 
 # SpringDoc Configuration - Disabled for Production (보안)
 springdoc:

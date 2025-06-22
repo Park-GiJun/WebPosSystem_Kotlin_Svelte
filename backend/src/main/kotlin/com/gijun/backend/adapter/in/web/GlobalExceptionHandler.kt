@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.bind.support.WebExchangeBindException
+import org.springframework.web.server.ResponseStatusException
+import org.springframework.web.server.ServerWebInputException
 import java.time.LocalDateTime
 
 @RestControllerAdvice
@@ -67,6 +70,45 @@ class GlobalExceptionHandler {
             ))
     }
 
+    @ExceptionHandler(WebExchangeBindException::class)
+    fun handleWebExchangeBindException(e: WebExchangeBindException): ResponseEntity<ErrorResponse> {
+        val errors = e.bindingResult.fieldErrors.map { "${it.field}: ${it.defaultMessage}" }
+        val message = "Validation failed: ${errors.joinToString(", ")}"
+        
+        logger.warn("WebFlux validation failed: $message")
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(
+                success = false,
+                message = message,
+                timestamp = LocalDateTime.now()
+            ))
+    }
+
+    @ExceptionHandler(ServerWebInputException::class)
+    fun handleServerWebInputException(e: ServerWebInputException): ResponseEntity<ErrorResponse> {
+        logger.warn("Invalid input: ${e.message}")
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(
+                success = false,
+                message = e.message ?: "Invalid input",
+                timestamp = LocalDateTime.now()
+            ))
+    }
+
+    @ExceptionHandler(ResponseStatusException::class)
+    fun handleResponseStatusException(e: ResponseStatusException): ResponseEntity<ErrorResponse> {
+        logger.warn("Response status exception: ${e.message}")
+        return ResponseEntity
+            .status(e.statusCode)
+            .body(ErrorResponse(
+                success = false,
+                message = e.reason ?: "Request failed",
+                timestamp = LocalDateTime.now()
+            ))
+    }
+
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException): ResponseEntity<ErrorResponse> {
         logger.warn("Invalid argument: ${e.message}")
@@ -81,7 +123,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleGeneralException(e: Exception): ResponseEntity<ErrorResponse> {
-        logger.error("Unexpected error occurred", e)
+        logger.error("Unexpected error occurred: ${e.message}", e)
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse(

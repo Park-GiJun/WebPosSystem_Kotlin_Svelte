@@ -11,17 +11,38 @@ async function apiRequest(endpoint, options = {}) {
             'Content-Type': 'application/json',
             ...options.headers
         },
+        credentials: 'include', // CORS 쿠키 포함
         ...options
     };
 
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    try {
+        const response = await fetch(url, config);
+        
+        // 응답이 성공적이지 않으면 에러 처리
+        if (!response.ok) {
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.message || errorMessage;
+            } catch (parseError) {
+                console.warn('Failed to parse error response:', parseError);
+            }
+            
+            throw new Error(errorMessage);
+        }
+        
+        // 응답이 비어있는 경우 처리
+        const text = await response.text();
+        if (!text) {
+            return { success: true };
+        }
+        
+        return JSON.parse(text);
+    } catch (error) {
+        console.error(`API request failed for ${endpoint}:`, error);
+        throw error;
     }
-    
-    return await response.json();
 }
 
 export const authApi = {
@@ -44,6 +65,7 @@ export const authApi = {
     // 내 정보 조회
     async getMe(token) {
         return await apiRequest('/auth/me', {
+            method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`
             }

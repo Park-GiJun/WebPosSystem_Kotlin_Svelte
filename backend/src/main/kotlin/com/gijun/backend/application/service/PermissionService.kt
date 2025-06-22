@@ -183,17 +183,10 @@ class PermissionService(
             )
         }
 
-        // 3. 매장 기반 권한 (사용자의 조직이 매장인 경우)
-        if (user.organizationType?.equals("STORE") == true && user.organizationId != null) {
+        // 3. 조직 기반 권한 (V13에서는 ORGANIZATION 타입으로 통합)
+        if (user.organizationId != null) {
             allPermissions.addAll(
-                permissionRepository.findByTargetId(PermissionTargetType.STORE, user.organizationId)
-            )
-        }
-
-        // 4. 본사 기반 권한 (사용자의 조직이 본사인 경우)
-        if (user.organizationType?.equals("STORE") == true && user.organizationId != null) {
-            allPermissions.addAll(
-                permissionRepository.findByTargetId(PermissionTargetType.HEADQUARTERS, user.organizationId)
+                permissionRepository.findByTargetId(PermissionTargetType.ORGANIZATION, user.organizationId)
             )
         }
 
@@ -241,11 +234,8 @@ class PermissionService(
                 val role = com.gijun.backend.domain.user.enums.UserRole.valueOf(targetId)
                 Permission.grantToRole(menu.menuId, role, permissionType, grantedBy)
             }
-            PermissionTargetType.STORE -> {
-                Permission.grantToStore(menu.menuId, com.gijun.backend.domain.store.vo.StoreId.fromString(targetId), permissionType, grantedBy)
-            }
-            PermissionTargetType.HEADQUARTERS -> {
-                Permission.grantToHeadquarters(menu.menuId, com.gijun.backend.domain.store.vo.HeadquartersId.fromString(targetId), permissionType, grantedBy)
+            PermissionTargetType.ORGANIZATION -> {
+                Permission.grantToOrganization(menu.menuId, targetId, permissionType, grantedBy)
             }
         }
 
@@ -299,8 +289,7 @@ class PermissionService(
             UserPermissionDetail(
                 menuCode = menu?.menuCode ?: "UNKNOWN",
                 menuName = menu?.menuName ?: "Unknown Menu",
-                permissionType = permission.permissionType.name,
-                expiresAt = permission.expiresAt
+                permissionType = permission.permissionType.name
             )
         }
     }
@@ -320,8 +309,7 @@ class PermissionService(
                     roleName = roleName,
                     menuCode = menu?.menuCode ?: "UNKNOWN",
                     menuName = menu?.menuName ?: "Unknown Menu",
-                    permissionType = permission.permissionType.name,
-                    expiresAt = permission.expiresAt
+                    permissionType = permission.permissionType.name
                 )
             }
         }
@@ -375,7 +363,6 @@ class PermissionService(
                 permissionType = permission.permissionType.name,
                 grantedBy = permission.grantedBy,
                 grantedAt = permission.grantedAt,
-                expiresAt = permission.expiresAt,
                 isActive = permission.isValid()
             )
         }
@@ -460,39 +447,19 @@ class PermissionService(
 
         val orgPermissions = mutableListOf<OrganizationPermission>()
 
-        // 매장 권한
-        if (user.organizationType?.equals("STORE") == true && user.organizationId != null) {
-            val storePermissions = permissionRepository.findByTargetId(PermissionTargetType.STORE, user.organizationId)
-            storePermissions.forEach { permission ->
+        // 조직 권한 (V13에서는 ORGANIZATION 타입으로 통합)
+        if (user.organizationId != null) {
+            val permissions = permissionRepository.findByTargetId(PermissionTargetType.ORGANIZATION, user.organizationId)
+            permissions.forEach { permission ->
                 val menu = menuRepository.findById(permission.menuId.value)
                 orgPermissions.add(
                     OrganizationPermission(
-                        organizationType = "STORE",
+                        organizationType = user.organizationType ?: "UNKNOWN",
                         organizationId = user.organizationId,
                         menuCode = menu?.menuCode ?: "UNKNOWN",
                         menuName = menu?.menuName ?: "Unknown Menu",
                         permissionType = permission.permissionType.name,
-                        grantedAt = permission.grantedAt,
-                        expiresAt = permission.expiresAt
-                    )
-                )
-            }
-        }
-
-        // 본사 권한
-        if (user.organizationType?.equals("HEADQUARTERS") == true && user.organizationId != null) {
-            val hqPermissions = permissionRepository.findByTargetId(PermissionTargetType.HEADQUARTERS, user.organizationId)
-            hqPermissions.forEach { permission ->
-                val menu = menuRepository.findById(permission.menuId.value)
-                orgPermissions.add(
-                    OrganizationPermission(
-                        organizationType = "HEADQUARTERS",
-                        organizationId = user.organizationId,
-                        menuCode = menu?.menuCode ?: "UNKNOWN",
-                        menuName = menu?.menuName ?: "Unknown Menu",
-                        permissionType = permission.permissionType.name,
-                        grantedAt = permission.grantedAt,
-                        expiresAt = permission.expiresAt
+                        grantedAt = permission.grantedAt
                     )
                 )
             }
@@ -514,21 +481,8 @@ class PermissionService(
         val menu = menuRepository.findByCode(menuCode)
             ?: throw IllegalArgumentException("Menu not found: $menuCode")
 
-        val targetType = when (organizationType.uppercase()) {
-            "STORE" -> PermissionTargetType.STORE
-            "HEADQUARTERS" -> PermissionTargetType.HEADQUARTERS
-            else -> throw IllegalArgumentException("Invalid organization type: $organizationType")
-        }
-
-        val permission = when (targetType) {
-            PermissionTargetType.STORE -> {
-                Permission.grantToStore(menu.menuId, com.gijun.backend.domain.store.vo.StoreId.fromString(organizationId), permissionType, grantedBy)
-            }
-            PermissionTargetType.HEADQUARTERS -> {
-                Permission.grantToHeadquarters(menu.menuId, com.gijun.backend.domain.store.vo.HeadquartersId.fromString(organizationId), permissionType, grantedBy)
-            }
-            else -> throw IllegalArgumentException("Unsupported target type for organization: $targetType")
-        }
+        // V13에서는 모든 조직 타입이 ORGANIZATION으로 통합됨
+        val permission = Permission.grantToOrganization(menu.menuId, organizationId, permissionType, grantedBy)
 
         val result = permissionRepository.save(permission)
         

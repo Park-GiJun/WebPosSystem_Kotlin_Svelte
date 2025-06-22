@@ -121,4 +121,6 @@ flyway {
     
     locations = arrayOf("classpath:db/migration")
     baselineOnMigrate = true
+    validateOnMigrate = true
+    cleanDisabled = isProduction
 }

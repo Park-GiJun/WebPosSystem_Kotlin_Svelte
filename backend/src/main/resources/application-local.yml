@@ -8,6 +8,17 @@ spring:
       initial-size: 5
       max-size: 10
       max-idle-time: 30m
+
+  # Flyway Configuration for Local
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    url: jdbc:mysql://localhost:3306/webpos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    user: root
+    password: password
+    locations: classpath:db/migration
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:true}
+    validate-on-migrate: true
+    clean-disabled: false
   
   data:
     redis:
@@ -39,6 +50,7 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.data.r2dbc: DEBUG
     io.r2dbc: DEBUG
+    org.flywaydb: DEBUG
     root: INFO
 
 # Swagger UI 활성화 (로컬에서만)
@@ -60,7 +72,3 @@ management:
     health:
       show-details: always
       show-components: always
-
-# 로컬 서버 포트
-server:
-  port: 8080

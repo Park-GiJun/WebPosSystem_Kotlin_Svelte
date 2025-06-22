@@ -71,25 +71,16 @@ class AuthService(
         val loginSuccess = passwordEncoder.matches(command.password, user.passwordHash)
         
         if (!loginSuccess) {
-            // 비밀번호 실패 시에만 실패 횟수 업데이트 (try-catch로 감싸서 충돌 무시)
-            try {
-                val updatedUser = user.recordLoginAttempt()
-                userRepository.save(updatedUser)
-            } catch (e: Exception) {
-                logger.warn("Failed to record failed login attempt for user: ${command.username}, but continuing with login failure", e)
-            }
+            logger.warn("Failed login attempt for user: ${command.username}")
             throw AuthenticationException("Invalid username or password")
         }
 
-        // 로그인 성공 - 별도 처리로 실패해도 로그인은 계속 진행
+        // 로그인 성공 - 마지막 로그인 시간만 업데이트 (try-catch로 실패해도 로그인은 진행)
         val finalUser = try {
-            // 성공 시에는 실패 횟수만 초기화하고 버전은 증가시키지 않음
             val updatedUser = user.copy(
                 lastLoginAt = LocalDateTime.now(),
                 failedLoginAttempts = 0,
-                updatedAt = LocalDateTime.now(),
-                updatedBy = command.username
-                // version 업데이트 제거
+                updatedAt = LocalDateTime.now()
             )
             userRepository.save(updatedUser)
         } catch (e: Exception) {
