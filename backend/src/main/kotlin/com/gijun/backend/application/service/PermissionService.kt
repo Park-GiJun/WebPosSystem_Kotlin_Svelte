@@ -494,20 +494,47 @@ class PermissionService(
         val result = permissionRepository.save(permission)
         
         // 해당 조직 소속 모든 사용자의 캐시 무효화
-        invalidateOrganizationUsersCache(organizationId, organizationType)
-        
-        return result
-    }
-
-    /**
-     * 조직 소속 사용자들의 캐시 무효화
-     */
-    private suspend fun invalidateOrganizationUsersCache(organizationId: String, organizationType: String) {
         val orgUsers = getUsersByOrganization(organizationId, organizationType)
         orgUsers.forEach { user ->
             permissionCacheRepository.invalidateUserRelatedPermissions(user.username)
         }
         logger.info("Invalidated cache for ${orgUsers.size} users in organization $organizationType:$organizationId")
+        
+        return result
+    }
+
+    suspend fun getAllPermissionsList(): List<Map<String, Any>> {
+        val allPermissions = permissionRepository.findActivePermissions()
+        val allMenus = menuRepository.findAll()
+        val allUsers = userRepository.findAll()
+        
+        return allPermissions.map { permission ->
+            val menu = allMenus.find { it.menuId.value == permission.menuId.value }
+            val user = if (permission.targetType == PermissionTargetType.USER) {
+                allUsers.find { it.id == permission.targetId }
+            } else null
+
+            mapOf<String, Any>(
+                "id" to permission.permissionId.value,
+                "menuCode" to (menu?.menuCode ?: "UNKNOWN"),
+                "menuName" to (menu?.menuName ?: "Unknown Menu"),
+                "targetType" to permission.targetType.name,
+                "targetId" to permission.targetId,
+                "targetName" to when (permission.targetType) {
+                    PermissionTargetType.USER -> user?.username ?: permission.targetId
+                    PermissionTargetType.ROLE -> getRoleDescription(permission.targetId)
+                    PermissionTargetType.ORGANIZATION -> permission.targetId
+                },
+                "permissionType" to permission.permissionType.name,
+                "grantedBy" to (permission.grantedBy ?: "system"),
+                "createdAt" to permission.createdAt.toString(),
+                "isActive" to permission.isActive
+            )
+        }.sortedWith(
+            compareBy<Map<String, Any>> { it["menuCode"] as String }
+                .thenBy { it["targetType"] as String }
+                .thenBy { it["targetId"] as String }
+        )
     }
 }
 

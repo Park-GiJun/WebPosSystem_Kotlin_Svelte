@@ -19,6 +19,28 @@ class AdminPermissionController(
 ) {
     private val logger = logger()
 
+    @GetMapping
+    @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
+    suspend fun getPermissions(): ResponseEntity<Map<String, Any>> {
+        return try {
+            // 모든 권한 목록 조회
+            val allPermissions = permissionService.getAllPermissionsList()
+            
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "permissions" to allPermissions,
+                "total" to allPermissions.size
+            ))
+            
+        } catch (e: Exception) {
+            logger.error("Failed to get permissions", e)
+            ResponseEntity.status(500).body(mapOf(
+                "success" to false,
+                "message" to "권한 목록 조회 중 오류가 발생했습니다."
+            ))
+        }
+    }
+
     @GetMapping("/menus")
     @RequiresPermission(menuCode = "ADMIN_PERMISSIONS", permission = PermissionType.READ)
     suspend fun getAllMenus(): ResponseEntity<MenuListResponse> {
