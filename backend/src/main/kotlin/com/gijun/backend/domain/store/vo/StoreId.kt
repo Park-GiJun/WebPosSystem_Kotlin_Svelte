@@ -8,6 +8,8 @@ value class StoreId(val value: String) {
     }
 
     companion object {
+        fun from(value: String): StoreId = StoreId(value)
+        
         fun fromString(value: String): StoreId = StoreId(value)
 
         fun generateChainStoreId(hqCode: String, regionCode: String, storeNumber: String): StoreId {

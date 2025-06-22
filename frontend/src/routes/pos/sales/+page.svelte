@@ -2,47 +2,71 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
+  import { toastStore } from '$lib/stores/toast.js';
+  import { ProductApi } from '$lib/api/product.js';
   import { ShoppingCart, Package, CreditCard, Receipt, Plus, Minus, X } from 'lucide-svelte';
 
   let products = [];
+  let allProducts = [];
   let cart = [];
   let loading = false;
   let searchTerm = '';
   let selectedCategory = 'all';
   let categories = [
-    { id: 'all', name: '전체' },
-    { id: 'food', name: '음식' },
-    { id: 'beverage', name: '음료' },
-    { id: 'dessert', name: '디저트' },
-    { id: 'etc', name: '기타' }
+    { id: 'all', name: '전체' }
   ];
 
-  // 탭 활성화
-  onMount(() => {
+  // 현재 사용자의 매장 ID (인증된 사용자 정보에서 가져오기)
+  $: currentStoreId = $authStore.user?.storeId || '550e8400-e29b-41d4-a716-446655440000';
+
+  // 탭 활성화 및 데이터 로드
+  onMount(async () => {
     tabStore.setActiveTab('POS_SALES');
-    // 임시 상품 데이터
-    products = [
-      { id: 1, name: '아메리카노', price: 4500, category: 'beverage', stock: 50, isActive: true },
-      { id: 2, name: '라떼', price: 5000, category: 'beverage', stock: 30, isActive: true },
-      { id: 3, name: '카푸치노', price: 5500, category: 'beverage', stock: 25, isActive: true },
-      { id: 4, name: '에스프레소', price: 4000, category: 'beverage', stock: 40, isActive: true },
-      { id: 5, name: '크로와상', price: 3000, category: 'food', stock: 15, isActive: true },
-      { id: 6, name: '베이글', price: 3500, category: 'food', stock: 20, isActive: true },
-      { id: 7, name: '치즈케이크', price: 6000, category: 'dessert', stock: 10, isActive: true },
-      { id: 8, name: '초콜릿쿠키', price: 2500, category: 'dessert', stock: 25, isActive: true },
-      { id: 9, name: '프라푸치노', price: 6500, category: 'beverage', stock: 20, isActive: true },
-      { id: 10, name: '샌드위치', price: 7000, category: 'food', stock: 12, isActive: true },
-      { id: 11, name: '마카롱', price: 2000, category: 'dessert', stock: 30, isActive: true },
-      { id: 12, name: '스무디', price: 5500, category: 'beverage', stock: 18, isActive: true }
-    ];
+    await loadProducts();
   });
+
+  // 상품 데이터 로드
+  async function loadProducts() {
+    try {
+      loading = true;
+      const productsData = await ProductApi.getProductsForPos(currentStoreId);
+      
+      allProducts = productsData.map(product => ({
+        id: product.productId,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        stock: product.stockQuantity,
+        isActive: product.isActive,
+        isAvailableForSale: product.isAvailableForSale
+      }));
+
+      products = allProducts;
+      
+      // 카테고리 목록 생성
+      const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
+      categories = [
+        { id: 'all', name: '전체' },
+        ...uniqueCategories.map(cat => ({ id: cat, name: cat }))
+      ];
+
+    } catch (error) {
+      console.error('상품 로드 실패:', error);
+      toastStore.add('상품을 불러오는데 실패했습니다.', 'error');
+      // 에러 시 빈 배열로 설정
+      products = [];
+      allProducts = [];
+    } finally {
+      loading = false;
+    }
+  }
 
   // 필터링된 상품 목록
   $: filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     
-    return matchesSearch && matchesCategory && product.isActive;
+    return matchesSearch && matchesCategory && product.isActive && product.isAvailableForSale;
   });
 
   // 장바구니 총액
@@ -77,14 +101,36 @@
     cart = [];
   }
 
-  function processPayment() {
+  async function processPayment() {
     if (cart.length === 0) {
-      alert('장바구니가 비어있습니다.');
+      toastStore.add('장바구니가 비어있습니다.', 'error');
       return;
     }
 
-    alert(`결제가 완료되었습니다. 총 금액: ${totalAmount.toLocaleString()}원`);
-    clearCart();
+    try {
+      loading = true;
+      
+      // 판매할 상품 목록 생성 (productId: quantity 형태)
+      const salesItems = {};
+      cart.forEach(item => {
+        salesItems[item.id] = item.quantity;
+      });
+
+      // 실제 판매 처리 (재고 차감)
+      await ProductApi.sellProducts(salesItems);
+      
+      toastStore.add(`결제가 완료되었습니다. 총 금액: ${totalAmount.toLocaleString()}원`, 'success');
+      clearCart();
+      
+      // 상품 목록 새로고침 (재고 정보 업데이트)
+      await loadProducts();
+      
+    } catch (error) {
+      console.error('결제 처리 실패:', error);
+      toastStore.add('결제 처리 중 오류가 발생했습니다.', 'error');
+    } finally {
+      loading = false;
+    }
   }
 </script>
 
@@ -120,7 +166,12 @@
 
     <!-- 상품 그리드 -->
     <div class="card p-6">
-      {#if filteredProducts.length === 0}
+      {#if loading}
+        <div class="text-center py-12">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p class="text-gray-500">상품을 불러오는 중...</p>
+        </div>
+      {:else if filteredProducts.length === 0}
         <div class="text-center py-12">
           <Package class="mx-auto h-12 w-12 text-gray-400" />
           <p class="mt-4 text-gray-500">상품이 없습니다.</p>
@@ -239,11 +290,18 @@
         <button
           type="button"
           class="w-full btn btn-primary py-3 text-lg"
-          disabled={cart.length === 0}
+          disabled={cart.length === 0 || loading}
           on:click={processPayment}
         >
-          <CreditCard class="mr-2" size="20" />
-          결제하기
+          {#if loading}
+            <div class="flex items-center justify-center">
+              <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              처리 중...
+            </div>
+          {:else}
+            <CreditCard class="mr-2" size="20" />
+            결제하기
+          {/if}
         </button>
         
         <button

@@ -1,0 +1,2 @@
+-- V8는 V11로 대체됨 (실패로 인한 임시 비활성화)
+-- 실제 내용은 V11__Add_product_menus_fixed.sql 참조

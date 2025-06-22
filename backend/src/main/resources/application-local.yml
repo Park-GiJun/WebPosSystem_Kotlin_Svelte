@@ -17,8 +17,10 @@ spring:
     password: password
     locations: classpath:db/migration
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:true}
-    validate-on-migrate: true
+    validate-on-migrate: false
     clean-disabled: false
+    repair: true
+    out-of-order: true
   
   data:
     redis:

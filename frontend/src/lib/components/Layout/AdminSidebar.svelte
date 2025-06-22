@@ -4,7 +4,7 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { createEventDispatcher } from 'svelte';
-  import { Users, Building, Key, Settings, Shield, Server, Database, ClipboardList, BarChart, Lock, ChevronDown, ChevronRight, FileText } from 'lucide-svelte';
+  import { Users, Building, Key, Settings, Shield, Server, Database, ClipboardList, BarChart, Lock, ChevronDown, ChevronRight, FileText, Package } from 'lucide-svelte';
 
   const dispatch = createEventDispatcher();
 
@@ -79,7 +79,8 @@
     'computer-desktop': Server,
     'cube': Database,
     'shopping-cart': ClipboardList,
-    'user-group': Users
+    'user-group': Users,
+    'package': Package
   };
 
   // 메뉴를 계층 구조로 정리 (실제 API 응답 구조에 맞게)

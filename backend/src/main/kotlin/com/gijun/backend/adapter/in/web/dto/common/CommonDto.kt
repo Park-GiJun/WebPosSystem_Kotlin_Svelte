@@ -1,14 +1,83 @@
 package com.gijun.backend.adapter.`in`.web.dto.common
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import java.time.LocalDateTime
 
 // Common Response DTOs
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class ApiResponse<T>(
     val success: Boolean,
     val data: T? = null,
     val message: String? = null,
-    val timestamp: LocalDateTime = LocalDateTime.now()
-)
+    val errorCode: String? = null,
+    val timestamp: Long = System.currentTimeMillis()
+) {
+    companion object {
+        /**
+         * 성공 응답 생성
+         */
+        fun <T> success(data: T): ApiResponse<T> {
+            return ApiResponse(
+                success = true,
+                data = data
+            )
+        }
+
+        /**
+         * 성공 응답 생성 (메시지 포함)
+         */
+        fun <T> success(data: T, message: String): ApiResponse<T> {
+            return ApiResponse(
+                success = true,
+                data = data,
+                message = message
+            )
+        }
+
+        /**
+         * 데이터 없는 성공 응답
+         */
+        fun success(): ApiResponse<Unit> {
+            return ApiResponse(
+                success = true,
+                data = Unit
+            )
+        }
+
+        /**
+         * 메시지만 있는 성공 응답
+         */
+        fun success(message: String): ApiResponse<Unit> {
+            return ApiResponse(
+                success = true,
+                data = Unit,
+                message = message
+            )
+        }
+
+        /**
+         * 실패 응답 생성
+         */
+        fun <T> error(message: String, errorCode: String? = null): ApiResponse<T> {
+            return ApiResponse(
+                success = false,
+                message = message,
+                errorCode = errorCode
+            )
+        }
+
+        /**
+         * 실패 응답 생성 (예외로부터)
+         */
+        fun <T> error(exception: Exception, errorCode: String? = null): ApiResponse<T> {
+            return ApiResponse(
+                success = false,
+                message = exception.message ?: "Unknown error",
+                errorCode = errorCode
+            )
+        }
+    }
+}
 
 data class ErrorResponse(
     val error: String,
