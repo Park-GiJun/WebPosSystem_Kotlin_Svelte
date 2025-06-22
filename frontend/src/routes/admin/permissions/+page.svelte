@@ -69,6 +69,7 @@
     const colors = {
       'USER': 'bg-blue-100 text-blue-800',
       'ROLE': 'bg-purple-100 text-purple-800',
+      'ORGANIZATION': 'bg-green-100 text-green-800',
       'STORE': 'bg-green-100 text-green-800',
       'HEADQUARTERS': 'bg-orange-100 text-orange-800'
     };
@@ -79,6 +80,7 @@
     const texts = {
       'USER': '사용자',
       'ROLE': '역할',
+      'ORGANIZATION': '조직',
       'STORE': '매장',
       'HEADQUARTERS': '본사'
     };
@@ -109,6 +111,7 @@
     const icons = {
       'USER': Users,
       'ROLE': Shield,
+      'ORGANIZATION': Building,
       'STORE': StoreIcon,
       'HEADQUARTERS': Building
     };
@@ -180,7 +183,7 @@
   $: totalPermissions = permissions.length;
   $: roleBasedPermissions = permissions.filter(p => p.targetType === 'ROLE').length;
   $: userDirectPermissions = permissions.filter(p => p.targetType === 'USER').length;
-  $: storeBasedPermissions = permissions.filter(p => p.targetType === 'STORE').length;
+  $: organizationBasedPermissions = permissions.filter(p => p.targetType === 'ORGANIZATION').length;
 </script>
 
 <svelte:head>
@@ -261,11 +264,11 @@
     <div class="card p-6">
       <div class="flex items-center">
         <div class="p-3 rounded-full bg-orange-100">
-          <StoreIcon class="h-6 w-6 text-orange-600" />
+          <Building class="h-6 w-6 text-orange-600" />
         </div>
         <div class="ml-4">
-          <p class="text-sm font-medium text-gray-600">매장 기반</p>
-          <p class="text-2xl font-bold text-gray-900">{storeBasedPermissions}</p>
+          <p class="text-sm font-medium text-gray-600">조직 기반</p>
+          <p class="text-2xl font-bold text-gray-900">{organizationBasedPermissions}</p>
         </div>
       </div>
     </div>
@@ -290,6 +293,7 @@
         <option value="all">모든 대상 타입</option>
         <option value="USER">사용자</option>
         <option value="ROLE">역할</option>
+        <option value="ORGANIZATION">조직</option>
         <option value="STORE">매장</option>
         <option value="HEADQUARTERS">본사</option>
       </select>
@@ -382,7 +386,7 @@
                   {permission.grantedBy || 'N/A'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {permission.grantedAt ? new Date(permission.grantedAt).toLocaleDateString('ko-KR') : 'N/A'}
+                  {permission.createdAt ? new Date(permission.createdAt).toLocaleDateString('ko-KR') : 'N/A'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {permission.expiresAt ? new Date(permission.expiresAt).toLocaleDateString('ko-KR') : '무제한'}

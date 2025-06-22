@@ -134,12 +134,14 @@
       // 백엔드 API에 맞는 요청 구조로 변경
       const request = {
         name: hqForm.name,
-        businessNumber: hqForm.businessLicense,
+        businessNumber: hqForm.businessLicense, // businessLicense -> businessNumber 변경
         address: hqForm.address,
         phoneNumber: hqForm.contactPhone,
         email: hqForm.adminEmail,
         adminUsername: hqForm.adminUsername
       };
+      
+      console.log('📤 요청 데이터:', request);
       
       const response = await fetch('/api/v1/admin/organizations/headquarters', {
         method: 'POST',
@@ -150,8 +152,12 @@
         body: JSON.stringify(request)
       });
       
+      console.log('📥 응답 상태:', response.status);
+      
       if (response.ok) {
         const newHq = await response.json();
+        console.log('✅ 생성된 본사:', newHq);
+        
         organizations = [...organizations, {
           ...newHq,
           type: 'HEADQUARTERS'
@@ -161,8 +167,18 @@
         resetHqForm();
         console.log('✅ 체인본부 생성 완료');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '체인본부 생성에 실패했습니다.');
+        const errorText = await response.text();
+        console.error('❌ 응답 오류:', errorText);
+        let errorMessage = '체인본부 생성에 실패했습니다.';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('❌ 체인본부 생성 실패:', error);
@@ -182,12 +198,14 @@
       // 백엔드 API에 맞는 요청 구조로 변경
       const request = {
         name: storeForm.name,
-        businessNumber: storeForm.businessLicense,
+        businessNumber: storeForm.businessLicense, // businessLicense -> businessNumber 변경
         address: storeForm.address,
         phoneNumber: storeForm.phoneNumber,
         email: storeForm.adminEmail,
         ownerUsername: storeForm.adminUsername
       };
+      
+      console.log('📤 요청 데이터:', request);
       
       const response = await fetch('/api/v1/admin/organizations/individual-stores', {
         method: 'POST',
@@ -198,8 +216,12 @@
         body: JSON.stringify(request)
       });
       
+      console.log('📥 응답 상태:', response.status);
+      
       if (response.ok) {
         const newStore = await response.json();
+        console.log('✅ 생성된 매장:', newStore);
+        
         organizations = [...organizations, {
           ...newStore,
           type: 'STORE'
@@ -209,8 +231,18 @@
         resetStoreForm();
         console.log('✅ 개인매장 생성 완료');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '개인매장 생성에 실패했습니다.');
+        const errorText = await response.text();
+        console.error('❌ 응답 오류:', errorText);
+        let errorMessage = '개인매장 생성에 실패했습니다.';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('❌ 개인매장 생성 실패:', error);

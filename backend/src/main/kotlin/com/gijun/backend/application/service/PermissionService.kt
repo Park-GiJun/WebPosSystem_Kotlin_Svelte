@@ -267,7 +267,8 @@ class PermissionService(
         
         return roleGroups.map { (roleName, permissions) ->
             val permissionSummaries = permissions.map { permission ->
-                val menu = allMenus.find { it.menuId.value == permission.menuId.value }
+                // Permission의 menuId.value는 실제로 menuCode입니다
+                val menu = allMenus.find { it.menuCode == permission.menuId.value }
                 PermissionSummaryDto(
                     menuCode = menu?.menuCode ?: "UNKNOWN",
                     menuName = menu?.menuName ?: "Unknown Menu",
@@ -292,7 +293,8 @@ class PermissionService(
         val allMenus = menuRepository.findAll()
         
         return permissions.map { permission ->
-            val menu = allMenus.find { it.menuId.value == permission.menuId.value }
+            // Permission의 menuId.value는 실제로 menuCode입니다
+            val menu = allMenus.find { it.menuCode == permission.menuId.value }
             UserPermissionDetail(
                 menuCode = menu?.menuCode ?: "UNKNOWN",
                 menuName = menu?.menuName ?: "Unknown Menu",
@@ -311,7 +313,8 @@ class PermissionService(
             }
             
             rolePermissions.map { permission ->
-                val menu = allMenus.find { it.menuId.value == permission.menuId.value }
+                // Permission의 menuId.value는 실제로 menuCode입니다
+                val menu = allMenus.find { it.menuCode == permission.menuId.value }
                 RolePermissionDetail(
                     roleName = roleName,
                     menuCode = menu?.menuCode ?: "UNKNOWN",
@@ -458,7 +461,8 @@ class PermissionService(
         if (user.organizationId != null) {
             val permissions = permissionRepository.findByTargetId(PermissionTargetType.ORGANIZATION, user.organizationId)
             permissions.forEach { permission ->
-                val menu = menuRepository.findById(permission.menuId.value)
+                // Permission의 menuId.value는 실제로 menuCode입니다
+                val menu = menuRepository.findByCode(permission.menuId.value)
                 orgPermissions.add(
                     OrganizationPermission(
                         organizationType = user.organizationType ?: "UNKNOWN",
@@ -508,11 +512,31 @@ class PermissionService(
         val allMenus = menuRepository.findAll()
         val allUsers = userRepository.findAll()
         
-        return allPermissions.map { permission ->
-            val menu = allMenus.find { it.menuId.value == permission.menuId.value }
+        logger.info("Found ${allPermissions.size} permissions and ${allMenus.size} menus")
+        
+        if (allMenus.isEmpty()) {
+            logger.warn("No menus found in database!")
+        } else {
+            logger.info("First 5 menus: ${allMenus.take(5).map { "${it.menuId.value}:${it.menuCode}" }}")
+        }
+        
+        if (allPermissions.isNotEmpty()) {
+            logger.info("First 5 permissions: ${allPermissions.take(5).map { "${it.permissionId.value}:${it.menuId.value}" }}")
+        }
+        
+        return allPermissions.mapIndexed { index, permission ->
+            // Permission의 menuId.value는 실제로 menuCode입니다 (PermissionMapper 참조)
+            val menu = allMenus.find { it.menuCode == permission.menuId.value }
             val user = if (permission.targetType == PermissionTargetType.USER) {
                 allUsers.find { it.id == permission.targetId }
             } else null
+
+            if (menu == null) {
+                logger.warn("Menu not found for permission ${permission.permissionId.value} with menuCode ${permission.menuId.value}")
+                logger.warn("Available menu codes: ${allMenus.map { it.menuCode }.take(10)}")
+            } else if (index < 3) {
+                logger.info("Found menu for permission ${permission.permissionId.value}: ${menu.menuCode} - ${menu.menuName}")
+            }
 
             mapOf<String, Any>(
                 "id" to permission.permissionId.value,
