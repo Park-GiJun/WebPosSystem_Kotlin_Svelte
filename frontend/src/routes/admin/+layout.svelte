@@ -10,9 +10,19 @@
   let adminTabs = [];
   let activeTabId = null;
   let loading = true;
+  let isMobile = false;
+  let sidebarOpen = false;
 
   onMount(async () => {
-    // 슈퍼어드민 권한 확인
+    // 모바일 감지
+    const checkMobile = () => {
+      isMobile = window.innerWidth < 768;
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    // 관리자 권한 확인
     const unsubscribe = authStore.subscribe(async auth => {
       if (auth.isAuthenticated) {
         if (!auth.user?.roles?.includes('SUPER_ADMIN') && !auth.user?.roles?.includes('SYSTEM_ADMIN')) {
@@ -35,6 +45,7 @@
     return () => {
       unsubscribe();
       tabUnsubscribe();
+      window.removeEventListener('resize', checkMobile);
     };
   });
 
@@ -64,6 +75,11 @@
       console.log('🔐 생성될 탭 데이터:', tabData);
       
       tabStore.openTab(tabData);
+      
+      // 모바일에서는 메뉴 클릭 시 사이드바 닫기
+      if (isMobile) {
+        sidebarOpen = false;
+      }
     }
   }
 
@@ -92,6 +108,14 @@
   function handleCloseAllTabs() {
     tabStore.closeSystemCloseableTabs('admin');
   }
+
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+  }
+
+  function closeSidebar() {
+    sidebarOpen = false;
+  }
 </script>
 
 {#if loading}
@@ -109,7 +133,7 @@
         <div class="absolute inset-0 animate-ping rounded-full h-20 w-20 border-2 border-red-300 opacity-20 mx-auto"></div>
       </div>
       <div class="mt-6 space-y-2">
-        <p class="text-xl font-bold text-red-700">슈퍼어드민 시스템</p>
+        <p class="text-xl font-bold text-red-700">관리자 시스템</p>
         <p class="text-red-600 font-medium">시스템을 초기화하고 있습니다...</p>
         <div class="flex items-center justify-center space-x-1 mt-4">
           <div class="w-2 h-2 bg-red-500 rounded-full animate-bounce"></div>
@@ -127,27 +151,43 @@
     <!-- 그라디언트 오버레이 -->
     <div class="absolute inset-0 bg-gradient-to-tr from-red-500/5 via-transparent to-rose-500/5"></div>
     
-    <div class="relative z-10 flex flex-col h-screen">
+    <!-- 모바일 오버레이 -->
+    {#if isMobile}
+      <div class="mobile-overlay {sidebarOpen ? 'open' : ''}" on:click={closeSidebar} role="button" tabindex="-1"></div>
+    {/if}
+    
+    <div class="relative z-0 flex flex-col h-screen">
       <Header 
-        title="슈퍼어드민 시스템"
+        title="관리자 시스템"
         subtitle="시스템 전체 관리 및 보안"
         systemType="admin"
         showNotificationsMenu={true}
+        {isMobile}
+        on:toggle-sidebar={toggleSidebar}
       />
       
       <div class="flex flex-1 min-h-0">
-        <AdminSidebar on:menu-click={handleMenuClick} />
+        {#if isMobile}
+          <!-- 모바일 사이드바 -->
+          <div class="mobile-sidebar {sidebarOpen ? 'open' : ''}" style="background: linear-gradient(to bottom, rgb(220, 38, 38), rgb(185, 28, 28), rgb(153, 27, 27));">
+            <AdminSidebar {isMobile} on:menu-click={handleMenuClick} on:close-sidebar={closeSidebar} />
+          </div>
+        {:else}
+          <!-- 데스크톱 사이드바 -->
+          <AdminSidebar on:menu-click={handleMenuClick} />
+        {/if}
         
-        <main class="flex-1 flex flex-col min-h-0">
+        <main class="flex-1 flex flex-col min-h-0 {isMobile ? 'w-full' : ''}">
           <AdminTabContainer 
             tabs={adminTabs}
             {activeTabId}
+            {isMobile}
             on:tab-switch={handleTabSwitch}
             on:tab-close={handleTabClose}
             on:close-all-tabs={handleCloseAllTabs}
           />
           
-          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-red-200/50 shadow-inner relative min-h-0">
+          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-red-200/50 shadow-inner relative min-h-0 {isMobile ? 'border-l-0' : ''}">
             <!-- 메인 콘텐츠 배경 패턴 -->
             <div class="absolute inset-0 bg-gradient-to-br from-white via-red-50/30 to-rose-50/50"></div>
             <div class="relative z-10 h-full overflow-y-auto">

@@ -6,6 +6,8 @@
   import { createEventDispatcher } from 'svelte';
   import { Users, Building, Key, Settings, Shield, Server, Database, ClipboardList, BarChart, Lock, ChevronDown, ChevronRight, FileText, Package } from 'lucide-svelte';
 
+  export let isMobile = false;
+
   const dispatch = createEventDispatcher();
 
   $: currentPath = $page.url.pathname;
@@ -193,7 +195,7 @@
 
   function getRoleDisplayName(role) {
     const roleNames = {
-      'SUPER_ADMIN': '슈퍼관리자',
+      'SUPER_ADMIN': '관리자',
       'SYSTEM_ADMIN': '시스템관리자', 
       'HQ_MANAGER': '본사관리자',
       'STORE_MANAGER': '매장관리자',
@@ -215,45 +217,67 @@
   }
 </script>
 
-<aside class="w-60 bg-gradient-to-b from-red-600 via-red-700 to-red-800 text-white h-[calc(100vh-4rem)] shadow-2xl border-r border-red-500/30 overflow-hidden">
+<aside class="w-72 bg-gradient-to-b from-red-600 via-red-700 to-red-800 text-white shadow-2xl border-r border-red-500/30 overflow-hidden {isMobile ? 'h-full relative' : 'h-[calc(100vh-4rem)]'}">
   <!-- 배경 패턴 -->
   <div class="absolute inset-0 opacity-50" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.05&quot;%3E%3Ccircle cx=&quot;30&quot; cy=&quot;30&quot; r=&quot;2&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"></div>
   
   <div class="relative z-10 flex flex-col h-full">
-    <!-- 헤더 영역 -->
-    <div class="p-4 border-b border-red-500/30 bg-gradient-to-r from-red-600/50 to-red-700/50 backdrop-blur-sm">
+    <!-- 모바일 전용 헤더 -->
+    {#if isMobile}
+      <div class="p-4 border-b border-red-500/30 bg-red-800/50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <Shield size="20" class="text-red-200 mr-2" />
+            <h2 class="text-lg font-bold text-white">관리자</h2>
+          </div>
+          <button
+            on:click={() => {
+              dispatch('close-sidebar');
+            }}
+            class="p-1 text-red-200 hover:text-white rounded-md hover:bg-red-600/30 transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    {/if}
+
+    <!-- 헤더 영역 (데스크톱에서만 보이거나 모바일에서 축소) -->
+    <div class="p-3 {isMobile ? 'hidden' : 'sm:p-4'} border-b border-red-500/30 bg-gradient-to-r from-red-600/50 to-red-700/50 backdrop-blur-sm">
       <button 
         type="button"
-        class="group text-left w-full hover:opacity-90 transition-all duration-300 p-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/30 backdrop-blur-sm"
+        class="group text-left w-full hover:opacity-90 transition-all duration-300 p-2 sm:p-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/30 backdrop-blur-sm"
         on:click={() => goto('/system-select')}
         title="시스템 선택으로 돌아가기"
       >
         <div class="flex items-center">
-          <div class="p-2 bg-red-500/30 rounded-xl border border-red-400/50 group-hover:border-red-300/70 transition-colors">
-            <Shield size="20" class="text-red-100" />
+          <div class="p-1.5 sm:p-2 bg-red-500/30 rounded-xl border border-red-400/50 group-hover:border-red-300/70 transition-colors">
+            <Shield size={isMobile ? "16" : "20"} class="text-red-100" />
           </div>
-          <div class="ml-3">
-            <h1 class="text-lg font-bold text-white group-hover:text-red-100 transition-colors">슈퍼어드민</h1>
-            <p class="text-xs text-red-200/80 font-medium">System Administration</p>
+          <div class="ml-2 sm:ml-3">
+            <h1 class="text-base sm:text-lg font-bold text-white group-hover:text-red-100 transition-colors">관리자</h1>
+            <p class="text-xs text-red-200/80 font-medium {isMobile ? 'hidden' : ''}">System Administration</p>
           </div>
         </div>
       </button>
 
       <!-- 사용자 정보 -->
-      {#if user}
-        <div class="mt-3 p-3 bg-red-500/20 rounded-xl border border-red-400/30 backdrop-blur-sm">
+      {#if user && !isMobile}
+        <div class="mt-3 p-2 sm:p-3 bg-red-500/20 rounded-xl border border-red-400/30 backdrop-blur-sm">
           <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center border border-red-300/50">
-              <Users size="14" class="text-white" />
+            <div class="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center border border-red-300/50">
+              <Users size={isMobile ? "12" : "14"} class="text-white" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-bold text-red-100 truncate">{user.username}</p>
+              <p class="text-xs sm:text-sm font-bold text-red-100 truncate">{user.username}</p>
               <p class="text-xs text-red-200/70">{user.email || 'admin@company.com'}</p>
             </div>
           </div>
           <div class="flex flex-wrap gap-1 mt-2">
             {#each user.roles || [] as role}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100/90 text-red-800 border border-red-200/50 backdrop-blur-sm">
+              <span class="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100/90 text-red-800 border border-red-200/50 backdrop-blur-sm">
                 {getRoleDisplayName(role)}
               </span>
             {/each}
@@ -263,15 +287,17 @@
     </div>
 
     <!-- 메뉴 영역 -->
-    <nav class="p-3 space-y-1 flex-1 overflow-y-auto">
+    <nav class="p-2 sm:p-3 space-y-1 flex-1 overflow-y-auto custom-scrollbar touch-auto">
       {#if organizedMenus.length === 0}
         <div class="text-center py-8">
           <div class="text-red-200/60 text-sm space-y-2">
             <p>메뉴를 불러오는 중...</p>
-            <div class="text-xs text-red-300/50">
-              <p>전체 메뉴: {allMenus.length}개</p>
-              <p>어드민 메뉴: {adminMenus.length}개</p>
-            </div>
+            {#if !isMobile}
+              <div class="text-xs text-red-300/50">
+                <p>전체 메뉴: {allMenus.length}개</p>
+                <p>어드민 메뉴: {adminMenus.length}개</p>
+              </div>
+            {/if}
           </div>
         </div>
       {:else}
@@ -279,10 +305,10 @@
           <div class="menu-group">
             {#if menu.menuType === 'CATEGORY'}
               <!-- 카테고리 메뉴 -->
-              <div class="mb-3">
+              <div class="mb-2">
                 <button
                   type="button"
-                  class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-red-200 uppercase tracking-wider hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20"
+                  class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-red-200 uppercase tracking-wider hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20 touch-manipulation"
                   on:click={() => toggleCategory(menu.menuId)}
                 >
                   <div class="flex items-center">
@@ -290,7 +316,7 @@
                       {@const IconComponent = iconMap[menu.iconName]}
                       <IconComponent size="14" class="mr-2" />
                     {/if}
-                    {menu.menuName}
+                    <span class="text-xs">{menu.menuName}</span>
                   </div>
                   
                   {#if expandedCategories.has(menu.menuId)}
@@ -305,7 +331,7 @@
                     {#each menu.children as subMenu}
                       <button
                         type="button"
-                        class="admin-sidebar-item group"
+                        class="admin-sidebar-item group touch-manipulation"
                         class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
                         on:click={() => handleMenuClick(subMenu)}
                       >
@@ -328,7 +354,7 @@
                           {#each subMenu.children as subSubMenu}
                             <button
                               type="button"
-                              class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200"
+                              class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200 touch-manipulation"
                               class:text-white={isActive(subSubMenu.menuPath)}
                               class:bg-red-500={isActive(subSubMenu.menuPath)}
                               on:click={() => handleMenuClick(subSubMenu)}
@@ -346,7 +372,7 @@
               <!-- 일반 메뉴 -->
               <button
                 type="button"
-                class="admin-sidebar-item group"
+                class="admin-sidebar-item group touch-manipulation"
                 class:active={isActive(menu.menuPath)}
                 on:click={() => handleMenuClick(menu)}
               >
@@ -365,26 +391,28 @@
     </nav>
 
     <!-- 하단 시스템 정보 -->
-    <div class="p-3 border-t border-red-500/30 bg-red-600/30">
-      <div class="text-xs text-red-200 space-y-1">
-        <div class="flex justify-between">
-          <span>시스템 상태</span>
-          <span class="text-green-300">●</span>
-        </div>
-        <div class="flex justify-between">
-          <span>메뉴 로드</span>
-          <span class="text-green-300">{adminMenus.length > 0 ? '●' : '○'}</span>
-        </div>
-        <div class="flex justify-between text-xs">
-          <span>전체/필터</span>
-          <span class="font-mono">{allMenus.length}/{adminMenus.length}</span>
-        </div>
-        <div class="flex justify-between">
-          <span>접근 권한</span>
-          <span class="text-green-300">●</span>
+    {#if !isMobile}
+      <div class="p-3 border-t border-red-500/30 bg-red-600/30">
+        <div class="text-xs text-red-200 space-y-1">
+          <div class="flex justify-between">
+            <span>시스템 상태</span>
+            <span class="text-green-300">●</span>
+          </div>
+          <div class="flex justify-between">
+            <span>메뉴 로드</span>
+            <span class="text-green-300">{adminMenus.length > 0 ? '●' : '○'}</span>
+          </div>
+          <div class="flex justify-between text-xs">
+            <span>전체/필터</span>
+            <span class="font-mono">{allMenus.length}/{adminMenus.length}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>접근 권한</span>
+            <span class="text-green-300">●</span>
+          </div>
         </div>
       </div>
-    </div>
+    {/if}
   </div>
 </aside>
 

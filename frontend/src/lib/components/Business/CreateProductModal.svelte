@@ -157,17 +157,17 @@
 </script>
 
 <Modal bind:open title="상품 등록" size="xl" on:close={handleClose}>
-  <form on:submit|preventDefault={handleSubmit} class="space-y-6">
+  <form on:submit|preventDefault={handleSubmit} class="space-y-4 sm:space-y-6">
     <!-- 기본 정보 -->
-    <div class="bg-gray-50 p-4 rounded-lg">
-      <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+    <div class="bg-gray-50 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-3 sm:mb-4 flex items-center">
         <Package class="mr-2 h-5 w-5" />
         기본 정보
       </h3>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <!-- 상품명 -->
-        <div>
+        <div class="col-span-1 sm:col-span-2">
           <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
             상품명 <span class="text-red-500">*</span>
           </label>
@@ -223,7 +223,7 @@
         </div>
 
         <!-- 진열 순서 -->
-        <div>
+        <div class="col-span-1 sm:col-span-2">
           <label for="displayOrder" class="block text-sm font-medium text-gray-700 mb-1">
             진열 순서
           </label>
@@ -240,7 +240,7 @@
       </div>
 
       <!-- 상품 설명 -->
-      <div class="mt-4">
+      <div class="mt-3 sm:mt-4">
         <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
           상품 설명
         </label>
@@ -256,13 +256,13 @@
     </div>
 
     <!-- 가격 정보 -->
-    <div class="bg-gray-50 p-4 rounded-lg">
-      <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+    <div class="bg-gray-50 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-3 sm:mb-4 flex items-center">
         <DollarSign class="mr-2 h-5 w-5" />
         가격 정보
       </h3>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <!-- 판매가 -->
         <div>
           <label for="price" class="block text-sm font-medium text-gray-700 mb-1">
@@ -316,13 +316,13 @@
     </div>
 
     <!-- 재고 정보 -->
-    <div class="bg-gray-50 p-4 rounded-lg">
-      <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+    <div class="bg-gray-50 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-3 sm:mb-4 flex items-center">
         <Hash class="mr-2 h-5 w-5" />
         재고 정보
       </h3>
       
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <!-- 초기 재고 -->
         <div>
           <label for="stockQuantity" class="block text-sm font-medium text-gray-700 mb-1">
@@ -398,13 +398,13 @@
     </div>
 
     <!-- 식별 정보 -->
-    <div class="bg-gray-50 p-4 rounded-lg">
-      <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+    <div class="bg-gray-50 p-3 sm:p-4 rounded-lg">
+      <h3 class="text-lg font-medium text-gray-900 mb-3 sm:mb-4 flex items-center">
         <Barcode class="mr-2 h-5 w-5" />
         식별 정보
       </h3>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <!-- 바코드 -->
         <div>
           <label for="barcode" class="block text-sm font-medium text-gray-700 mb-1">
@@ -421,7 +421,7 @@
             />
             <button
               type="button"
-              class="px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+              class="px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100 text-sm"
               on:click={generateBarcode}
               disabled={loading}
             >
@@ -447,7 +447,7 @@
             />
             <button
               type="button"
-              class="px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+              class="px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100 text-sm"
               on:click={generateSku}
               disabled={loading}
             >
@@ -459,7 +459,7 @@
       </div>
 
       <!-- 이미지 URL -->
-      <div class="mt-4">
+      <div class="mt-3 sm:mt-4">
         <label for="imageUrl" class="block text-sm font-medium text-gray-700 mb-1">
           이미지 URL
         </label>
@@ -484,10 +484,10 @@
   </form>
 
   <!-- 푸터 버튼들 -->
-  <div slot="footer" class="flex justify-end space-x-3 p-4 border-t border-gray-200">
+  <div slot="footer" class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 border-t border-gray-200 bg-gray-50">
     <button
       type="button"
-      class="btn btn-secondary"
+      class="btn btn-secondary w-full sm:w-auto order-2 sm:order-1"
       on:click={handleClose}
       disabled={loading}
     >
@@ -495,12 +495,12 @@
     </button>
     <button
       type="submit"
-      class="btn btn-primary"
+      class="btn btn-primary w-full sm:w-auto order-1 sm:order-2"
       on:click={handleSubmit}
       disabled={loading}
     >
       {#if loading}
-        <div class="flex items-center">
+        <div class="flex items-center justify-center">
           <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
           등록 중...
         </div>

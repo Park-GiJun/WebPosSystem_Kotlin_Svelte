@@ -8,6 +8,7 @@
   export let subtitle = "";
   export let systemType = "default"; // admin, pos, business, default
   export let showNotificationsMenu = true;
+  export let isMobile = false;
 
   const dispatch = createEventDispatcher();
 
@@ -82,9 +83,13 @@
     }
   }
 
+  function toggleSidebar() {
+    dispatch('toggle-sidebar');
+  }
+
   function getRoleDisplayName(role) {
     const roleNames = {
-      'SUPER_ADMIN': '슈퍼관리자',
+      'SUPER_ADMIN': '관리자',
       'SYSTEM_ADMIN': '시스템관리자', 
       'HQ_MANAGER': '본사관리자',
       'STORE_MANAGER': '매장관리자',
@@ -96,14 +101,28 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<header class="relative bg-gradient-to-r {config.gradient} shadow-2xl {config.glowColor} backdrop-blur-sm fixed w-full top-0 z-50">
+<header class="relative bg-gradient-to-r {config.gradient} shadow-2xl {config.glowColor} backdrop-blur-sm fixed w-full top-0 z-50 h-16">
   <!-- Background Pattern -->
   <div class="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-black/10"></div>
   <div class="absolute inset-0 opacity-30" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fill-opacity=&quot;0.03&quot;%3E%3Ccircle cx=&quot;30&quot; cy=&quot;30&quot; r=&quot;2&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"></div>
   
-  <div class="relative flex items-center justify-between h-16 px-6">
-    <!-- 좌측: 시스템 정보 -->
+  <div class="relative flex items-center justify-between h-16 px-4 sm:px-6">
+    <!-- 좌측: 모바일 메뉴 버튼 & 시스템 정보 -->
     <div class="flex items-center space-x-4">
+      <!-- 모바일 햄버거 메뉴 -->
+      {#if isMobile}
+        <button
+          type="button"
+          class="hamburger-menu p-2 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-all duration-200"
+          on:click={toggleSidebar}
+          title="메뉴"
+        >
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+        </button>
+      {/if}
+      
       <div class="flex items-center space-x-3">
         <!-- 시스템 아이콘 -->
         <div class="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20 shadow-lg">
@@ -112,10 +131,10 @@
         
         <!-- 제목 -->
         <div class="flex flex-col">
-          <h1 class="text-xl font-bold text-white leading-tight tracking-tight">
+          <h1 class="text-lg sm:text-xl font-bold text-white leading-tight tracking-tight">
             {title}
           </h1>
-          {#if subtitle}
+          {#if subtitle && !isMobile}
             <p class="text-sm text-white/80 font-medium">
               {subtitle}
             </p>
@@ -125,24 +144,24 @@
     </div>
 
     <!-- 우측: 액션 버튼들 -->
-    <div class="flex items-center space-x-3">
+    <div class="flex items-center space-x-2 sm:space-x-3">
       <!-- 알림 버튼 -->
       {#if showNotificationsMenu}
         <div class="relative dropdown-container">
           <button
             type="button"
-            class="relative p-3 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-all duration-200 backdrop-blur-sm border border-white/10 hover:border-white/20 group"
+            class="relative p-2 sm:p-3 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-all duration-200 backdrop-blur-sm border border-white/10 hover:border-white/20 group"
             on:click={toggleNotifications}
             title="알림"
           >
-            <Bell size="18" class="transition-transform group-hover:scale-110" />
+            <Bell size={isMobile ? "16" : "18"} class="transition-transform group-hover:scale-110" />
             <!-- 알림 배지 -->
             <span class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></span>
           </button>
 
           <!-- 알림 드롭다운 -->
           {#if showNotifications}
-            <div class="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 z-50 backdrop-blur-xl border border-gray-100">
+            <div class="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 z-50 backdrop-blur-xl border border-gray-100">
               <div class="p-4 border-b border-gray-100">
                 <h3 class="text-lg font-semibold text-gray-900">알림</h3>
               </div>
@@ -178,19 +197,19 @@
       <div class="relative dropdown-container">
         <button
           type="button"
-          class="flex items-center space-x-3 p-2 pr-4 rounded-xl hover:bg-white/10 transition-all duration-200 backdrop-blur-sm border border-white/10 hover:border-white/20 group"
+          class="flex items-center space-x-2 sm:space-x-3 p-2 pr-3 sm:pr-4 rounded-xl hover:bg-white/10 transition-all duration-200 backdrop-blur-sm border border-white/10 hover:border-white/20 group"
           on:click={toggleUserMenu}
         >
           <!-- 사용자 아바타 -->
           <div class="relative">
-            <div class="w-9 h-9 bg-gradient-to-br from-white/20 to-white/10 rounded-xl flex items-center justify-center border border-white/20 group-hover:border-white/30 transition-all">
-              <User size="18" class="text-white" />
+            <div class="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-white/20 to-white/10 rounded-xl flex items-center justify-center border border-white/20 group-hover:border-white/30 transition-all">
+              <User size={isMobile ? "16" : "18"} class="text-white" />
             </div>
             <!-- 온라인 상태 표시 -->
             <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
           </div>
           
-          {#if user}
+          {#if user && !isMobile}
             <div class="text-left hidden sm:block">
               <p class="text-sm font-semibold text-white leading-tight">{user.username}</p>
               <p class="text-xs text-white/70 font-medium">
@@ -201,7 +220,7 @@
 
           <!-- 드롭다운 화살표 -->
           <div class="text-white/60 group-hover:text-white/80 transition-colors">
-            <svg class="w-4 h-4 transform group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3 h-3 sm:w-4 sm:h-4 transform group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </div>
@@ -209,7 +228,7 @@
 
         <!-- 사용자 드롭다운 메뉴 -->
         {#if showUserMenu}
-          <div class="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 z-50 backdrop-blur-xl border border-gray-100">
+          <div class="absolute right-0 mt-3 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 z-50 backdrop-blur-xl border border-gray-100">
             <!-- 사용자 정보 헤더 -->
             {#if user}
               <div class="p-4 border-b border-gray-100">

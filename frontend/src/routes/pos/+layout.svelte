@@ -10,8 +10,18 @@
   let posTabs = [];
   let activeTabId = null;
   let loading = true;
+  let isMobile = false;
+  let sidebarOpen = false;
 
   onMount(async () => {
+    // 모바일 감지
+    const checkMobile = () => {
+      isMobile = window.innerWidth < 768;
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     // POS 시스템 접근 권한 확인
     const unsubscribe = authStore.subscribe(async auth => {
       if (auth.isAuthenticated) {
@@ -38,6 +48,7 @@
     return () => {
       unsubscribe();
       tabUnsubscribe();
+      window.removeEventListener('resize', checkMobile);
     };
   });
 
@@ -68,6 +79,11 @@
       console.log('🛒 생성될 탭 데이터:', tabData);
       
       tabStore.openTab(tabData);
+      
+      // 모바일에서는 메뉴 클릭 시 사이드바 닫기
+      if (isMobile) {
+        sidebarOpen = false;
+      }
     }
   }
 
@@ -88,6 +104,14 @@
     // POS 탭 인쇄 기능
     console.log('인쇄:', event.detail.tabId);
     // 실제 인쇄 로직 구현
+  }
+
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+  }
+
+  function closeSidebar() {
+    sidebarOpen = false;
   }
 </script>
 
@@ -124,27 +148,43 @@
     <!-- 그라디언트 오버레이 -->
     <div class="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 via-transparent to-teal-500/5"></div>
     
-    <div class="relative z-10 flex flex-col h-screen">
+    <!-- 모바일 오버레이 -->
+    {#if isMobile}
+      <div class="mobile-overlay {sidebarOpen ? 'open' : ''}" on:click={closeSidebar} role="button" tabindex="-1"></div>
+    {/if}
+    
+    <div class="relative z-0 flex flex-col h-screen">
       <Header 
         title="POS 시스템"
         subtitle="매장 운영 및 판매 관리"
         systemType="pos"
         showNotificationsMenu={true}
+        {isMobile}
+        on:toggle-sidebar={toggleSidebar}
       />
       
       <div class="flex flex-1 min-h-0">
-        <PosSidebar on:menu-click={handleMenuClick} />
+        {#if isMobile}
+          <!-- 모바일 사이드바 -->
+          <div class="mobile-sidebar {sidebarOpen ? 'open' : ''}" style="background: linear-gradient(to bottom, rgb(22, 163, 74), rgb(21, 128, 61), rgb(22, 101, 52));">
+            <PosSidebar {isMobile} on:menu-click={handleMenuClick} on:close-sidebar={closeSidebar} />
+          </div>
+        {:else}
+          <!-- 데스크톱 사이드바 -->
+          <PosSidebar on:menu-click={handleMenuClick} />
+        {/if}
         
-        <main class="flex-1 flex flex-col min-h-0">
+        <main class="flex-1 flex flex-col min-h-0 {isMobile ? 'w-full' : ''}">
           <PosTabContainer 
             tabs={posTabs}
             {activeTabId}
+            {isMobile}
             on:tab-switch={handleTabSwitch}
             on:tab-close={handleTabClose}
             on:tab-print={handleTabPrint}
           />
           
-          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-emerald-200/50 shadow-inner relative min-h-0">
+          <div class="flex-1 bg-white/80 backdrop-blur-sm border-l border-emerald-200/50 shadow-inner relative min-h-0 {isMobile ? 'border-l-0' : ''}">
             <!-- 메인 콘텐츠 배경 패턴 -->
             <div class="absolute inset-0 bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/50"></div>
             <div class="relative z-10 h-full overflow-y-auto">

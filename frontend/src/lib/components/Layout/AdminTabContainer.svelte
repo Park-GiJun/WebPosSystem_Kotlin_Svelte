@@ -4,6 +4,7 @@
 
   export let tabs = [];
   export let activeTabId = null;
+  export let isMobile = false;
 
   const dispatch = createEventDispatcher();
 
@@ -31,31 +32,35 @@
 {#if tabs.length > 0}
   <div class="bg-gradient-to-r from-red-600 via-red-650 to-red-700 border-b border-red-800/50 shadow-lg backdrop-blur-sm">
     <!-- 시스템 헤더 -->
-    <div class="px-6 py-2 border-b border-red-500/20">
+    <div class="px-4 sm:px-6 py-2 border-b border-red-500/20">
       <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="flex items-center space-x-2 px-3 py-1.5 bg-red-500/20 rounded-full border border-red-400/30 backdrop-blur-sm">
-            <Shield size="16" class="text-red-200" />
-            <span class="text-sm font-bold text-red-100 uppercase tracking-wider">관리자 시스템</span>
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <div class="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-red-500/20 rounded-full border border-red-400/30 backdrop-blur-sm">
+            <Shield size={isMobile ? "14" : "16"} class="text-red-200" />
+            <span class="text-xs sm:text-sm font-bold text-red-100 uppercase tracking-wider">관리자 시스템</span>
           </div>
-          <div class="hidden sm:flex items-center space-x-1 text-xs text-red-200/80">
-            <span>활성 탭:</span>
-            <span class="font-semibold text-red-100">{tabs.length}</span>
-          </div>
+          {#if !isMobile}
+            <div class="hidden sm:flex items-center space-x-1 text-xs text-red-200/80">
+              <span>활성 탭:</span>
+              <span class="font-semibold text-red-100">{tabs.length}</span>
+            </div>
+          {/if}
         </div>
         
         <!-- 탭 액션 버튼들 -->
-        <div class="flex items-center space-x-2">
-          <button 
-            class="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-red-200 hover:text-red-100 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-400/30 hover:border-red-300/50 transition-all duration-200 backdrop-blur-sm"
-            title="새 탭 열기"
-          >
-            <Plus size="14" />
-            <span class="hidden sm:inline">새 탭</span>
-          </button>
+        <div class="flex items-center space-x-1 sm:space-x-2">
+          {#if !isMobile}
+            <button 
+              class="flex items-center space-x-2 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-200 hover:text-red-100 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-400/30 hover:border-red-300/50 transition-all duration-200 backdrop-blur-sm"
+              title="새 탭 열기"
+            >
+              <Plus size="14" />
+              <span class="hidden sm:inline">새 탭</span>
+            </button>
+          {/if}
           
           <button 
-            class="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-red-200 hover:text-red-100 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-400/30 hover:border-red-300/50 transition-all duration-200 backdrop-blur-sm"
+            class="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 text-xs font-medium text-red-200 hover:text-red-100 bg-red-500/20 hover:bg-red-500/30 rounded-lg border border-red-400/30 hover:border-red-300/50 transition-all duration-200 backdrop-blur-sm"
             title="모든 탭 닫기"
             on:click={() => dispatch('close-all-tabs')}
           >
@@ -67,61 +72,63 @@
     </div>
 
     <!-- 탭 목록 -->
-    <div class="px-4 py-2">
-      <div class="flex overflow-x-auto scrollbar-hide space-x-1">
-        {#each tabs as tab}
-          <button
-            type="button"
-            class="admin-tab group relative whitespace-nowrap flex-shrink-0"
-            class:active={activeTabId === tab.id}
-            on:click={() => switchTab(tab.id)}
-          >
-            <div class="flex items-center space-x-2 px-4 py-2.5">
-              <!-- 우선순위 표시 -->
-              {#if tab.priority}
-                {@const priority = getPriorityIcon(tab.priority)}
-                <span class="text-xs {priority.class}" title="{tab.priority} 우선순위">
-                  {priority.emoji}
+    <div class="px-2 sm:px-4 py-2">
+      <div class="mobile-tab-container overflow-x-auto scrollbar-hide">
+        <div class="mobile-tabs flex space-x-1">
+          {#each tabs as tab}
+            <button
+              type="button"
+              class="admin-tab group relative whitespace-nowrap flex-shrink-0"
+              class:active={activeTabId === tab.id}
+              on:click={() => switchTab(tab.id)}
+            >
+              <div class="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-2.5">
+                <!-- 우선순위 표시 -->
+                {#if tab.priority && !isMobile}
+                  {@const priority = getPriorityIcon(tab.priority)}
+                  <span class="text-xs {priority.class}" title="{tab.priority} 우선순위">
+                    {priority.emoji}
+                  </span>
+                {/if}
+                
+                <!-- 탭 제목 -->
+                <span class="font-medium text-xs sm:text-sm {isMobile ? 'max-w-24 truncate' : ''}" title="ID: {tab.id}">
+                  {tab.title || 'Untitled'}
                 </span>
-              {/if}
-              
-              <!-- 탭 제목 -->
-              <span class="font-medium text-sm" title="ID: {tab.id}">
-                {tab.title || 'Untitled'}
-              </span>
-              
-              <!-- 보안 아이콘 -->
-              {#if tab.secure}
-                <Lock size="12" class="text-red-300/80" />
+                
+                <!-- 보안 아이콘 -->
+                {#if tab.secure && !isMobile}
+                  <Lock size="12" class="text-red-300/80" />
+                {/if}
+
+                <!-- 즐겨찾기 -->
+                {#if tab.starred && !isMobile}
+                  <Star size="12" class="text-yellow-300 fill-current" />
+                {/if}
+                
+                <!-- 닫기 버튼 -->
+                {#if tab.closeable}
+                  <button
+                    type="button"
+                    class="ml-1 p-1 sm:p-1.5 rounded-md hover:bg-red-400/60 active:bg-red-400/80 opacity-70 group-hover:opacity-100 transition-all duration-150 hover:scale-110 active:scale-95 flex items-center justify-center min-w-[20px] min-h-[20px] sm:min-w-[24px] sm:min-h-[24px] relative z-10"
+                    on:click={(e) => closeTab(tab.id, e)}
+                    title="탭 닫기"
+                  >
+                    <X size={isMobile ? "12" : "14"} class="text-red-200 hover:text-white pointer-events-none" />
+                  </button>
+                {/if}
+              </div>
+
+              <!-- 활성 탭 인디케이터 -->
+              {#if activeTabId === tab.id}
+                <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-200 via-white to-red-200 shadow-lg"></div>
               {/if}
 
-              <!-- 즐겨찾기 -->
-              {#if tab.starred}
-                <Star size="12" class="text-yellow-300 fill-current" />
-              {/if}
-              
-              <!-- 닫기 버튼 -->
-              {#if tab.closeable}
-                <button
-                  type="button"
-                  class="ml-1 p-1.5 rounded-md hover:bg-red-400/60 active:bg-red-400/80 opacity-70 group-hover:opacity-100 transition-all duration-150 hover:scale-110 active:scale-95 flex items-center justify-center min-w-[24px] min-h-[24px] relative z-10"
-                  on:click={(e) => closeTab(tab.id, e)}
-                  title="탭 닫기"
-                >
-                  <X size="14" class="text-red-200 hover:text-white pointer-events-none" />
-                </button>
-              {/if}
-            </div>
-
-            <!-- 활성 탭 인디케이터 -->
-            {#if activeTabId === tab.id}
-              <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-200 via-white to-red-200 shadow-lg"></div>
-            {/if}
-
-            <!-- 호버 효과 -->
-            <div class="absolute inset-0 bg-gradient-to-t from-red-400/0 to-red-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
-          </button>
-        {/each}
+              <!-- 호버 효과 -->
+              <div class="absolute inset-0 bg-gradient-to-t from-red-400/0 to-red-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
+            </button>
+          {/each}
+        </div>
       </div>
     </div>
   </div>
