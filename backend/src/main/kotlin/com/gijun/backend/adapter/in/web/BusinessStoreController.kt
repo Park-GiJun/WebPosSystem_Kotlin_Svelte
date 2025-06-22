@@ -7,7 +7,7 @@ import com.gijun.backend.application.port.out.HeadquartersRepository
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.configuration.JwtUtil
 import com.gijun.backend.domain.store.enums.StoreType
-import com.gijun.backend.domain.store.enums.StoreStatus
+import com.gijun.backend.domain.store.vo.HeadquartersId
 import kotlinx.coroutines.flow.toList
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -32,23 +32,23 @@ class BusinessStoreController(
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) search: String?
     ): ResponseEntity<StoreListResponse> {
-        
+
         try {
             // 실제 데이터베이스에서 매장 목록 조회
             val allStores = storeRepository.findAll().toList()
-            
+
             // 필터링 적용
             val filteredStores = allStores.filter { store ->
                 val matchesStatus = status == null || store.storeStatus.name == status
                 val matchesType = type == null || store.storeType.name == type
-                val matchesSearch = search == null || 
-                    store.storeName.contains(search, ignoreCase = true) ||
-                    store.ownerName.contains(search, ignoreCase = true) ||
-                    store.storeId.value.contains(search, ignoreCase = true)
-                
+                val matchesSearch = search == null ||
+                        store.storeName.contains(search, ignoreCase = true) ||
+                        store.ownerName.contains(search, ignoreCase = true) ||
+                        store.storeId.value.contains(search, ignoreCase = true)
+
                 matchesStatus && matchesType && matchesSearch
             }
-            
+
             // 페이징 적용
             val startIndex = page * size
             val pagedStores = if (startIndex < filteredStores.size) {
@@ -56,7 +56,7 @@ class BusinessStoreController(
             } else {
                 emptyList()
             }
-            
+
             // DTO로 변환
             val storeDtos = pagedStores.map { store ->
                 StoreDto(
@@ -84,19 +84,21 @@ class BusinessStoreController(
                     updatedAt = store.updatedAt
                 )
             }
-            
-            return ResponseEntity.ok(StoreListResponse(
-                stores = storeDtos,
-                totalCount = filteredStores.size.toLong(),
-                page = page,
-                size = size
-            ))
-            
+
+            return ResponseEntity.ok(
+                StoreListResponse(
+                    stores = storeDtos,
+                    totalCount = filteredStores.size.toLong(),
+                    page = page,
+                    size = size
+                )
+            )
+
         } catch (e: Exception) {
             // 오류 발생시 더미 데이터로 대체
             println("매장 목록 조회 중 오류 발생: ${e.message}")
             e.printStackTrace()
-            
+
             val stores = listOf(
                 StoreDto(
                     storeId = "HQ001001",
@@ -147,20 +149,22 @@ class BusinessStoreController(
                     updatedAt = java.time.LocalDateTime.now()
                 )
             )
-            
-            return ResponseEntity.ok(StoreListResponse(
-                stores = stores,
-                totalCount = stores.size.toLong(),
-                page = page,
-                size = size
-            ))
+
+            return ResponseEntity.ok(
+                StoreListResponse(
+                    stores = stores,
+                    totalCount = stores.size.toLong(),
+                    page = page,
+                    size = size
+                )
+            )
         }
     }
 
     @GetMapping("/{storeId}")
     @RequiresPermission(menuCode = "BUSINESS_STORES", permission = PermissionType.READ)
     suspend fun getStore(@PathVariable storeId: String): ResponseEntity<StoreDto> {
-        
+
         // TODO: 실제 매장 상세 조회 로직 구현
         val store = StoreDto(
             storeId = storeId,
@@ -186,7 +190,7 @@ class BusinessStoreController(
             createdAt = java.time.LocalDateTime.now().minusYears(2),
             updatedAt = java.time.LocalDateTime.now()
         )
-        
+
         return ResponseEntity.ok(store)
     }
 
@@ -196,7 +200,7 @@ class BusinessStoreController(
         @Valid @RequestBody request: CreateStoreRequest,
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<StoreDto> {
-        
+
         // TODO: 실제 매장 생성 로직 구현
         val newStore = StoreDto(
             storeId = generateStoreId(request.storeType, request.hqCode, request.regionCode, request.storeNumber),
@@ -222,7 +226,7 @@ class BusinessStoreController(
             createdAt = java.time.LocalDateTime.now(),
             updatedAt = java.time.LocalDateTime.now()
         )
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(newStore)
     }
 
@@ -233,7 +237,7 @@ class BusinessStoreController(
         @Valid @RequestBody request: UpdateStoreRequest,
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<StoreDto> {
-        
+
         // TODO: 실제 매장 업데이트 로직 구현
         val updatedStore = StoreDto(
             storeId = storeId,
@@ -259,7 +263,7 @@ class BusinessStoreController(
             createdAt = java.time.LocalDateTime.now().minusYears(2),
             updatedAt = java.time.LocalDateTime.now()
         )
-        
+
         return ResponseEntity.ok(updatedStore)
     }
 
@@ -269,14 +273,14 @@ class BusinessStoreController(
         @PathVariable storeId: String,
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<Void> {
-        
+
         // TODO: 실제 매장 삭제 로직 구현
         return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/regions")
     suspend fun getRegions(): ResponseEntity<List<RegionDto>> {
-        
+
         // TODO: 실제 지역 목록 조회 로직 구현
         val regions = listOf(
             RegionDto("001", "서울특별시"),
@@ -285,7 +289,7 @@ class BusinessStoreController(
             RegionDto("004", "인천광역시"),
             RegionDto("009", "경기도")
         )
-        
+
         return ResponseEntity.ok(regions)
     }
 
@@ -293,24 +297,25 @@ class BusinessStoreController(
     suspend fun getHeadquarters(
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<List<HeadquartersDto>> {
-        
+
         try {
             // JWT 토큰에서 사용자 정보 추출
             val token = authorization.removePrefix("Bearer ")
             val username = jwtUtil.getUsernameFromToken(token)
-            
+
             // 사용자 정보 조회
             val user = userRepository.findByUsername(username)
                 ?: return ResponseEntity.ok(emptyList())
-            
+
             val userRoles = user.roles.map { it.name }.toSet()
-            
+
             // 권한에 따른 본사 목록 조회
             val headquarters = when {
                 // 시스템 관리자나 슈퍼 관리자 - 모든 본사 조회 가능
                 userRoles.contains("SYSTEM_ADMIN") || userRoles.contains("SUPER_ADMIN") -> {
                     try {
-                        headquartersRepository.findAll().toList().map { hq ->
+                        val allHq = headquartersRepository.findAll()
+                        allHq.map { hq ->
                             HeadquartersDto(
                                 hqId = hq.hqId.value,
                                 hqCode = hq.hqCode,
@@ -329,13 +334,15 @@ class BusinessStoreController(
                 userRoles.contains("HEADQUARTERS_ADMIN") || userRoles.contains("HQ_MANAGER") -> {
                     if (user.organizationId != null && user.organizationType == "HEADQUARTERS") {
                         try {
-                            val hq = headquartersRepository.findById(user.organizationId!!)
+                            val hq = headquartersRepository.findByHqId(HeadquartersId(user.organizationId!!))
                             if (hq != null) {
-                                listOf(HeadquartersDto(
-                                    hqId = hq.hqId.value,
-                                    hqCode = hq.hqCode,
-                                    hqName = hq.hqName
-                                ))
+                                listOf(
+                                    HeadquartersDto(
+                                        hqId = hq.hqId.value,
+                                        hqCode = hq.hqCode,
+                                        hqName = hq.hqName
+                                    )
+                                )
                             } else {
                                 emptyList()
                             }
@@ -352,9 +359,9 @@ class BusinessStoreController(
                     emptyList()
                 }
             }
-            
+
             return ResponseEntity.ok(headquarters)
-            
+
         } catch (e: Exception) {
             // 인증 오류나 기타 오류시 빈 목록 반환
             println("본사 목록 조회 중 오류 발생: ${e.message}")
@@ -369,7 +376,7 @@ class BusinessStoreController(
             "IN${regionCode}${storeNumber.padStart(3, '0')}"
         }
     }
-    
+
     private fun getRegionName(regionCode: String): String {
         return when (regionCode) {
             "001" -> "서울특별시"
