@@ -33,7 +33,7 @@ interface AuditLogR2dbcRepository : CoroutineCrudRepository<AuditLogEntity, Long
     fun findByUserName(userName: String, limit: Int, offset: Int): Flow<AuditLogEntity>
 
     // 액션 타입별 조회
-    @Query("SELECT * FROM audit_logs WHERE action = :actionType ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM audit_logs WHERE action_type = :actionType ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
     fun findByActionType(actionType: AuditActionType, limit: Int, offset: Int): Flow<AuditLogEntity>
 
     // 날짜 범위 조회
@@ -51,7 +51,7 @@ interface AuditLogR2dbcRepository : CoroutineCrudRepository<AuditLogEntity, Long
     @Query("""
         SELECT * FROM audit_logs 
         WHERE (:tableName IS NULL OR table_name = :tableName)
-        AND (:actionType IS NULL OR action = :actionType)
+        AND (:actionType IS NULL OR action_type = :actionType)
         AND (:userId IS NULL OR user_id = :userId)
         AND (:searchTerm IS NULL OR 
              record_id LIKE CONCAT('%', :searchTerm, '%'))
@@ -74,7 +74,7 @@ interface AuditLogR2dbcRepository : CoroutineCrudRepository<AuditLogEntity, Long
     @Query("""
         SELECT COUNT(*) FROM audit_logs 
         WHERE (:tableName IS NULL OR table_name = :tableName)
-        AND (:actionType IS NULL OR action = :actionType)
+        AND (:actionType IS NULL OR action_type = :actionType)
         AND (:userId IS NULL OR user_id = :userId)
         AND (:searchTerm IS NULL OR 
              record_id LIKE CONCAT('%', :searchTerm, '%'))
@@ -92,10 +92,10 @@ interface AuditLogR2dbcRepository : CoroutineCrudRepository<AuditLogEntity, Long
 
     // 통계 조회
     @Query("""
-        SELECT action, COUNT(*) as count 
+        SELECT action_type, COUNT(*) as count 
         FROM audit_logs 
         WHERE created_at >= :since 
-        GROUP BY action
+        GROUP BY action_type
     """)
     fun getActionStatistics(since: LocalDateTime): Flow<Map<String, Any>>
 

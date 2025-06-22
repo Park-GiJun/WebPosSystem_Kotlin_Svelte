@@ -37,6 +37,17 @@ class OrganizationService(
             "Only admin can create headquarters" 
         }
 
+        // 사용자명과 이메일 중복 체크
+        val existingUserByUsername = userRepository.findByUsername(request.adminUsername)
+        if (existingUserByUsername != null) {
+            throw IllegalArgumentException("사용자명 '${request.adminUsername}'은 이미 사용 중입니다.")
+        }
+        
+        val existingUserByEmail = userRepository.findByEmail(request.email)
+        if (existingUserByEmail != null) {
+            throw IllegalArgumentException("이메일 '${request.email}'은 이미 사용 중입니다.")
+        }
+
         // 1. 본사 엔티티 생성
         val headquarters = Headquarters.create(
             hqCode = request.name.take(3).uppercase(), // 본사명에서 3글자 추출하여 코드로 사용
@@ -88,6 +99,17 @@ class OrganizationService(
         val currentUser = getCurrentUser(token)
         require(currentUser.hasAdminRole(UserRole.SUPER_ADMIN) || currentUser.hasAdminRole(UserRole.SYSTEM_ADMIN)) { 
             "Only admin can create individual stores" 
+        }
+
+        // 사용자명과 이메일 중복 체크
+        val existingUserByUsername = userRepository.findByUsername(request.ownerUsername)
+        if (existingUserByUsername != null) {
+            throw IllegalArgumentException("사용자명 '${request.ownerUsername}'은 이미 사용 중입니다.")
+        }
+        
+        val existingUserByEmail = userRepository.findByEmail(request.email)
+        if (existingUserByEmail != null) {
+            throw IllegalArgumentException("이메일 '${request.email}'은 이미 사용 중입니다.")
         }
 
         // 1. 개인매장 엔티티 생성
@@ -143,34 +165,26 @@ class OrganizationService(
 
     suspend fun getOrganizations(token: String): OrganizationsResponse {
         try {
-            // 1. 모든 매장 목록 조회
-            val allStores = storeRepository.findAll().toList()
+            // 1. 본사 목록 조회 (실제 headquarters 테이블에서)
+            val allHeadquarters = headquartersRepository.findAll()
             
-            // 2. 본사 목록 생성 (체인점들을 본사별로 그룹핑)
-            val headquarters = mutableListOf<HeadquartersSummaryDto>()
-            val chainStores = allStores.filter { it.storeType == StoreType.CHAIN }
-            
-            // 본사별로 매장 그룹핑
-            val storesByHq = chainStores.groupBy { it.hqId }
-            
-            storesByHq.forEach { (hqId, stores) ->
-                if (hqId != null && stores.isNotEmpty()) {
-                    val firstStore = stores.first()
-                    // TODO: 실제 본사 정보는 별도 Headquarters 테이블에서 조회해야 함
-                    headquarters.add(
-                        HeadquartersSummaryDto(
-                            id = hqId.value,
-                            name = "${firstStore.storeName} 본사", // 임시 본사명
-                            businessNumber = firstStore.businessLicense?.value ?: "미등록",
-                            storeCount = stores.size,
-                            userCount = stores.size * 3, // 임시 사용자 수 (매장당 평균 3명)
-                            isActive = stores.any { it.isActive }
-                        )
-                    )
-                }
+            // 2. 본사별 매장 수와 사용자 수 계산
+            val headquarters = allHeadquarters.map { hq ->
+                // 해당 본사에 속한 사용자 수 계산
+                val hqUserCount = userRepository.findByOrganizationId(hq.hqId.value).size
+                
+                HeadquartersSummaryDto(
+                    id = hq.hqId.value,
+                    name = hq.hqName,
+                    businessNumber = hq.businessLicense?.value ?: "미등록",
+                    storeCount = 0, // 체인점 수는 추후 구현
+                    userCount = hqUserCount,
+                    isActive = hq.isActive
+                )
             }
             
-            // 3. 개인매장 목록 생성
+            // 3. 개인매장 목록 조회
+            val allStores = storeRepository.findAll().toList()
             val individualStores = allStores
                 .filter { it.storeType == StoreType.INDIVIDUAL }
                 .map { store ->
@@ -184,12 +198,12 @@ class OrganizationService(
                 }
             
             // 4. 통계 계산
-            val totalStores = chainStores.size
-            val totalUsers = userRepository.count() // count() 메서드 사용
+            val chainStores = allStores.filter { it.storeType == StoreType.CHAIN }
+            val totalUsers = userRepository.count()
             
             val summary = OrganizationSummary(
                 totalHeadquarters = headquarters.size,
-                totalStores = totalStores,
+                totalStores = chainStores.size,
                 totalIndividualStores = individualStores.size,
                 totalUsers = totalUsers.toInt()
             )
@@ -217,6 +231,50 @@ class OrganizationService(
                 )
             )
         }
+    }
+
+    suspend fun deleteHeadquarters(headquartersId: String, token: String) {
+        val currentUser = getCurrentUser(token)
+        require(currentUser.hasAdminRole(UserRole.SUPER_ADMIN) || currentUser.hasAdminRole(UserRole.SYSTEM_ADMIN)) { 
+            "Only admin can delete headquarters" 
+        }
+
+        val hqId = HeadquartersId.fromString(headquartersId)
+        
+        // 1. 본사 존재 확인
+        val headquarters = headquartersRepository.findByHqId(hqId)
+            ?: throw IllegalArgumentException("본사를 찾을 수 없습니다: $headquartersId")
+
+        // 2. 본사에 속한 사용자들 삭제 (소프트 삭제)
+        val hqUsers = userRepository.findByOrganizationId(headquartersId)
+        hqUsers.forEach { user ->
+            userRepository.deleteById(user.id)
+        }
+
+        // 3. 본사 삭제
+        headquartersRepository.deleteByHqId(hqId)
+    }
+
+    suspend fun deleteIndividualStore(storeId: String, token: String) {
+        val currentUser = getCurrentUser(token)
+        require(currentUser.hasAdminRole(UserRole.SUPER_ADMIN) || currentUser.hasAdminRole(UserRole.SYSTEM_ADMIN)) { 
+            "Only admin can delete individual stores" 
+        }
+
+        val storeIdVo = StoreId.fromString(storeId)
+        
+        // 1. 매장 존재 확인
+        val store = storeRepository.findByStoreId(storeIdVo)
+            ?: throw IllegalArgumentException("매장을 찾을 수 없습니다: $storeId")
+
+        // 2. 매장에 속한 사용자들 삭제 (소프트 삭제)
+        val storeUsers = userRepository.findByOrganizationId(storeId)
+        storeUsers.forEach { user ->
+            userRepository.deleteById(user.id)
+        }
+
+        // 3. 매장 삭제
+        storeRepository.deleteByStoreId(storeIdVo)
     }
 
     private suspend fun getCurrentUser(token: String): User {

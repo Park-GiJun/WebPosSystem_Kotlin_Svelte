@@ -33,6 +33,12 @@ class HeadquartersRepositoryImpl(
         return entity?.let { headquartersMapper.toDomain(it) }
     }
 
+    override suspend fun findAll(): List<Headquarters> {
+        return r2dbcRepository.findAll()
+            .toList()
+            .map { headquartersMapper.toDomain(it) }
+    }
+
     override suspend fun findByStoreType(storeType: StoreType): List<Headquarters> {
         // 데이터베이스에 store_type 컬럼이 없으므로 모든 본사를 반환
         return r2dbcRepository.findAll()

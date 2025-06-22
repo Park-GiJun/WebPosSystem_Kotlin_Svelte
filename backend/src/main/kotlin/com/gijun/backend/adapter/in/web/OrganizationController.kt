@@ -378,4 +378,98 @@ class OrganizationController(
             throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직 목록 조회 중 오류가 발생했습니다: ${e.message}")
         }
     }
+
+    @DeleteMapping("/{organizationId}")
+    @Operation(
+        summary = "🗑️ 조직 삭제",
+        description = """
+            **조직(본사 또는 개인매장)을 삭제합니다.**
+            
+            🗑️ **삭제 절차:**
+            1. 조직 존재 확인
+            2. 연관된 사용자 삭제 (소프트 삭제)
+            3. 조직 삭제
+            
+            ⚠️ **주의사항:**
+            - 삭제된 조직은 복구할 수 없습니다
+            - 연관된 모든 사용자도 함께 삭제됩니다
+            - 슈퍼 관리자만 삭제 가능합니다
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🏢 Organizations"]
+    )
+    @ApiResponses(
+        value = [
+            SwaggerApiResponse(
+                responseCode = "204",
+                description = "✅ 조직 삭제 성공"
+            ),
+            SwaggerApiResponse(
+                responseCode = "404",
+                description = "❌ 조직을 찾을 수 없음",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": false,
+                                "message": "조직을 찾을 수 없습니다",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            ),
+            SwaggerApiResponse(
+                responseCode = "403",
+                description = "🚫 권한 없음",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": false,
+                                "message": "조직 삭제 권한이 없습니다",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            )
+        ]
+    )
+    suspend fun deleteOrganization(
+        @Parameter(
+            description = "조직 ID", 
+            example = "HQTET",
+            required = true
+        )
+        @PathVariable organizationId: String,
+        @Parameter(
+            description = "관리자 JWT 토큰", 
+            example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            required = true
+        )
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<Void> {
+        return try {
+            val token = authorization.removePrefix("Bearer ")
+            
+            // 본사인지 매장인지 확인하고 적절한 삭제 메서드 호출
+            try {
+                organizationService.deleteHeadquarters(organizationId, token)
+            } catch (e: IllegalArgumentException) {
+                // 본사가 아닌 경우 매장 삭제 시도
+                organizationService.deleteIndividualStore(organizationId, token)
+            }
+            
+            ResponseEntity.noContent().build()
+        } catch (e: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, e.message)
+        } catch (e: IllegalStateException) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직 삭제 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
 }

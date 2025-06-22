@@ -13,16 +13,26 @@ import org.springframework.stereotype.Repository
 @Repository
 interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
 
+    // 명시적 INSERT 쿼리 - 실제 테이블 스키마에 맞춤
+    @Query("""
+        INSERT INTO stores (store_id, store_code, store_name, hq_id, store_address, 
+                           contact_phone, store_manager_id, registration_date, business_hours, 
+                           store_type, store_status, is_active, created_at, created_by, 
+                           updated_at, updated_by, version)
+        VALUES (:#{#entity.storeId}, :#{#entity.storeCode}, :#{#entity.storeName}, 
+                :#{#entity.hqId}, :#{#entity.storeAddress}, :#{#entity.contactPhone}, 
+                :#{#entity.storeManagerId}, :#{#entity.registrationDate}, :#{#entity.businessHours}, 
+                :#{#entity.storeType}, :#{#entity.storeStatus}, :#{#entity.isActive}, 
+                :#{#entity.createdAt}, :#{#entity.createdBy}, :#{#entity.updatedAt}, 
+                :#{#entity.updatedBy}, :#{#entity.version})
+    """)
+    suspend fun insertStore(entity: StoreEntity): Int
+
     // 기본 조회 메서드
     suspend fun findByStoreId(storeId: String): StoreEntity?
     suspend fun findByStoreName(storeName: String): StoreEntity?
     suspend fun findByStoreNameAndIsActive(storeName: String, isActive: Boolean): StoreEntity?
-    suspend fun findByStoreType(storeType: StoreType): Flow<StoreEntity>
-    suspend fun findByOperationType(operationType: OperationType): Flow<StoreEntity>
-    suspend fun findByHqId(hqId: String): Flow<StoreEntity>
-    suspend fun findByRegionCode(regionCode: String): Flow<StoreEntity>
-    suspend fun findByStoreStatus(storeStatus: StoreStatus): Flow<StoreEntity>
-    suspend fun findByOwnerName(ownerName: String): Flow<StoreEntity>
+    suspend fun findByStoreCode(storeCode: String): StoreEntity?
 
     // 활성 매장 조회
     @Query("SELECT * FROM stores WHERE is_active = true ORDER BY created_at DESC")
@@ -32,29 +42,21 @@ interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
     @Query("SELECT * FROM stores WHERE hq_id = :hqId AND is_active = :isActive ORDER BY store_name")
     fun findByHqIdAndIsActive(hqId: String, isActive: Boolean): Flow<StoreEntity>
 
-    // 지역별 매장 조회
-    @Query("SELECT * FROM stores WHERE region_code = :regionCode AND is_active = :isActive ORDER BY store_name")
-    fun findByRegionCodeAndIsActive(regionCode: String, isActive: Boolean): Flow<StoreEntity>
+    // 매장 코드별 조회
+    @Query("SELECT * FROM stores WHERE store_code = :storeCode AND is_active = :isActive ORDER BY store_name")
+    fun findByStoreCodeAndIsActive(storeCode: String, isActive: Boolean): Flow<StoreEntity>
 
-    // 매장 타입 및 상태별 조회
-    @Query("SELECT * FROM stores WHERE store_type = :storeType AND store_status = :storeStatus AND is_active = true")
-    fun findByStoreTypeAndStoreStatus(storeType: StoreType, storeStatus: StoreStatus): Flow<StoreEntity>
+    // 매장 상태별 조회
+    @Query("SELECT * FROM stores WHERE store_status = :storeStatus AND is_active = true")
+    fun findByStoreStatus(storeStatus: StoreStatus): Flow<StoreEntity>
 
-    // 운영 형태별 조회
-    @Query("SELECT * FROM stores WHERE operation_type = :operationType AND is_active = true ORDER BY store_name")
-    fun findByOperationTypeAndIsActive(operationType: OperationType): Flow<StoreEntity>
-
-    // 매장번호 중복 체크
-    suspend fun existsByStoreNumber(storeNumber: String): Boolean
-    suspend fun existsByStoreNumberAndIsActive(storeNumber: String, isActive: Boolean): Boolean
+    // 매장 코드 중복 체크
+    suspend fun existsByStoreCode(storeCode: String): Boolean
+    suspend fun existsByStoreCodeAndIsActive(storeCode: String, isActive: Boolean): Boolean
 
     // 본사별 매장 수 계산
     @Query("SELECT COUNT(*) FROM stores WHERE hq_id = :hqId AND is_active = true")
     suspend fun countByHqIdAndIsActive(hqId: String): Long
-
-    // 지역별 매장 수 계산
-    @Query("SELECT COUNT(*) FROM stores WHERE region_code = :regionCode AND is_active = true")
-    suspend fun countByRegionCodeAndIsActive(regionCode: String): Long
 
     // 매장 상태별 수 계산
     @Query("SELECT COUNT(*) FROM stores WHERE store_status = :storeStatus AND is_active = true")
@@ -64,8 +66,8 @@ interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
     @Query("""
         SELECT * FROM stores 
         WHERE (store_name LIKE CONCAT('%', :searchTerm, '%') 
-               OR owner_name LIKE CONCAT('%', :searchTerm, '%')
-               OR address LIKE CONCAT('%', :searchTerm, '%'))
+               OR store_code LIKE CONCAT('%', :searchTerm, '%')
+               OR store_address LIKE CONCAT('%', :searchTerm, '%'))
         AND is_active = :isActive 
         ORDER BY store_name
     """)
@@ -83,8 +85,4 @@ interface StoreR2dbcRepository : CoroutineCrudRepository<StoreEntity, String> {
         ORDER BY created_at DESC
     """)
     fun findStoresByDateRange(startDate: String, endDate: String, isActive: Boolean): Flow<StoreEntity>
-
-    // 점주별 매장 조회 (개인매장 점주가 여러 매장을 운영하는 경우)
-    @Query("SELECT * FROM stores WHERE owner_name = :ownerName AND is_active = :isActive ORDER BY store_name")
-    fun findByOwnerNameAndIsActive(ownerName: String, isActive: Boolean): Flow<StoreEntity>
 }

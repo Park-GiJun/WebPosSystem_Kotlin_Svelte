@@ -1,13 +1,6 @@
 package com.gijun.backend.adapter.out.persistence.stores
 
-import com.gijun.backend.domain.store.enums.OperationType
 import com.gijun.backend.domain.store.enums.StoreStatus
-import com.gijun.backend.domain.store.enums.StoreType
-import com.gijun.backend.domain.store.vo.BusinessLicense
-import com.gijun.backend.domain.store.vo.HeadquartersId
-import com.gijun.backend.domain.store.vo.PhoneNumber
-import com.gijun.backend.domain.store.vo.StoreId
-import jdk.dynalink.Operation
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.Version
 import org.springframework.data.relational.core.mapping.Column
@@ -19,43 +12,34 @@ import java.time.LocalDateTime
 data class StoreEntity(
     @Id
     @Column("store_id")
-    val storeId: String, // StoreId -> String으로 변경
+    val storeId: String,
+
+    @Column("store_code")
+    val storeCode: String,
 
     @Column("store_name")
     val storeName: String,
 
-    @Column("store_type")
-    val storeType: StoreType,
-
-    @Column("operation_type")
-    val operationType: OperationType? = null,
-
     @Column("hq_id")
-    val hqId: String? = null, // HeadquartersId -> String으로 변경
+    val hqId: String? = null,
 
-    @Column("region_code")
-    val regionCode: String,
+    @Column("store_address")
+    val storeAddress: String? = null,
 
-    @Column("store_number")
-    val storeNumber: String,
+    @Column("contact_phone")
+    val contactPhone: String? = null,
 
-    @Column("business_license")
-    val businessLicense: String? = null, // BusinessLicense -> String으로 변경
+    @Column("store_manager_id")
+    val storeManagerId: String? = null,
 
-    @Column("owner_name")
-    val ownerName: String,
+    @Column("registration_date")
+    val registrationDate: LocalDate? = null,
 
-    @Column("phone_number")
-    val phoneNumber: String? = null, // PhoneNumber -> String으로 변경
+    @Column("business_hours")
+    val businessHours: String? = null,
 
-    @Column("address")
-    val address: String? = null,
-
-    @Column("postal_code")
-    val postalCode: String? = null,
-
-    @Column("opening_date")
-    val openingDate: LocalDate = LocalDate.now(),
+    @Column("store_type")
+    val storeType: String? = null,
 
     @Column("store_status")
     val storeStatus: StoreStatus = StoreStatus.ACTIVE,
@@ -83,5 +67,4 @@ data class StoreEntity(
 
     @Version
     val version: Long = 0
-
 )

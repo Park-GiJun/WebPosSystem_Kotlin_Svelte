@@ -6,6 +6,7 @@ import com.gijun.backend.domain.store.vo.HeadquartersId
 import com.gijun.backend.domain.store.vo.BusinessLicense
 import com.gijun.backend.domain.store.vo.PhoneNumber
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 @Component
 class StoreMapper {
@@ -17,17 +18,17 @@ class StoreMapper {
         return Store(
             storeId = StoreId(entity.storeId),
             storeName = entity.storeName,
-            storeType = entity.storeType,
-            operationType = entity.operationType,
-            hqId = entity.hqId?.takeIf { it.isNotBlank() }?.let { HeadquartersId(it) },
-            regionCode = entity.regionCode,
-            storeNumber = entity.storeNumber,
-            businessLicense = BusinessLicense.fromStringOrNull(entity.businessLicense),
-            ownerName = entity.ownerName,
-            phoneNumber = PhoneNumber.fromStringOrNull(entity.phoneNumber),
-            address = entity.address,
-            postalCode = entity.postalCode,
-            openingDate = entity.openingDate,
+            storeType = parseStoreType(entity.storeType),
+            operationType = null, // 현재 테이블에 없음
+            hqId = entity.hqId?.let { HeadquartersId(it) },
+            regionCode = entity.storeCode, // store_code를 region_code로 매핑
+            storeNumber = "001", // 기본값
+            businessLicense = null, // 현재 테이블에 없음
+            ownerName = "Unknown", // 현재 테이블에 없음 - store_manager_id로 조회 필요
+            phoneNumber = PhoneNumber.fromStringOrNull(entity.contactPhone),
+            address = entity.storeAddress,
+            postalCode = null, // 현재 테이블에 없음
+            openingDate = entity.registrationDate ?: LocalDate.now(),
             storeStatus = entity.storeStatus,
             isActive = entity.isActive,
             createdAt = entity.createdAt,
@@ -45,18 +46,15 @@ class StoreMapper {
     fun toEntity(domain: Store): StoreEntity {
         return StoreEntity(
             storeId = domain.storeId.value,
+            storeCode = domain.regionCode, // region_code를 store_code로 매핑
             storeName = domain.storeName,
-            storeType = domain.storeType,
-            operationType = domain.operationType,
             hqId = domain.hqId?.value,
-            regionCode = domain.regionCode,
-            storeNumber = domain.storeNumber,
-            businessLicense = domain.businessLicense?.value,
-            ownerName = domain.ownerName,
-            phoneNumber = domain.phoneNumber?.value,
-            address = domain.address,
-            postalCode = domain.postalCode,
-            openingDate = domain.openingDate,
+            storeAddress = domain.address,
+            contactPhone = domain.phoneNumber?.value,
+            storeManagerId = null, // 추후 설정
+            registrationDate = domain.openingDate,
+            businessHours = "09:00-22:00", // 기본값
+            storeType = domain.storeType.name,
             storeStatus = domain.storeStatus,
             isActive = domain.isActive,
             createdAt = domain.createdAt,
@@ -65,8 +63,19 @@ class StoreMapper {
             updatedBy = domain.updatedBy,
             deletedAt = domain.deletedAt,
             deletedBy = domain.deletedBy,
-            version = 0L // 새로 생성시 기본값
+            version = 0L
         )
+    }
+    
+    /**
+     * 문자열을 StoreType으로 변환
+     */
+    private fun parseStoreType(storeType: String?): com.gijun.backend.domain.store.enums.StoreType {
+        return when (storeType?.uppercase()) {
+            "INDIVIDUAL" -> com.gijun.backend.domain.store.enums.StoreType.INDIVIDUAL
+            "CHAIN" -> com.gijun.backend.domain.store.enums.StoreType.CHAIN
+            else -> com.gijun.backend.domain.store.enums.StoreType.INDIVIDUAL
+        }
     }
 
     /**
