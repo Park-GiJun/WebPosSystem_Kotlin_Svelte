@@ -537,16 +537,14 @@ data class MenuSummary(
 data class UserPermissionDetail(
     val menuCode: String,
     val menuName: String,
-    val permissionType: String,
-    val expiresAt: java.time.LocalDateTime?
+    val permissionType: String
 )
 
 data class RolePermissionDetail(
     val roleName: String,
     val menuCode: String,
     val menuName: String,
-    val permissionType: String,
-    val expiresAt: java.time.LocalDateTime?
+    val permissionType: String
 )
 
 data class RolePermissionDto(
@@ -568,7 +566,6 @@ data class MenuPermissionDetail(
     val permissionType: String,
     val grantedBy: String,
     val grantedAt: java.time.LocalDateTime,
-    val expiresAt: java.time.LocalDateTime?,
     val isActive: Boolean
 )
 
@@ -578,6 +575,5 @@ data class OrganizationPermission(
     val menuCode: String,
     val menuName: String,
     val permissionType: String,
-    val grantedAt: java.time.LocalDateTime,
-    val expiresAt: java.time.LocalDateTime?
+    val grantedAt: java.time.LocalDateTime
 )

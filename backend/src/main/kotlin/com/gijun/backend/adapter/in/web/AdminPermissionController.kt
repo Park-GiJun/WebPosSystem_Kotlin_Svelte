@@ -72,8 +72,7 @@ class AdminPermissionController(
                         menuName = permission.menuName,
                         permissionType = permission.permissionType,
                         grantType = "USER",
-                        grantValue = userId,
-                        expiresAt = permission.expiresAt
+                        grantValue = userId
                     )
                 )
             }
@@ -86,8 +85,7 @@ class AdminPermissionController(
                         menuName = rolePermission.menuName,
                         permissionType = rolePermission.permissionType,
                         grantType = "ROLE",
-                        grantValue = rolePermission.roleName,
-                        expiresAt = rolePermission.expiresAt
+                        grantValue = rolePermission.roleName
                     )
                 )
             }
@@ -268,7 +266,6 @@ class AdminPermissionController(
                         "permissionType" to permission.permissionType,
                         "grantedBy" to permission.grantedBy,
                         "grantedAt" to permission.grantedAt,
-                        "expiresAt" to permission.expiresAt,
                         "isActive" to permission.isActive
                     )
                 }
@@ -311,7 +308,6 @@ data class UserPermissionDto(
     val permissionType: String,
     val grantType: String, // USER, ROLE, STORE, HEADQUARTERS
     val grantValue: String,
-    val expiresAt: java.time.LocalDateTime?
 )
 
 data class GrantPermissionRequest(

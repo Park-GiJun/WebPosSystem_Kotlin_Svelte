@@ -729,8 +729,7 @@ class AdminUserController(
                     menuCode = orgPermission.menuCode,
                     menuName = orgPermission.menuName,
                     permissionType = orgPermission.permissionType,
-                    grantedAt = orgPermission.grantedAt,
-                    expiresAt = orgPermission.expiresAt
+                    grantedAt = orgPermission.grantedAt
                 )
             }
             

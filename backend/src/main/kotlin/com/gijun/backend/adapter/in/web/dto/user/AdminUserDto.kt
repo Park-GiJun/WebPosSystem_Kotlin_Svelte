@@ -120,8 +120,5 @@ data class OrganizationPermissionDto(
     val permissionType: String,
     
     @Schema(description = "권한 부여 시간")
-    val grantedAt: LocalDateTime,
-    
-    @Schema(description = "권한 만료 시간")
-    val expiresAt: LocalDateTime?
+    val grantedAt: LocalDateTime
 )

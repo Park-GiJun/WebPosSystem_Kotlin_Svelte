@@ -19,7 +19,6 @@ class PermissionMapper {
             permissionType = PermissionType.valueOf(entity.permissionType),
             grantedAt = entity.grantedAt,
             grantedBy = entity.grantedBy,
-            expiresAt = entity.expiresAt,
             isActive = entity.isActive,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
@@ -35,7 +34,6 @@ class PermissionMapper {
             permissionType = domain.permissionType.name,
             grantedAt = domain.grantedAt,
             grantedBy = domain.grantedBy,
-            expiresAt = domain.expiresAt,
             isActive = domain.isActive,
             createdAt = domain.createdAt,
             updatedAt = domain.updatedAt
