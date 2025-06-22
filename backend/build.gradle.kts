@@ -103,11 +103,22 @@ tasks.bootJar {
     archiveFileName.set("webpos.jar")
 }
 
-// Flyway 설정
+// Flyway 설정 - 환경별 분기
 flyway {
-    url = "jdbc:mysql://${System.getenv("DB_HOST") ?: "localhost"}:${System.getenv("DB_PORT") ?: "3306"}/${System.getenv("DB_NAME") ?: "webpos"}?createDatabaseIfNotExist=true"
-    user = System.getenv("DB_USERNAME") ?: "root"
-    password = System.getenv("DB_PASSWORD") ?: "password"
+    val isProduction = System.getenv("SPRING_PROFILES_ACTIVE") == "prod"
+    
+    if (isProduction) {
+        // Production 환경 설정
+        url = "jdbc:mysql://${System.getenv("PRODUCTION_DB_HOST") ?: "210.121.177.150"}:${System.getenv("PRODUCTION_DB_PORT") ?: "3306"}/${System.getenv("PRODUCTION_DB_NAME") ?: "webpossystem"}?serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true"
+        user = System.getenv("PRODUCTION_DB_USERNAME") ?: "gijunpark"
+        password = System.getenv("PRODUCTION_DB_PASSWORD") ?: "park9832"
+    } else {
+        // Local/Dev 환경 설정
+        url = "jdbc:mysql://${System.getenv("DB_HOST") ?: "localhost"}:${System.getenv("DB_PORT") ?: "3306"}/${System.getenv("DB_NAME") ?: "webpos"}?serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true"
+        user = System.getenv("DB_USERNAME") ?: "root"
+        password = System.getenv("DB_PASSWORD") ?: "password"
+    }
+    
     locations = arrayOf("classpath:db/migration")
     baselineOnMigrate = true
 }

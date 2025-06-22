@@ -1,56 +1,102 @@
+# Production Configuration for WebPos
+server:
+  port: ${PRODUCTION_SERVER_PORT:9832}
+  servlet:
+    context-path: /
+
 spring:
+  profiles:
+    active: prod
+
+  # R2DBC Configuration for Production
   r2dbc:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: r2dbc:mysql://${PRODUCTION_DB_HOST:210.121.177.150}:${PRODUCTION_DB_PORT:3306}/${PRODUCTION_DB_NAME:webpossystem}?serverTimezone=Asia/Seoul&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${PRODUCTION_DB_USERNAME:gijunpark}
+    password: ${PRODUCTION_DB_PASSWORD:park9832}
     pool:
-      initial-size: 20
-      max-size: 100
-      max-idle-time: 30m
-  
+      initial-size: ${PRODUCTION_DB_POOL_INITIAL_SIZE:20}
+      max-size: ${PRODUCTION_DB_POOL_MAX_SIZE:100}
+      max-idle-time: ${PRODUCTION_DB_POOL_MAX_IDLE_TIME:30m}
+
+  # Redis Configuration for Production
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
+      host: ${PRODUCTION_REDIS_HOST:210.121.177.150}
+      port: ${PRODUCTION_REDIS_PORT:6379}
+      password: ${PRODUCTION_REDIS_PASSWORD:park983200}
+      username: ${PRODUCTION_REDIS_USERNAME:default}
       lettuce:
         pool:
-          max-active: 50
-          max-idle: 20
-          min-idle: 10
-  
+          max-active: ${PRODUCTION_REDIS_POOL_MAX_ACTIVE:50}
+          max-idle: ${PRODUCTION_REDIS_POOL_MAX_IDLE:20}
+          min-idle: ${PRODUCTION_REDIS_POOL_MIN_IDLE:10}
+
+  # Kafka Configuration for Production
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${PRODUCTION_KAFKA_BOOTSTRAP_SERVERS:210.121.177.150:9092}
+    producer:
+      key-serializer: ${PRODUCTION_KAFKA_PRODUCER_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+      value-serializer: ${PRODUCTION_KAFKA_PRODUCER_VALUE_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+      retries: ${PRODUCTION_KAFKA_PRODUCER_RETRIES:3}
+      acks: ${PRODUCTION_KAFKA_PRODUCER_ACKS:1}
+    consumer:
+      group-id: ${PRODUCTION_KAFKA_GROUP_ID:pos-group}
+      auto-offset-reset: ${PRODUCTION_KAFKA_CONSUMER_AUTO_OFFSET_RESET:earliest}
+      key-deserializer: ${PRODUCTION_KAFKA_CONSUMER_KEY_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value-deserializer: ${PRODUCTION_KAFKA_CONSUMER_VALUE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+    admin:
+      fail-fast: false
+      properties:
+        bootstrap.servers: ${PRODUCTION_KAFKA_BOOTSTRAP_SERVERS:210.121.177.150:9092}
     properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG}
+      min.insync.replicas: ${PRODUCTION_KAFKA_MIN_INSYNC_REPLICAS:1}
 
-server:
-  port: ${SERVER_PORT:8080}
+  # Session Configuration
+  session:
+    store-type: redis
+    redis:
+      namespace: spring:session
 
-logging:
-  level:
-    com.gijun.textrpg: INFO
-    org.springframework: WARN
-
-# Production JWT
+# JWT Configuration for Production
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${PRODUCTION_JWT_SECRET:gijunSecretKey1234567890gijunSecretKey1234567890gijunSecretKey1234567890}
   expiration: ${JWT_EXPIRATION:86400000}
+  header: Authorization
+  prefix: Bearer
 
-# Sentry
-sentry:
-  dsn: ${SENTRY_DSN}
-  environment: production
-  traces-sample-rate: 0.1
-
-# Slack
+# Slack Configuration for Production
 slack:
   webhook:
-    url: ${SLACK_WEBHOOK_URL}
+    url: ${PRODUCTION_SLACK_WEBHOOK_URL:https://hooks.slack.com/services/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}
 
-# Swagger UI 비활성화
+# Management/Actuator Configuration for Production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+
+# Production Logging Configuration
+logging:
+  level:
+    root: WARN
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    com.gijun.backend: INFO
+
+# SpringDoc Configuration - Disabled for Production
 springdoc:
+  api-docs:
+    enabled: false
   swagger-ui:
     enabled: false
+
+# Sentry Configuration
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: production
+  traces-sample-rate: 0.1

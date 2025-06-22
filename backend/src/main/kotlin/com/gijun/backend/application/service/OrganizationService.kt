@@ -1,6 +1,7 @@
 package com.gijun.backend.application.service
 
 import com.gijun.backend.adapter.`in`.web.dto.organization.*
+import com.gijun.backend.application.port.out.HeadquartersRepository
 import com.gijun.backend.application.port.out.UserRepository
 import com.gijun.backend.application.port.out.StoreRepository
 import com.gijun.backend.domain.user.entities.User
@@ -25,6 +26,7 @@ import java.util.*
 class OrganizationService(
     private val userRepository: UserRepository,
     private val storeRepository: StoreRepository,
+    private val headquartersRepository : HeadquartersRepository,
     private val passwordEncoder: PasswordEncoder
 ) {
 
