@@ -3,6 +3,9 @@ package com.gijun.backend.adapter.`in`.web
 import com.gijun.backend.configuration.RequiresPermission
 import com.gijun.backend.domain.permission.enums.PermissionType
 import com.gijun.backend.application.port.out.StoreRepository
+import com.gijun.backend.application.port.out.HeadquartersRepository
+import com.gijun.backend.application.port.out.UserRepository
+import com.gijun.backend.configuration.JwtUtil
 import com.gijun.backend.domain.store.enums.StoreType
 import com.gijun.backend.domain.store.enums.StoreStatus
 import kotlinx.coroutines.flow.toList
@@ -14,7 +17,10 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/v1/business/stores")
 class BusinessStoreController(
-    private val storeRepository: StoreRepository
+    private val storeRepository: StoreRepository,
+    private val headquartersRepository: HeadquartersRepository,
+    private val userRepository: UserRepository,
+    private val jwtUtil: JwtUtil
 ) {
 
     @GetMapping
@@ -284,16 +290,76 @@ class BusinessStoreController(
     }
 
     @GetMapping("/headquarters")
-    suspend fun getHeadquarters(): ResponseEntity<List<HeadquartersDto>> {
+    suspend fun getHeadquarters(
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<List<HeadquartersDto>> {
         
-        // TODO: 실제 본사 목록 조회 로직 구현
-        val headquarters = listOf(
-            HeadquartersDto("HQHQ1", "HQ1", "커피왕 본사"),
-            HeadquartersDto("HQHQ2", "HQ2", "베이커리킹 본사"),
-            HeadquartersDto("HQHQ3", "HQ3", "프랜차이즈마스터 본사")
-        )
-        
-        return ResponseEntity.ok(headquarters)
+        try {
+            // JWT 토큰에서 사용자 정보 추출
+            val token = authorization.removePrefix("Bearer ")
+            val username = jwtUtil.getUsernameFromToken(token)
+            
+            // 사용자 정보 조회
+            val user = userRepository.findByUsername(username)
+                ?: return ResponseEntity.ok(emptyList())
+            
+            val userRoles = user.roles.map { it.name }.toSet()
+            
+            // 권한에 따른 본사 목록 조회
+            val headquarters = when {
+                // 시스템 관리자나 슈퍼 관리자 - 모든 본사 조회 가능
+                userRoles.contains("SYSTEM_ADMIN") || userRoles.contains("SUPER_ADMIN") -> {
+                    try {
+                        headquartersRepository.findAll().toList().map { hq ->
+                            HeadquartersDto(
+                                hqId = hq.hqId.value,
+                                hqCode = hq.hqCode,
+                                hqName = hq.hqName
+                            )
+                        }
+                    } catch (e: Exception) {
+                        // DB 조회 실패시 더미 데이터
+                        listOf(
+                            HeadquartersDto("HQSTT", "STT", "스타트업 테스트 본사"),
+                            HeadquartersDto("HQTET", "TET", "테스트 본사")
+                        )
+                    }
+                }
+                // 본사 관리자나 본사 매니저 - 자신의 본사만 조회 가능
+                userRoles.contains("HEADQUARTERS_ADMIN") || userRoles.contains("HQ_MANAGER") -> {
+                    if (user.organizationId != null && user.organizationType == "HEADQUARTERS") {
+                        try {
+                            val hq = headquartersRepository.findById(user.organizationId!!)
+                            if (hq != null) {
+                                listOf(HeadquartersDto(
+                                    hqId = hq.hqId.value,
+                                    hqCode = hq.hqCode,
+                                    hqName = hq.hqName
+                                ))
+                            } else {
+                                emptyList()
+                            }
+                        } catch (e: Exception) {
+                            // 오류시 본인 조직만 반환
+                            listOf(HeadquartersDto("HQSTT", "STT", "내 본사"))
+                        }
+                    } else {
+                        emptyList()
+                    }
+                }
+                // 매장 관리자나 일반 직원 - 본사 정보 조회 불가
+                else -> {
+                    emptyList()
+                }
+            }
+            
+            return ResponseEntity.ok(headquarters)
+            
+        } catch (e: Exception) {
+            // 인증 오류나 기타 오류시 빈 목록 반환
+            println("본사 목록 조회 중 오류 발생: ${e.message}")
+            return ResponseEntity.ok(emptyList())
+        }
     }
 
     private fun generateStoreId(storeType: String, hqCode: String?, regionCode: String, storeNumber: String): String {

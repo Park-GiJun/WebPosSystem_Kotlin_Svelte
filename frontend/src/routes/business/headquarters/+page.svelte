@@ -3,6 +3,7 @@
   import { authStore } from '$lib/stores/auth.js';
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
+  import { headquartersApi } from '$lib/api/business.js';
   import { Building, Plus, Search, Edit, Trash2, Eye, Users, MapPin, Phone, Mail } from 'lucide-svelte';
 
   let headquarters = [];
@@ -15,44 +16,66 @@
     await loadHeadquarters();
   });
 
-  // 본사 데이터 로드 (임시 데이터)
+  // 본사 데이터 로드 (실제 API 호출)
   async function loadHeadquarters() {
     try {
       loading = true;
       
-      // 임시 더미 데이터
-      headquarters = [
-        {
-          id: 'HQ001',
-          name: 'ABC 유통 본사',
-          businessNumber: '123-45-67890',
-          ceoName: '김대표',
-          address: '서울시 강남구 테헤란로 123',
-          phone: '02-1234-5678',
-          email: 'ceo@abc.com',
-          storeCount: 15,
-          employeeCount: 48,
+      // 인증 토큰 확인
+      const authToken = $authStore.token;
+      if (!authToken) {
+        console.warn('⚠️ 인증 토큰이 없습니다');
+        toastStore.add('로그인이 필요합니다.', 'error');
+        headquarters = [];
+        return;
+      }
+
+      console.log('🏢 본사 목록 조회 중...');
+      
+      // 실제 API 호출 - headquartersApi 사용
+      const response = await headquartersApi.getHeadquarters(authToken);
+      
+      if (response && Array.isArray(response)) {
+        // API 응답을 화면에서 사용할 형태로 변환
+        headquarters = response.map(hq => ({
+          id: hq.hqId,
+          name: hq.hqName,
+          businessNumber: '미제공', // API에서 제공하지 않음
+          ceoName: '미제공', // API에서 제공하지 않음
+          address: '미제공', // API에서 제공하지 않음
+          phone: '미제공', // API에서 제공하지 않음
+          email: '미제공', // API에서 제공하지 않음
+          storeCount: 0, // 추후 추가 예정
+          employeeCount: 0, // 추후 추가 예정
           isActive: true,
-          registrationDate: '2020-01-15'
-        },
-        {
-          id: 'HQ002',
-          name: 'XYZ 체인 본사',
-          businessNumber: '987-65-43210',
-          ceoName: '이사장',
-          address: '부산시 해운대구 센텀로 456',
-          phone: '051-987-6543',
-          email: 'ceo@xyz.com',
-          storeCount: 8,
-          employeeCount: 24,
-          isActive: true,
-          registrationDate: '2021-03-22'
+          registrationDate: '미제공'
+        }));
+        
+        console.log('✅ 본사 목록 로드 완료:', headquarters.length, '개');
+        
+        if (headquarters.length === 0) {
+          // 사용자 권한에 따른 메시지 표시
+          const userRole = $authStore.user?.roles?.[0];
+          let message = '';
+          
+          if (userRole === 'STORE_ADMIN' || userRole === 'STORE_MANAGER' || userRole === 'USER') {
+            message = '매장 사용자는 본사 정보에 접근할 수 없습니다.';
+          } else if (userRole === 'HEADQUARTERS_ADMIN' || userRole === 'HQ_MANAGER') {
+            message = '소속 본사 정보가 없거나 권한이 제한되어 있습니다.';
+          } else {
+            message = '등록된 본사가 없습니다.';
+          }
+          
+          toastStore.add(message, 'info');
         }
-      ];
+      } else {
+        console.warn('⚠️ 응답 형태가 올바르지 않습니다:', response);
+        headquarters = [];
+      }
       
     } catch (error) {
-      console.error('본사 데이터 로드 실패:', error);
-      toastStore.add('본사 데이터를 불러오는데 실패했습니다.', 'error');
+      console.error('❌ 본사 데이터 로드 실패:', error);
+      toastStore.add('본사 데이터를 불러오는데 실패했습니다: ' + error.message, 'error');
       headquarters = [];
     } finally {
       loading = false;
@@ -107,14 +130,16 @@
       </h1>
       <p class="text-gray-600 mt-1">체인 본사 정보를 관리합니다</p>
     </div>
-    <button
-      type="button"
-      class="btn btn-primary"
-      on:click={handleCreate}
-    >
-      <Plus size="20" class="mr-2" />
-      본사 등록
-    </button>
+    {#if $authStore.user?.roles?.[0] === 'SYSTEM_ADMIN' || $authStore.user?.roles?.[0] === 'SUPER_ADMIN'}
+      <button
+        type="button"
+        class="btn btn-primary"
+        on:click={handleCreate}
+      >
+        <Plus size="20" class="mr-2" />
+        본사 등록
+      </button>
+    {/if}
   </div>
 
   <!-- 통계 카드 -->
@@ -191,16 +216,31 @@
     {:else if filteredHeadquarters.length === 0}
       <div class="p-12 text-center">
         <Building class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">본사가 없습니다</h3>
-        <p class="text-gray-500 mb-4">새로운 본사를 등록해보세요.</p>
-        <button
-          type="button"
-          class="btn btn-primary"
-          on:click={handleCreate}
-        >
-          <Plus size="20" class="mr-2" />
-          본사 등록
-        </button>
+        {#if headquarters.length === 0}
+          {#if $authStore.user?.roles?.[0] === 'STORE_ADMIN' || $authStore.user?.roles?.[0] === 'STORE_MANAGER' || $authStore.user?.roles?.[0] === 'USER'}
+            <h3 class="text-lg font-medium text-gray-900 mb-2">본사 정보 접근 권한 없음</h3>
+            <p class="text-gray-500 mb-4">매장 사용자는 본사 정보에 접근할 수 없습니다.</p>
+          {:else if $authStore.user?.roles?.[0] === 'HEADQUARTERS_ADMIN' || $authStore.user?.roles?.[0] === 'HQ_MANAGER'}
+            <h3 class="text-lg font-medium text-gray-900 mb-2">소속 본사 정보 없음</h3>
+            <p class="text-gray-500 mb-4">등록된 본사 정보가 없거나 권한이 제한되어 있습니다.</p>
+          {:else}
+            <h3 class="text-lg font-medium text-gray-900 mb-2">본사가 없습니다</h3>
+            <p class="text-gray-500 mb-4">시스템에 등록된 본사가 없습니다.</p>
+            {#if $authStore.user?.roles?.[0] === 'SYSTEM_ADMIN' || $authStore.user?.roles?.[0] === 'SUPER_ADMIN'}
+              <button
+                type="button"
+                class="btn btn-primary"
+                on:click={handleCreate}
+              >
+                <Plus size="20" class="mr-2" />
+                본사 등록
+              </button>
+            {/if}
+          {/if}
+        {:else}
+          <h3 class="text-lg font-medium text-gray-900 mb-2">검색 결과 없음</h3>
+          <p class="text-gray-500 mb-4">검색 조건에 맞는 본사가 없습니다.</p>
+        {/if}
       </div>
     {:else}
       <div class="overflow-x-auto">

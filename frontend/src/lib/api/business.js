@@ -105,6 +105,38 @@ export const storeApi = {
     }
 };
 
+// 본사 관리 API
+export const headquartersApi = {
+    // 본사 목록 조회 (권한 기반)
+    async getHeadquarters(token) {
+        return await apiRequest('/business/stores/headquarters', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    },
+
+    // 본사 상세 조회
+    async getHeadquarter(hqId, token) {
+        return await apiRequest(`/admin/organizations/headquarters/${hqId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    },
+
+    // 본사 생성
+    async createHeadquarter(hqData, token) {
+        return await apiRequest('/admin/organizations/headquarters', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(hqData)
+        });
+    }
+};
+
 // POS 관리 API
 export const posApi = {
     // POS 목록 조회
