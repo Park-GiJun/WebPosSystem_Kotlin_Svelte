@@ -17,7 +17,7 @@
   ];
 
   // 현재 사용자의 매장 ID (인증된 사용자 정보에서 가져오기)
-  $: currentStoreId = $authStore.user?.storeId || '550e8400-e29b-41d4-a716-446655440000';
+  $: currentStoreId = $authStore.user?.organizationId || 'IN001001';
 
   // 탭 활성화 및 데이터 로드
   onMount(async () => {

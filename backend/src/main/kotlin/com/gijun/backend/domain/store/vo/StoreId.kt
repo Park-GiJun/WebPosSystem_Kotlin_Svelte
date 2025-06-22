@@ -4,7 +4,7 @@ package com.gijun.backend.domain.store.vo
 value class StoreId(val value: String) {
     init {
         require(value.isNotBlank()) { "매장 ID는 필수입니다." }
-        require(value.length <= 20) { "매장 ID는 20자를 초과할 수 없습니다." }
+        require(value.length <= 36) { "매장 ID는 36자를 초과할 수 없습니다." }
     }
 
     companion object {

@@ -52,6 +52,7 @@
     'chart-bar': BarChart,
     'computer-desktop': Computer,
     'cube': Package,
+    'package': Package,
     'currency-dollar': DollarSign,
     'document-text': FileText,
     'users': Users,
