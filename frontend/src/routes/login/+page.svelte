@@ -5,8 +5,9 @@
   import { toastStore } from '$lib/stores/toast.js';
   import LoadingSpinner from '$lib/components/Common/LoadingSpinner.svelte';
 
-  let username = '';
-  let password = '';
+  // 포트폴리오용 기본값 설정
+  let username = 'admin';
+  let password = 'password123';
   let isLoading = false;
   let rememberMe = false;
 
@@ -29,6 +30,11 @@
     if (error === 'unauthorized') {
       toastStore.error('로그인이 필요합니다.');
     }
+
+    // 포트폴리오용 안내 메시지
+    setTimeout(() => {
+      toastStore.info('포트폴리오 데모용 - 기본 계정이 입력되어 있습니다');
+    }, 1000);
   });
 
   async function handleLogin() {
@@ -80,7 +86,7 @@
       }
 
       toastStore.error(errorMessage);
-      password = ''; // 비밀번호 필드 초기화
+      password = 'password123'; // 포트폴리오용 기본값 유지
     } finally {
       isLoading = false;
     }
@@ -145,13 +151,13 @@
 
     // Business 시스템 권한 확인 (메뉴 + 역할)
     if (hasBusinessMenus && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN') ||
-        user.roles.includes('HQ_MANAGER') || user.roles.includes('STORE_MANAGER'))) {
+            user.roles.includes('HQ_MANAGER') || user.roles.includes('STORE_MANAGER'))) {
       accessibleSystems.push('business');
     }
 
     // POS 시스템 권한 확인 (메뉴 + 역할)
     if (hasPosMenus && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('SYSTEM_ADMIN') ||
-        user.roles.includes('STORE_MANAGER') || user.roles.includes('USER'))) {
+            user.roles.includes('STORE_MANAGER') || user.roles.includes('USER'))) {
       accessibleSystems.push('pos');
     }
 
@@ -184,6 +190,11 @@
       goto('/system-select');
     }
   }
+
+  // 포트폴리오용 데모 정보 표시
+  function showDemoInfo() {
+    toastStore.info('포트폴리오 데모 계정\nID: admin\nPW: password123');
+  }
 </script>
 
 <svelte:head>
@@ -201,6 +212,18 @@
       </div>
       <h1 class="text-3xl font-bold text-gray-900 mb-2">WebPos</h1>
       <p class="text-gray-600">통합 POS 관리 시스템</p>
+
+      <!-- 포트폴리오 데모 안내 -->
+      <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p class="text-sm text-yellow-800 font-medium">📋 포트폴리오 데모</p>
+        <p class="text-xs text-yellow-700 mt-1">기본 관리자 계정이 설정되어 있습니다</p>
+        <button
+                on:click={showDemoInfo}
+                class="text-xs text-yellow-600 hover:text-yellow-800 underline mt-1"
+        >
+          계정 정보 보기
+        </button>
+      </div>
     </div>
 
     <!-- 로그인 폼 -->
@@ -214,16 +237,17 @@
             사용자명
           </label>
           <input
-            id="username"
-            type="text"
-            bind:value={username}
-            on:keypress={handleKeyPress}
-            disabled={isLoading}
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors disabled:opacity-50"
-            placeholder="사용자명을 입력하세요"
-            autocomplete="username"
-            required
+                  id="username"
+                  type="text"
+                  bind:value={username}
+                  on:keypress={handleKeyPress}
+                  disabled={isLoading}
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors disabled:opacity-50 bg-blue-50"
+                  placeholder="사용자명을 입력하세요"
+                  autocomplete="username"
+                  required
           />
+          <p class="text-xs text-gray-500 mt-1">포트폴리오 데모: admin</p>
         </div>
 
         <!-- 비밀번호 입력 -->
@@ -232,26 +256,27 @@
             비밀번호
           </label>
           <input
-            id="password"
-            type="password"
-            bind:value={password}
-            on:keypress={handleKeyPress}
-            disabled={isLoading}
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors disabled:opacity-50"
-            placeholder="비밀번호를 입력하세요"
-            autocomplete="current-password"
-            required
+                  id="password"
+                  type="password"
+                  bind:value={password}
+                  on:keypress={handleKeyPress}
+                  disabled={isLoading}
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors disabled:opacity-50 bg-blue-50"
+                  placeholder="비밀번호를 입력하세요"
+                  autocomplete="current-password"
+                  required
           />
+          <p class="text-xs text-gray-500 mt-1">포트폴리오 데모: password123</p>
         </div>
 
         <!-- Remember Me 체크박스 -->
         <div class="flex items-center">
           <input
-            id="remember-me"
-            type="checkbox"
-            bind:checked={rememberMe}
-            disabled={isLoading}
-            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
+                  id="remember-me"
+                  type="checkbox"
+                  bind:checked={rememberMe}
+                  disabled={isLoading}
+                  class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
           />
           <label for="remember-me" class="ml-2 block text-sm text-gray-700">
             로그인 상태 유지
@@ -260,9 +285,9 @@
 
         <!-- 로그인 버튼 -->
         <button
-          type="submit"
-          disabled={isLoading || !username.trim() || !password.trim()}
-          class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                type="submit"
+                disabled={isLoading || !username.trim() || !password.trim()}
+                class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {#if isLoading}
             <LoadingSpinner size="sm" />
@@ -276,8 +301,8 @@
       <!-- 추가 링크 -->
       <div class="mt-6 text-center space-y-2">
         <button
-          on:click={goToRegister}
-          class="text-sm text-indigo-600 hover:text-indigo-500 transition-colors"
+                on:click={goToRegister}
+                class="text-sm text-indigo-600 hover:text-indigo-500 transition-colors"
         >
           계정이 없으신가요? 회원가입
         </button>
@@ -291,6 +316,7 @@
     <!-- 시스템 정보 -->
     <div class="mt-8 text-center text-sm text-gray-500">
       <p>WebPos v1.0 | © 2025 All rights reserved</p>
+      <p class="text-xs mt-1 text-yellow-600">🎯 포트폴리오 데모 버전</p>
     </div>
   </div>
 </div>
@@ -307,5 +333,11 @@
 
   button:focus {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  /* 포트폴리오용 기본값 하이라이트 */
+  input[value="admin"], input[value="password123"] {
+    background-color: #eff6ff;
+    border-color: #3b82f6;
   }
 </style>

@@ -96,7 +96,9 @@
         on:click={handleRefresh}
         disabled={loading}
       >
-        <RefreshCw size="20" class="mr-2" class:animate-spin={loading} />
+        <span class="mr-2" class:animate-spin={loading}>
+          <RefreshCw size="20" />
+        </span>
         새로고침
       </button>
       <button
