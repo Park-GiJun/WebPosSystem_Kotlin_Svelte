@@ -6,6 +6,7 @@
   import { userApi } from '$lib/api/admin.js';
   import { Plus, Search, Filter, Edit, Trash2, Shield, Unlock, UserCheck, AlertTriangle } from 'lucide-svelte';
   import CreateUserModal from '$lib/components/SuperAdmin/CreateUserModal.svelte';
+  import EditUserModal from '$lib/components/SuperAdmin/EditUserModal.svelte';
 
   let users = [];
   let loading = true;
@@ -13,6 +14,8 @@
   let filterStatus = 'all';
   let filterRole = 'all';
   let showCreateModal = false;
+  let showEditModal = false;
+  let selectedUser = null;
   let currentPage = 0;
   let pageSize = 20;
   let totalCount = 0;
@@ -156,9 +159,9 @@
   }
 
   async function editUser(user) {
-    // TODO: 사용자 편집 모달 구현
+    selectedUser = user;
+    showEditModal = true;
     console.log('Edit user:', user);
-    toastStore.info('사용자 편집 기능은 준비 중입니다.');
   }
 
   async function deleteUser(user) {
@@ -216,6 +219,20 @@
     
     toastStore.success('새 사용자가 생성되었습니다.');
     console.log('✅ 새 사용자 생성 완료:', newUser.username);
+  }
+
+  async function handleUserUpdated(event) {
+    const updatedUser = event.detail;
+    
+    // 목록에서 해당 사용자 업데이트
+    const userIndex = users.findIndex(u => u.id === updatedUser.id);
+    if (userIndex !== -1) {
+      users[userIndex] = updatedUser;
+      users = [...users];
+    }
+    
+    toastStore.success('사용자가 수정되었습니다.');
+    console.log('✅ 사용자 수정 완료:', updatedUser.username);
   }
 
   function openCreateModal() {
@@ -540,4 +557,15 @@
   bind:open={showCreateModal}
   on:user-created={handleUserCreated}
   on:close={() => showCreateModal = false}
+/>
+
+<!-- 사용자 편집 모달 -->
+<EditUserModal
+  bind:open={showEditModal}
+  bind:user={selectedUser}
+  on:user-updated={handleUserUpdated}
+  on:close={() => {
+    showEditModal = false;
+    selectedUser = null;
+  }}
 />

@@ -193,61 +193,111 @@ class AdminUserService(
         updatedBy: String
     ): User {
         
-        val existingUser = userRepository.findById(userId)
-            ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+        // Optimistic Locking 재시도 로직
+        var retryCount = 0
+        val maxRetries = 3
         
-        // 중복 체크 (본인 제외)
-        val userWithSameUsername = userRepository.findByUsername(username)
-        if (userWithSameUsername != null && userWithSameUsername.id != userId) {
-            throw IllegalArgumentException("이미 존재하는 사용자명입니다.")
-        }
-        
-        val userWithSameEmail = userRepository.findByEmail(email)
-        if (userWithSameEmail != null && userWithSameEmail.id != userId) {
-            throw IllegalArgumentException("이미 등록된 이메일입니다.")
-        }
-        
-        // 역할 변환 및 검증
-        val userRoles = roles.mapNotNull { roleStr ->
+        while (retryCount < maxRetries) {
             try {
-                UserRole.valueOf(roleStr.uppercase())
+                // 최신 사용자 정보를 다시 조회
+                val existingUser = userRepository.findById(userId)
+                    ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+                
+                println("🔍 업데이트 시도 ${retryCount + 1}/$maxRetries:")
+                println("  - 현재 버전: ${existingUser.version}")
+                println("  - 현재 username: ${existingUser.username}")
+                println("  - 새 username: $username")
+                
+                // 중복 체크 (본인 제외)
+                val userWithSameUsername = userRepository.findByUsername(username)
+                if (userWithSameUsername != null && userWithSameUsername.id != userId) {
+                    throw IllegalArgumentException("이미 존재하는 사용자명입니다.")
+                }
+                
+                val userWithSameEmail = userRepository.findByEmail(email)
+                if (userWithSameEmail != null && userWithSameEmail.id != userId) {
+                    throw IllegalArgumentException("이미 등록된 이메일입니다.")
+                }
+                
+                // 역할 변환 및 검증
+                val userRoles = roles.mapNotNull { roleStr ->
+                    try {
+                        UserRole.valueOf(roleStr.uppercase())
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.toSet()
+                
+                if (userRoles.isEmpty()) {
+                    throw IllegalArgumentException("유효한 역할이 최소 하나는 필요합니다.")
+                }
+                
+                // 슈퍼 관리자 역할 검증
+                if (userRoles.contains(UserRole.SUPER_ADMIN) && userRoles.size > 1) {
+                    throw IllegalArgumentException("슈퍼 관리자는 단독으로만 설정할 수 있습니다.")
+                }
+                
+                // 상태 변환
+                val newUserStatus = if (!userStatus.isNullOrBlank()) {
+                    try {
+                        UserStatus.valueOf(userStatus.uppercase())
+                    } catch (e: Exception) {
+                        existingUser.userStatus
+                    }
+                } else {
+                    existingUser.userStatus
+                }
+                
+                // 사용자 업데이트
+                val updatedUser = existingUser.copy(
+                    username = username,
+                    email = email,
+                    roles = userRoles,
+                    userStatus = newUserStatus,
+                    updatedAt = LocalDateTime.now(),
+                    updatedBy = updatedBy,
+                    version = existingUser.version + 1
+                )
+                
+                println("✅ 업데이트할 정보:")
+                println("  - 새 버전: ${updatedUser.version}")
+                println("  - 업데이트 시간: ${updatedUser.updatedAt}")
+                
+                // 저장 시도
+                return userRepository.save(updatedUser)
+                
             } catch (e: Exception) {
-                null
+                println("❌ 업데이트 시도 실패 (${retryCount + 1}/$maxRetries):")
+                println("  - 에러 타입: ${e.javaClass.simpleName}")
+                println("  - 에러 메시지: ${e.message}")
+                println("  - 전체 스택트레이스:")
+                e.printStackTrace()
+                
+                // Version mismatch 에러인지 더 포괄적으로 확인
+                val errorText = e.toString() + (e.message ?: "") + (e.cause?.message ?: "")
+                val isVersionConflict = errorText.let { text ->
+                    text.contains("Version does not match", ignoreCase = true) ||
+                    text.contains("Optimistic", ignoreCase = true) ||
+                    text.contains("version", ignoreCase = true) && text.contains("match", ignoreCase = true) ||
+                    text.contains("Failed to update table", ignoreCase = true) && text.contains("version", ignoreCase = true)
+                }
+                
+                if (isVersionConflict && retryCount < maxRetries - 1) {
+                    println("⚠️ Optimistic Lock 충돌 발생, 재시도 중... (${retryCount + 1}/$maxRetries)")
+                    retryCount++
+                    
+                    // 잠시 대기 후 재시도
+                    kotlinx.coroutines.delay(100L * retryCount)
+                    continue
+                } else {
+                    // 다른 에러이거나 최대 재시도 횟수 초과
+                    println("❌ 재시도 불가능한 에러 또는 최대 재시도 횟수 초과")
+                    throw e
+                }
             }
-        }.toSet()
-        
-        if (userRoles.isEmpty()) {
-            throw IllegalArgumentException("유효한 역할이 최소 하나는 필요합니다.")
         }
         
-        // 슈퍼 관리자 역할 검증
-        if (userRoles.contains(UserRole.SUPER_ADMIN) && userRoles.size > 1) {
-            throw IllegalArgumentException("슈퍼 관리자는 단독으로만 설정할 수 있습니다.")
-        }
-        
-        // 상태 변환
-        val newUserStatus = if (!userStatus.isNullOrBlank()) {
-            try {
-                UserStatus.valueOf(userStatus.uppercase())
-            } catch (e: Exception) {
-                existingUser.userStatus
-            }
-        } else {
-            existingUser.userStatus
-        }
-        
-        // 사용자 업데이트
-        val updatedUser = existingUser.copy(
-            username = username,
-            email = email,
-            roles = userRoles,
-            userStatus = newUserStatus,
-            updatedAt = LocalDateTime.now(),
-            updatedBy = updatedBy,
-            version = existingUser.version + 1
-        )
-        
-        return userRepository.save(updatedUser)
+        throw IllegalStateException("사용자 업데이트에 실패했습니다. 동시 수정 충돌이 발생했습니다.")
     }
 
     suspend fun deleteUser(userId: String, deletedBy: String) {

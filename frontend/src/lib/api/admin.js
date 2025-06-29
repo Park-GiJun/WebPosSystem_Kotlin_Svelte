@@ -6,37 +6,62 @@ const API_BASE = browser ? '' : 'http://localhost:9832';
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE}/api/v1${endpoint}`;
     
+    // 기본 헤더 설정
+    const defaultHeaders = {
+        'Content-Type': 'application/json'
+    };
+    
+    // 사용자 제공 헤더와 병합
+    const headers = {
+        ...defaultHeaders,
+        ...options.headers
+    };
+    
     const config = {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        },
-        ...options
+        ...options,
+        headers
     };
 
     console.log('🌐 API 요청:', {
         url,
         method: config.method || 'GET',
-        headers: config.headers
+        headers: config.headers,
+        body: config.body
     });
 
-    const response = await fetch(url, config);
-    
-    console.log('📡 API 응답:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-    });
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ API 에러 응답:', errorData);
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    try {
+        const response = await fetch(url, config);
+        
+        console.log('📡 API 응답:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+        });
+        
+        if (!response.ok) {
+            let errorData = {};
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                console.warn('응답을 JSON으로 파싱할 수 없음:', e);
+            }
+            console.error('❌ API 에러 응답:', errorData);
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        // No Content 응답 처리
+        if (response.status === 204) {
+            console.log('✅ API 성공 응답 (No Content)');
+            return null;
+        }
+        
+        const data = await response.json();
+        console.log('✅ API 성공 응답:', data);
+        return data;
+    } catch (error) {
+        console.error('❌ API 요청 실패:', error);
+        throw error;
     }
-    
-    const data = await response.json();
-    console.log('✅ API 성공 응답:', data);
-    return data;
 }
 
 // 사용자 관리 API
@@ -73,12 +98,39 @@ export const userApi = {
 
     // 사용자 수정
     async updateUser(userId, userData, token) {
+        console.log('🔧 updateUser 호출:', {
+            userId,
+            userData,
+            token: token ? token.substring(0, 20) + '...' : 'null'
+        });
+
+        if (!userData) {
+            throw new Error('userData가 필요합니다');
+        }
+
+        if (!userId) {
+            throw new Error('userId가 필요합니다');
+        }
+
+        const body = JSON.stringify(userData);
+        console.log('📤 전송할 JSON 데이터:', body);
+
         return await apiRequest(`/admin/users/${userId}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(userData)
+            body: body
+        });
+    },
+
+    // 사용자 상세 조회
+    async getUserById(userId, token) {
+        return await apiRequest(`/admin/users/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
     },
 

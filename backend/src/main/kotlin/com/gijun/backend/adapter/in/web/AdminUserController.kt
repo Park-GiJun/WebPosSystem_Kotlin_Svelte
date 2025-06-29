@@ -252,6 +252,11 @@ class AdminUserController(
         @RequestHeader("Authorization") authorization: String
     ): ResponseEntity<AdminUserDto> {
         
+        println("🔍 사용자 수정 요청 수신:")
+        println("  - userId: $userId")
+        println("  - request: $request")
+        println("  - authorization: ${authorization.take(50)}...")
+        
         val token = authorization.removePrefix("Bearer ")
         val username = jwtUtil.getUsernameFromToken(token)
         
@@ -290,11 +295,15 @@ class AdminUserController(
                 updatedAt = updatedUser.updatedAt
             )
             
+            println("✅ 사용자 수정 완료: ${userDto.username}")
+            
             return ResponseEntity.ok(userDto)
             
         } catch (e: IllegalArgumentException) {
+            println("❌ 잘못된 요청: ${e.message}")
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
         } catch (e: Exception) {
+            println("❌ 서버 오류: ${e.message}")
             throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 수정 중 오류가 발생했습니다: ${e.message}")
         }
     }
