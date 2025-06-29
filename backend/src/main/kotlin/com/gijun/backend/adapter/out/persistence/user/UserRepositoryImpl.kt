@@ -88,4 +88,12 @@ class UserRepositoryImpl(
         return r2dbcRepository.findByRoles(role1, role2, role3, role4, role5)
             .map { userMapper.toDomain(it) }
     }
+    
+    override suspend fun callGrantHeadquartersAdminPermissions(hqId: String, adminUserId: String) {
+        r2dbcRepository.callGrantHeadquartersAdminPermissions(hqId, adminUserId)
+    }
+    
+    override suspend fun callGrantStoreAdminPermissions(storeId: String, adminUserId: String, isChain: Boolean) {
+        r2dbcRepository.callGrantStoreAdminPermissions(storeId, adminUserId, isChain)
+    }
 }

@@ -78,4 +78,11 @@ interface UserR2dbcRepository : CoroutineCrudRepository<UserEntity, String> {
         AND is_active = true
     """)
     suspend fun findByOrganizationIdAndRole(organizationId: String, role: String): List<UserEntity>
+    
+    // 프로시저 호출 메서드
+    @Query("CALL grant_headquarters_admin_permissions(:hqId, :adminUserId)")
+    suspend fun callGrantHeadquartersAdminPermissions(hqId: String, adminUserId: String)
+    
+    @Query("CALL grant_store_admin_permissions(:storeId, :adminUserId, :isChain)")
+    suspend fun callGrantStoreAdminPermissions(storeId: String, adminUserId: String, isChain: Boolean)
 }

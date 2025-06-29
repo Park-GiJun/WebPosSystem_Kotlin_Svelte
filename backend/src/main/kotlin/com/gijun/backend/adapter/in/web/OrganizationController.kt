@@ -472,4 +472,153 @@ class OrganizationController(
             throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "조직 삭제 중 오류가 발생했습니다: ${e.message}")
         }
     }
+    
+    @PostMapping("/headquarters/{headquartersId}/stores")
+    @Operation(
+        summary = "🏪 본사 체인점 생성",
+        description = """
+            **본사에서 체인점을 생성하고 매장 관리자 계정을 자동으로 설정합니다.**
+            
+            🏗️ **생성 절차:**
+            1. 본사 존재 확인 및 권한 검증
+            2. 매장 정보 유효성 검증
+            3. 체인점 조직 생성
+            4. 매장 관리자 계정 자동 생성
+            5. POS 권한 부여
+            
+            👨‍💼 **자동 생성되는 매장 관리자:**
+            - 사용자명: 입력한 관리자명
+            - 이메일: 입력한 이메일
+            - 권한: STORE_MANAGER
+            - 상태: 활성화
+            
+            🔐 **권한 체계:**
+            - 본사 관리자가 생성한 매장은 본사에 종속됨
+            - 매장 관리자는 POS 시스템에만 접근 가능
+            - 본사 관리자는 모든 체인점을 관리 가능
+            
+            ⚠️ **체인점 특징:**
+            - 본사에 소속된 종속 매장
+            - 본사 정책에 따른 운영
+            - 통합 매출 관리
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+        tags = ["🏢 Organizations"]
+    )
+    @ApiResponses(
+        value = [
+            SwaggerApiResponse(
+                responseCode = "201",
+                description = "✅ 체인점 생성 성공",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = StoreResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "체인점 생성 완료",
+                            value = """{
+                                "id": "789a1234-b56c-78d9-e012-345678901234",
+                                "name": "ABC마트 강남점",
+                                "businessNumber": "1234567890",
+                                "address": "서울시 강남구 테헤란로 456",
+                                "phoneNumber": "02-555-1234",
+                                "email": "gangnam@abcmart.com",
+                                "storeType": "CHAIN",
+                                "adminUser": {
+                                    "id": "321dcba9-8765-4321-fedc-ba9876543210",
+                                    "username": "gangnam_manager",
+                                    "email": "gangnam@abcmart.com",
+                                    "roles": ["STORE_MANAGER"],
+                                    "userStatus": "ACTIVE"
+                                },
+                                "posCount": 1,
+                                "isActive": true,
+                                "createdAt": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            ),
+            SwaggerApiResponse(
+                responseCode = "400",
+                description = "❌ 잘못된 요청",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "중복 사용자명",
+                            value = """{
+                                "success": false,
+                                "message": "사용자명 'gangnam_manager'은 이미 사용 중입니다.",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            ),
+            SwaggerApiResponse(
+                responseCode = "403",
+                description = "🚫 권한 없음",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": false,
+                                "message": "Only system admin or headquarters admin can create chain stores",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            ),
+            SwaggerApiResponse(
+                responseCode = "404",
+                description = "❌ 본사를 찾을 수 없음",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            value = """{
+                                "success": false,
+                                "message": "본사를 찾을 수 없습니다: HQABC",
+                                "timestamp": "2025-06-07T21:00:00"
+                            }"""
+                        )
+                    ]
+                )]
+            )
+        ]
+    )
+    suspend fun createChainStore(
+        @Parameter(
+            description = "본사 ID", 
+            example = "HQSTT",
+            required = true
+        )
+        @PathVariable headquartersId: String,
+        @Valid @RequestBody request: CreateChainStoreRequest,
+        @Parameter(
+            description = "본사 관리자 JWT 토큰", 
+            example = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            required = true
+        )
+        @RequestHeader("Authorization") authorization: String
+    ): ResponseEntity<StoreResponse> {
+        return try {
+            val token = authorization.removePrefix("Bearer ")
+            val response = organizationService.createChainStore(headquartersId, request, token)
+            ResponseEntity.status(HttpStatus.CREATED).body(response)
+        } catch (e: IllegalArgumentException) {
+            if (e.message?.contains("본사를 찾을 수 없습니다") == true) {
+                throw ResponseStatusException(HttpStatus.NOT_FOUND, e.message)
+            } else {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, e.message)
+            }
+        } catch (e: IllegalStateException) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, e.message)
+        } catch (e: Exception) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "체인점 생성 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
 }

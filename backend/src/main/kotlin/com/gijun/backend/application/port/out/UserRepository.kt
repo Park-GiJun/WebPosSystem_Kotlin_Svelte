@@ -37,4 +37,9 @@ interface UserRepository {
     suspend fun findByRole(roleName: String): List<User>
 
     suspend fun findByRoles(roleNames: List<String>): List<User>
+    
+    // 프로시저 호출 메서드 추가
+    suspend fun callGrantHeadquartersAdminPermissions(hqId: String, adminUserId: String)
+    
+    suspend fun callGrantStoreAdminPermissions(storeId: String, adminUserId: String, isChain: Boolean)
 }
