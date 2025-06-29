@@ -199,35 +199,188 @@ class BusinessStoreController(
     suspend fun createStore(
         @Valid @RequestBody request: CreateStoreRequest,
         @RequestHeader("Authorization") authorization: String
-    ): ResponseEntity<StoreDto> {
+    ): ResponseEntity<*> {
 
-        // TODO: 실제 매장 생성 로직 구현
-        val newStore = StoreDto(
-            storeId = generateStoreId(request.storeType, request.hqCode, request.regionCode, request.storeNumber),
-            storeName = request.storeName,
-            storeType = request.storeType,
-            operationType = request.operationType,
-            hqId = request.hqId,
-            hqName = request.hqName,
-            regionCode = request.regionCode,
-            regionName = request.regionName ?: "",
-            storeNumber = request.storeNumber,
-            businessLicense = request.businessLicense,
-            ownerName = request.ownerName,
-            phoneNumber = request.phoneNumber,
-            address = request.address,
-            postalCode = request.postalCode,
-            openingDate = request.openingDate ?: java.time.LocalDate.now(),
-            storeStatus = "ACTIVE",
-            managerUsername = null,
-            posCount = 0,
-            employeeCount = 0,
-            isActive = true,
-            createdAt = java.time.LocalDateTime.now(),
-            updatedAt = java.time.LocalDateTime.now()
-        )
+        try {
+            println("=== 매장 생성 요청 시작 ===")
+            println("요청 데이터: $request")
+            
+            // JWT 토큰에서 사용자 정보 추출
+            val token = authorization.removePrefix("Bearer ")
+            val username = jwtUtil.getUsernameFromToken(token)
+            println("사용자: $username")
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(newStore)
+            // 매장 ID 미리 생성하여 중복 체크
+            val storeId = generateStoreId(request.storeType, request.hqCode, request.regionCode, request.storeNumber)
+            println("생성될 매장 ID: $storeId")
+
+            // 중복 매장 ID 체크
+            val existingStore = storeRepository.findByStoreId(com.gijun.backend.domain.store.vo.StoreId(storeId))
+            if (existingStore != null) {
+                println("중복 매장 ID 발견: $storeId")
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(mapOf(
+                        "error" to "DUPLICATE_STORE_ID",
+                        "message" to "매장 ID '$storeId'가 이미 존재합니다. 다른 매장 번호를 사용해주세요.",
+                        "storeId" to storeId
+                    ))
+            }
+
+            // 매장 관리자 계정 정보 생성 (없으면 기본값)
+            val managerUsername = request.managerUsername ?: "${request.storeType.lowercase()}_${request.storeNumber}_manager"
+            val managerEmail = request.managerEmail ?: "${managerUsername}@${request.storeName.replace(" ", "").lowercase()}.com"
+            val managerPassword = request.managerPassword ?: "temp123!"
+
+            // 중복 사용자명/이메일 검증
+            val existingUser = userRepository.findByUsername(managerUsername)
+            if (existingUser != null) {
+                println("중복 사용자명 발견: $managerUsername")
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(mapOf(
+                        "error" to "DUPLICATE_USERNAME",
+                        "message" to "사용자명 '$managerUsername'이 이미 사용 중입니다.",
+                        "username" to managerUsername
+                    ))
+            }
+
+            val existingEmail = userRepository.findByEmail(managerEmail)
+            if (existingEmail != null) {
+                println("중복 이메일 발견: $managerEmail")
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(mapOf(
+                        "error" to "DUPLICATE_EMAIL",
+                        "message" to "이메일 '$managerEmail'이 이미 사용 중입니다.",
+                        "email" to managerEmail
+                    ))
+            }
+
+            // 매장 도메인 객체 생성
+            val newStore = when (request.storeType) {
+                "CHAIN" -> {
+                    if (request.hqId == null || request.operationType == null) {
+                        return ResponseEntity.badRequest()
+                            .body(mapOf("error" to "체인점 생성에는 본사 ID와 운영 방식이 필요합니다."))
+                    }
+                    com.gijun.backend.domain.store.entities.Store.createChainStore(
+                        storeName = request.storeName,
+                        operationType = com.gijun.backend.domain.store.enums.OperationType.valueOf(request.operationType),
+                        hqId = com.gijun.backend.domain.store.vo.HeadquartersId(request.hqId),
+                        hqCode = request.hqCode ?: "",
+                        regionCode = request.regionCode,
+                        storeNumber = request.storeNumber,
+                        ownerName = request.ownerName,
+                        createdBy = username,
+                        businessLicense = request.businessLicense?.let { 
+                            com.gijun.backend.domain.store.vo.BusinessLicense(it) 
+                        },
+                        phoneNumber = request.phoneNumber?.let { 
+                            com.gijun.backend.domain.store.vo.PhoneNumber(it) 
+                        },
+                        address = request.address,
+                        postalCode = request.postalCode,
+                        openingDate = request.openingDate ?: java.time.LocalDate.now()
+                    )
+                }
+                "INDIVIDUAL" -> {
+                    com.gijun.backend.domain.store.entities.Store.createIndividualStore(
+                        storeName = request.storeName,
+                        regionCode = request.regionCode,
+                        storeNumber = request.storeNumber,
+                        ownerName = request.ownerName,
+                        createdBy = username,
+                        businessLicense = request.businessLicense?.let { 
+                            com.gijun.backend.domain.store.vo.BusinessLicense(it) 
+                        },
+                        phoneNumber = request.phoneNumber?.let { 
+                            com.gijun.backend.domain.store.vo.PhoneNumber(it) 
+                        },
+                        address = request.address,
+                        postalCode = request.postalCode,
+                        openingDate = request.openingDate ?: java.time.LocalDate.now()
+                    )
+                }
+                else -> {
+                    return ResponseEntity.badRequest()
+                        .body(mapOf("error" to "지원하지 않는 매장 유형입니다: ${request.storeType}"))
+                }
+            }
+            
+            println("매장 도메인 객체 생성 완료: ${newStore.storeId.value}")
+
+            // 매장을 데이터베이스에 저장
+            println("매장 저장 중...")
+            val savedStore = storeRepository.save(newStore)
+            println("매장 저장 완료: ${savedStore.storeId.value}")
+
+            // 매장 관리자 계정 생성 (비밀번호 해시화)
+            println("매장 관리자 계정 생성 중...")
+            val passwordEncoder = org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
+            val hashedPassword = passwordEncoder.encode(managerPassword)
+
+            val managerUser = com.gijun.backend.domain.user.entities.User.create(
+                username = managerUsername,
+                email = managerEmail,
+                passwordHash = hashedPassword,
+                roles = setOf(com.gijun.backend.domain.user.enums.UserRole.STORE_MANAGER),
+                organizationId = savedStore.storeId.value,
+                organizationType = "STORE",
+                createdBy = username
+            )
+
+            // 관리자 계정 저장
+            println("관리자 계정 저장 중...")
+            val savedManager = userRepository.save(managerUser)
+            println("관리자 계정 저장 완료: ${savedManager.username}")
+
+            // 응답 DTO 생성
+            val responseDto = StoreDto(
+                storeId = savedStore.storeId.value,
+                storeName = savedStore.storeName,
+                storeType = savedStore.storeType.name,
+                operationType = savedStore.operationType?.name,
+                hqId = savedStore.hqId?.value,
+                hqName = request.hqName,
+                regionCode = savedStore.regionCode,
+                regionName = getRegionName(savedStore.regionCode),
+                storeNumber = savedStore.storeNumber,
+                businessLicense = savedStore.businessLicense?.value,
+                ownerName = savedStore.ownerName,
+                phoneNumber = savedStore.phoneNumber?.value,
+                address = savedStore.address,
+                postalCode = savedStore.postalCode,
+                openingDate = savedStore.openingDate,
+                storeStatus = savedStore.storeStatus.name,
+                managerUsername = savedManager.username, // 생성된 관리자 정보 포함
+                posCount = 1, // 기본 POS 1대
+                employeeCount = 1, // 관리자 1명
+                isActive = savedStore.isActive,
+                createdAt = savedStore.createdAt,
+                updatedAt = savedStore.updatedAt
+            )
+
+            println("=== 매장 생성 완료 ===")
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseDto)
+
+        } catch (e: org.springframework.dao.DuplicateKeyException) {
+            println("=== 중복 키 오류 발생 ===")
+            println("오류 메시지: ${e.message}")
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(mapOf(
+                    "error" to "DUPLICATE_KEY",
+                    "message" to "중복된 데이터가 존재합니다. 매장 번호나 사업자등록번호를 확인해주세요."
+                ))
+        } catch (e: Exception) {
+            println("=== 매장 생성 중 오류 발생 ===")
+            println("오류 타입: ${e::class.simpleName}")
+            println("오류 메시지: ${e.message}")
+            e.printStackTrace()
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(mapOf(
+                    "error" to "INTERNAL_ERROR",
+                    "message" to "매장 생성 중 오류가 발생했습니다: ${e.message}"
+                ))
+        }
     }
 
     @PutMapping("/{storeId}")
@@ -451,7 +604,11 @@ data class CreateStoreRequest(
     val phoneNumber: String?,
     val address: String?,
     val postalCode: String?,
-    val openingDate: java.time.LocalDate?
+    val openingDate: java.time.LocalDate?,
+    // 매장 관리자 계정 정보 (선택사항 - 없으면 자동 생성)
+    val managerUsername: String?,
+    val managerEmail: String?,
+    val managerPassword: String?
 )
 
 data class UpdateStoreRequest(

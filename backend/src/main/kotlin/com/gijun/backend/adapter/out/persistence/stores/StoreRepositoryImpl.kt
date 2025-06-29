@@ -22,18 +22,19 @@ class StoreRepositoryImpl(
     // ===== 기본 CRUD 작업 =====
     
     override suspend fun save(store: Store): Store {
-        val entity = storeMapper.toEntity(store)
-        
-        // 새로운 매장 생성 시에는 INSERT 쿼리 사용
-        val existingEntity = r2dbcRepository.findByStoreId(entity.storeId)
-        if (existingEntity == null) {
-            // 새로운 엔티티면 INSERT
-            r2dbcRepository.insertStore(entity)
-            return store
-        } else {
-            // 기존 엔티티면 UPDATE
+        return try {
+            val entity = storeMapper.toEntity(store)
+            println("매장 엔티티 변환 완료: ${entity.storeId}")
+            
+            // 기본 save 메서드 사용 (R2DBC가 자동으로 INSERT/UPDATE 판단)
             val savedEntity = r2dbcRepository.save(entity)
-            return storeMapper.toDomain(savedEntity)
+            println("매장 엔티티 저장 완료: ${savedEntity.storeId}")
+            
+            storeMapper.toDomain(savedEntity)
+        } catch (e: Exception) {
+            println("매장 저장 중 오류 발생: ${e.message}")
+            e.printStackTrace()
+            throw e
         }
     }
 

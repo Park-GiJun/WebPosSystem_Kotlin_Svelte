@@ -23,7 +23,11 @@
     phoneNumber: '',
     address: '',
     postalCode: '',
-    openingDate: new Date().toISOString().split('T')[0]
+    openingDate: new Date().toISOString().split('T')[0],
+    // 매장 관리자 계정 정보
+    managerUsername: '',
+    managerEmail: '',
+    managerPassword: ''
   };
   
   let loading = false;
@@ -101,7 +105,11 @@
       phoneNumber: '',
       address: '',
       postalCode: '',
-      openingDate: new Date().toISOString().split('T')[0]
+      openingDate: new Date().toISOString().split('T')[0],
+      // 매장 관리자 계정 정보 초기화
+      managerUsername: '',
+      managerEmail: '',
+      managerPassword: ''
     };
     errors = {};
   }
@@ -157,20 +165,34 @@
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '매장 생성에 실패했습니다.');
+        const errorData = await response.json();
+        
+        // 구체적인 오류 메시지 처리
+        if (errorData.error === 'DUPLICATE_STORE_ID') {
+          toastStore.error(`매장 ID가 중복됩니다: ${errorData.storeId}. 다른 매장 번호를 사용해주세요.`);
+          errors.storeNumber = '이미 사용 중인 매장 번호입니다.';
+        } else if (errorData.error === 'DUPLICATE_USERNAME') {
+          toastStore.error(`사용자명이 중복됩니다: ${errorData.username}`);
+          errors.managerUsername = '이미 사용 중인 사용자명입니다.';
+        } else if (errorData.error === 'DUPLICATE_EMAIL') {
+          toastStore.error(`이메일이 중복됩니다: ${errorData.email}`);
+          errors.managerEmail = '이미 사용 중인 이메일입니다.';
+        } else {
+          toastStore.error(errorData.message || '매장 생성에 실패했습니다.');
+        }
+        return;
       }
 
       const newStore = await response.json();
       
-      toastStore.success('매장이 성공적으로 생성되었습니다.');
+      toastStore.success(`매장이 성공적으로 생성되었습니다. (관리자: ${newStore.managerUsername})`);
       dispatch('store-created', newStore);
       
       resetForm();
       open = false;
     } catch (error) {
       console.error('Create store error:', error);
-      toastStore.error(error.message);
+      toastStore.error('매장 생성 중 네트워크 오류가 발생했습니다.');
     } finally {
       loading = false;
     }
@@ -472,6 +494,84 @@
           class="input"
           disabled={loading}
         />
+      </div>
+    </div>
+
+    <!-- 매장 관리자 계정 정보 -->
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-medium text-gray-900">매장 관리자 계정</h3>
+        <span class="text-sm text-gray-500">선택사항 (비워두면 자동 생성됩니다)</span>
+      </div>
+      
+      <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h4 class="text-sm font-medium text-yellow-800">자동 생성 안내</h4>
+            <div class="mt-1 text-sm text-yellow-700">
+              <p>계정 정보를 입력하지 않으면 다음과 같이 자동 생성됩니다:</p>
+              <ul class="mt-1 list-disc list-inside space-y-1">
+                <li>사용자명: {formData.storeType?.toLowerCase() || 'store'}_{formData.storeNumber || '000'}_manager</li>
+                <li>이메일: [사용자명]@{formData.storeName?.replace(/\s+/g, '').toLowerCase() || 'store'}.com</li>
+                <li>비밀번호: temp123! (최초 로그인 후 변경 필요)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 관리자 사용자명 -->
+        <div>
+          <label for="managerUsername" class="block text-sm font-medium text-gray-700 mb-1">
+            관리자 사용자명
+          </label>
+          <input
+            id="managerUsername"
+            type="text"
+            bind:value={formData.managerUsername}
+            class="input"
+            placeholder="예: store_001_manager"
+            disabled={loading}
+          />
+          <p class="mt-1 text-sm text-gray-500">영문, 숫자, 언더스코어(_)만 사용 가능</p>
+        </div>
+
+        <!-- 관리자 이메일 -->
+        <div>
+          <label for="managerEmail" class="block text-sm font-medium text-gray-700 mb-1">
+            관리자 이메일
+          </label>
+          <input
+            id="managerEmail"
+            type="email"
+            bind:value={formData.managerEmail}
+            class="input"
+            placeholder="manager@store.com"
+            disabled={loading}
+          />
+        </div>
+      </div>
+
+      <!-- 관리자 비밀번호 -->
+      <div>
+        <label for="managerPassword" class="block text-sm font-medium text-gray-700 mb-1">
+          관리자 초기 비밀번호
+        </label>
+        <input
+          id="managerPassword"
+          type="password"
+          bind:value={formData.managerPassword}
+          class="input"
+          placeholder="초기 비밀번호 (8자 이상)"
+          disabled={loading}
+        />
+        <p class="mt-1 text-sm text-gray-500">비워두면 'temp123!'으로 자동 설정됩니다</p>
       </div>
     </div>
 
