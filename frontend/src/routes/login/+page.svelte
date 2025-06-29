@@ -98,9 +98,7 @@
     }
   }
 
-  function goToRegister() {
-    goto('/register');
-  }
+
 
   // Remember Me 기능 - 페이지 로드 시 저장된 사용자명 복원
   onMount(() => {
@@ -300,13 +298,6 @@
 
       <!-- 추가 링크 -->
       <div class="mt-6 text-center space-y-2">
-        <button
-                on:click={goToRegister}
-                class="text-sm text-indigo-600 hover:text-indigo-500 transition-colors"
-        >
-          계정이 없으신가요? 회원가입
-        </button>
-
         <div class="text-xs text-gray-500">
           <p>문의사항이 있으시면 관리자에게 연락하세요.</p>
         </div>

@@ -13,7 +13,7 @@
     // 인증이 필요한 페이지에서 로그인 상태 확인
     authStore.subscribe(auth => {
       const currentPath = $page.url.pathname;
-      const publicPaths = ['/login', '/', '/register'];
+      const publicPaths = ['/login', '/'];
       const systemSelectPath = '/system-select';
       
       // 로그인이 필요한 페이지에서 인증되지 않은 경우

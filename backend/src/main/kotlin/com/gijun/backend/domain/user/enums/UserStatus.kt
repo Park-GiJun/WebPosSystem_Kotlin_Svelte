@@ -8,6 +8,6 @@ enum class UserStatus(val description: String) {
     LOCKED("잠김");
 
     fun isOperational(): Boolean = this == ACTIVE
-    fun canLogin(): Boolean = this in listOf(ACTIVE, PENDING_VERIFICATION)
+    fun canLogin(): Boolean = this == ACTIVE
     fun isBlocked(): Boolean = this in listOf(SUSPENDED, LOCKED)
 }

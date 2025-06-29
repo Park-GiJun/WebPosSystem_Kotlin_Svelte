@@ -176,7 +176,7 @@ class AdminUserService(
             email = email,
             passwordHash = hashedPassword,
             roles = userRoles,
-            userStatus = UserStatus.PENDING_VERIFICATION,
+            userStatus = UserStatus.ACTIVE,  // 바로 활성화 상태로 생성
             createdBy = createdBy,
             updatedBy = createdBy
         )

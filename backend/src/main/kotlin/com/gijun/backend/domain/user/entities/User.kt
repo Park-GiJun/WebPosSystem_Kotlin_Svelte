@@ -58,7 +58,7 @@ data class User(
     fun isStoreUser(): Boolean = organizationType == "STORE"
     
     // AuthService에서 필요한 메소드들
-    fun canLogin(): Boolean = isActive && !isLocked() && userStatus in listOf(UserStatus.ACTIVE, UserStatus.PENDING_VERIFICATION)
+    fun canLogin(): Boolean = isActive && !isLocked() && userStatus == UserStatus.ACTIVE
     fun isAdmin(): Boolean = hasRole(UserRole.SUPER_ADMIN) || hasRole(UserRole.SYSTEM_ADMIN)
     
     fun recordLoginAttempt(): User {

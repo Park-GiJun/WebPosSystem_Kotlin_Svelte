@@ -62,7 +62,6 @@ class AuthService(
                 !user.isActive -> "Account is deactivated"
                 user.isLocked() -> "Account is locked until ${user.lockedUntil}"
                 user.userStatus == UserStatus.SUSPENDED -> "Account is suspended"
-                user.userStatus == UserStatus.PENDING_VERIFICATION -> "Please verify your email first"
                 else -> "Account is not available for login"
             }
             throw AuthenticationException(reason)
@@ -133,13 +132,7 @@ class AuthService(
         return userRepository.save(updatedUser)
     }
 
-    suspend fun verifyEmail(userId: String): User {
-        val user = userRepository.findById(userId)
-            ?: throw UserNotFoundException("User not found")
 
-        val verifiedUser = user.verifyEmail()
-        return userRepository.save(verifiedUser)
-    }
 
     suspend fun unlockUser(userId: String, updatedBy: String): User {
         val user = userRepository.findById(userId)
@@ -167,7 +160,7 @@ class AuthService(
             email = command.email,
             passwordHash = passwordHash,
             roles = if (isFirstUser) setOf(UserRole.SUPER_ADMIN) else setOf(UserRole.USER),
-            userStatus = if (isFirstUser) UserStatus.ACTIVE else UserStatus.PENDING_VERIFICATION,
+            userStatus = UserStatus.ACTIVE, // 바로 활성화 상태로 생성
             createdBy = null // 일단 null로 설정하고 나중에 업데이트
         )
     }
