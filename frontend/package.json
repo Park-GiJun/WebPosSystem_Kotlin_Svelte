@@ -6,6 +6,9 @@
     "build": "vite build",
     "dev": "vite dev",
     "preview": "vite preview",
+    "clean": "rimraf .svelte-kit build",
+    "clean:all": "rimraf .svelte-kit build node_modules && npm install",
+    "clean:dev": "rimraf .svelte-kit && npm run dev",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:unit": "vitest"

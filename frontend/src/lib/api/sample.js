@@ -2,7 +2,7 @@
 import { authStore } from '$lib/stores/auth.js';
 import { get } from 'svelte/store';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1/sample';
+const API_BASE_URL = 'http://localhost:9832/api/v1/sample';
 
 export class SampleApi {
     /**
