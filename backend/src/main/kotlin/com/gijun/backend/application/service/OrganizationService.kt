@@ -252,14 +252,39 @@ class OrganizationService(
         val headquarters = headquartersRepository.findByHqId(hqId)
             ?: throw IllegalArgumentException("본사를 찾을 수 없습니다: $headquartersId")
 
-        // 2. 본사에 속한 사용자들 삭제 (소프트 삭제)
+        println("🏢 본사 삭제 시작: ${headquarters.hqName} (ID: $headquartersId)")
+
+        // 2. 본사에 속한 체인점들 조회
+        val chainStores = storeRepository.findByHqId(hqId).toList()
+        println("📋 삭제할 하위 매장 수: ${chainStores.size}")
+        
+        // 3. 각 체인점에 속한 사용자들 먼저 삭제 (소프트 삭제)
+        chainStores.forEach { store ->
+            val storeUsers = userRepository.findByOrganizationId(store.storeId.value)
+            println("👥 매장 '${store.storeName}'의 사용자 ${storeUsers.size}명 삭제 중...")
+            storeUsers.forEach { user ->
+                userRepository.deleteById(user.id)
+            }
+        }
+        
+        // 4. 체인점들 삭제 (소프트 삭제)
+        chainStores.forEach { store ->
+            println("🏪 매장 삭제: ${store.storeName} (ID: ${store.storeId.value})")
+            storeRepository.deleteByStoreId(store.storeId)
+        }
+
+        // 5. 본사에 속한 사용자들 삭제 (소프트 삭제)
         val hqUsers = userRepository.findByOrganizationId(headquartersId)
+        println("👥 본사 직속 사용자 ${hqUsers.size}명 삭제 중...")
         hqUsers.forEach { user ->
             userRepository.deleteById(user.id)
         }
 
-        // 3. 본사 삭제
+        // 6. 본사 삭제 (소프트 삭제)
+        println("🏢 본사 최종 삭제: ${headquarters.hqName}")
         headquartersRepository.deleteByHqId(hqId)
+        
+        println("✅ 본사 삭제 완료: ${headquarters.hqName} (하위 매장 ${chainStores.size}개, 총 사용자 ${hqUsers.size + chainStores.sumOf { userRepository.findByOrganizationId(it.storeId.value).size }}명)")
     }
 
     suspend fun deleteIndividualStore(storeId: String, token: String) {
@@ -274,14 +299,53 @@ class OrganizationService(
         val store = storeRepository.findByStoreId(storeIdVo)
             ?: throw IllegalArgumentException("매장을 찾을 수 없습니다: $storeId")
 
+        println("🏪 개인매장 삭제 시작: ${store.storeName} (ID: $storeId)")
+
         // 2. 매장에 속한 사용자들 삭제 (소프트 삭제)
         val storeUsers = userRepository.findByOrganizationId(storeId)
+        println("👥 매장 사용자 ${storeUsers.size}명 삭제 중...")
         storeUsers.forEach { user ->
             userRepository.deleteById(user.id)
         }
 
-        // 3. 매장 삭제
+        // 3. 매장 삭제 (소프트 삭제)
+        println("🏪 개인매장 최종 삭제: ${store.storeName}")
         storeRepository.deleteByStoreId(storeIdVo)
+        
+        println("✅ 개인매장 삭제 완료: ${store.storeName} (사용자 ${storeUsers.size}명)")
+    }
+
+    suspend fun deleteChainStore(storeId: String, token: String) {
+        val currentUser = getCurrentUser(token)
+        
+        val storeIdVo = StoreId.fromString(storeId)
+        
+        // 1. 매장 존재 확인
+        val store = storeRepository.findByStoreId(storeIdVo)
+            ?: throw IllegalArgumentException("매장을 찾을 수 없습니다: $storeId")
+        
+        // 2. 권한 체크: 시스템 관리자이거나 해당 본사의 관리자여야 함
+        val isSystemAdmin = currentUser.hasAdminRole(UserRole.SUPER_ADMIN) || currentUser.hasAdminRole(UserRole.SYSTEM_ADMIN)
+        val isHqAdmin = store.hqId?.let { currentUser.organizationId == it.value && currentUser.hasAdminRole(UserRole.HQ_MANAGER) } ?: false
+        
+        require(isSystemAdmin || isHqAdmin) { 
+            "Only system admin or headquarters admin can delete chain stores" 
+        }
+
+        println("🏪 체인점 삭제 시작: ${store.storeName} (ID: $storeId)")
+
+        // 3. 매장에 속한 사용자들 삭제 (소프트 삭제)
+        val storeUsers = userRepository.findByOrganizationId(storeId)
+        println("👥 체인점 사용자 ${storeUsers.size}명 삭제 중...")
+        storeUsers.forEach { user ->
+            userRepository.deleteById(user.id)
+        }
+
+        // 4. 매장 삭제 (소프트 삭제)
+        println("🏪 체인점 최종 삭제: ${store.storeName}")
+        storeRepository.deleteByStoreId(storeIdVo)
+        
+        println("✅ 체인점 삭제 완료: ${store.storeName} (사용자 ${storeUsers.size}명)")
     }
 
     private suspend fun getCurrentUser(token: String): User {

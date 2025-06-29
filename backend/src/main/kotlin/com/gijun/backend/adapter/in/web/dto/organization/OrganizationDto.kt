@@ -242,36 +242,3 @@ data class StoreSummaryDto(
     @Schema(description = "활성화 여부", example = "true")
     val isActive: Boolean
 )
-
-@Schema(description = "본사의 체인점 생성 요청")
-data class CreateChainStoreRequest(
-    @field:jakarta.validation.constraints.NotBlank(message = "매장명은 필수입니다")
-    @Schema(description = "매장명", example = "ABC마트 강남점", required = true)
-    val name: String,
-    
-    @field:jakarta.validation.constraints.NotBlank(message = "지역코드는 필수입니다")
-    @Schema(description = "지역코드", example = "001", required = true)
-    val regionCode: String,
-    
-    @field:jakarta.validation.constraints.NotBlank(message = "매장번호는 필수입니다")
-    @Schema(description = "매장번호", example = "001", required = true)
-    val storeNumber: String,
-    
-    @field:jakarta.validation.constraints.NotBlank(message = "주소는 필수입니다")
-    @Schema(description = "주소", example = "서울시 강남구 테헤란로 456", required = true)
-    val address: String,
-    
-    @Schema(description = "전화번호", example = "02-555-1234")
-    val phoneNumber: String?,
-    
-    @field:jakarta.validation.constraints.Email(message = "올바른 이메일 형식이 아닙니다")
-    @Schema(description = "매장 관리자 이메일", example = "gangnam@abcmart.com", required = true)
-    val email: String,
-    
-    @field:jakarta.validation.constraints.NotBlank(message = "매장 관리자명은 필수입니다")
-    @Schema(description = "매장 관리자명", example = "gangnam_manager", required = true)
-    val managerUsername: String,
-    
-    @Schema(description = "매장 사업자번호 (본사와 다른 경우)")
-    val businessNumber: String?
-)

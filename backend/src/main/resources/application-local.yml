@@ -23,6 +23,7 @@ spring:
     clean-disabled: false
     repair: true
     out-of-order: true
+    clean-on-validation-error: true
   
   data:
     redis:
