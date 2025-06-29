@@ -141,11 +141,21 @@
     const activeTab = allTabs.find(tab => tab.system === 'admin' && tab.active);
     const checkPath = activeTab?.path || currentPath;
     
+    console.log('🔍 Admin isActive 체크:', {
+      menuPath,
+      checkPath,
+      activeTab: activeTab?.title,
+      currentPath
+    });
+    
     // 정확한 경로 매칭
     if (checkPath === menuPath) return true;
     
     // 하위 경로 매칭 (더 엄격하게)
     if (checkPath.startsWith(menuPath + '/')) return true;
+    
+    // 특별 케이스: 루트 경로의 경우
+    if (menuPath === '/admin' && checkPath.startsWith('/admin')) return true;
     
     return false;
   }
@@ -214,6 +224,18 @@
       expandedCategories.add(categoryId);
     }
     expandedCategories = expandedCategories;
+  }
+
+  // 하위 메뉴 확장/축소 상태 관리 (2레벨 메뉴용)
+  let expandedSubMenus = new Set();
+
+  function toggleSubMenu(menuId) {
+    if (expandedSubMenus.has(menuId)) {
+      expandedSubMenus.delete(menuId);
+    } else {
+      expandedSubMenus.add(menuId);
+    }
+    expandedSubMenus = expandedSubMenus;
   }
 </script>
 
@@ -329,40 +351,88 @@
                 {#if menu.children && menu.children.length > 0 && expandedCategories.has(menu.menuId)}
                   <div class="space-y-0.5 ml-3 border-l-2 border-red-400/30 pl-3">
                     {#each menu.children as subMenu}
-                      <button
-                        type="button"
-                        class="admin-sidebar-item group touch-manipulation"
-                        class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
-                        on:click={() => handleMenuClick(subMenu)}
-                      >
-                        <div class="flex items-center">
-                          {#if subMenu.iconName && iconMap[subMenu.iconName]}
-                            {@const IconComponent = iconMap[subMenu.iconName]}
-                            <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                      <!-- 2레벨 메뉴 -->
+                      {#if subMenu.menuType === 'CATEGORY'}
+                        <!-- 2레벨 카테고리 -->
+                        <div class="mb-2">
+                          <button
+                            type="button"
+                            class="flex items-center justify-between w-full px-2 py-1.5 text-xs font-medium text-red-200 hover:text-red-100 transition-colors rounded-lg hover:bg-red-500/20 touch-manipulation"
+                            on:click={() => toggleSubMenu(subMenu.menuId)}
+                          >
+                            <div class="flex items-center">
+                              {#if subMenu.iconName && iconMap[subMenu.iconName]}
+                                {@const IconComponent = iconMap[subMenu.iconName]}
+                                <IconComponent size="14" class="mr-2" />
+                              {/if}
+                              <span>{subMenu.menuName}</span>
+                            </div>
+                            
+                            {#if expandedSubMenus.has(subMenu.menuId)}
+                              <ChevronDown size="12" class="transition-transform" />
+                            {:else}
+                              <ChevronRight size="12" class="transition-transform" />
+                            {/if}
+                          </button>
+                          
+                          {#if subMenu.children && subMenu.children.length > 0 && expandedSubMenus.has(subMenu.menuId)}
+                            <div class="ml-4 space-y-0.5 border-l border-red-400/50 pl-3">
+                              {#each subMenu.children as subSubMenu}
+                                <button
+                                  type="button"
+                                  class="admin-sidebar-item group text-xs touch-manipulation"
+                                  class:active={isActive(subSubMenu.menuPath)}
+                                  on:click={() => handleMenuClick(subSubMenu)}
+                                >
+                                  <div class="flex items-center">
+                                    {#if subSubMenu.iconName && iconMap[subSubMenu.iconName]}
+                                      {@const IconComponent = iconMap[subSubMenu.iconName]}
+                                      <IconComponent size="14" class="mr-2 group-hover:scale-110 transition-transform" />
+                                    {/if}
+                                    <span class="font-medium">{subSubMenu.menuName}</span>
+                                  </div>
+                                </button>
+                              {/each}
+                            </div>
                           {/if}
-                          <span class="text-sm font-medium">{subMenu.menuName}</span>
                         </div>
+                      {:else}
+                        <!-- 2레벨 일반 메뉴 -->
+                        <button
+                          type="button"
+                          class="admin-sidebar-item group touch-manipulation"
+                          class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
+                          on:click={() => handleMenuClick(subMenu)}
+                        >
+                          <div class="flex items-center">
+                            {#if subMenu.iconName && iconMap[subMenu.iconName]}
+                              {@const IconComponent = iconMap[subMenu.iconName]}
+                              <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                            {/if}
+                            <span class="text-sm font-medium">{subMenu.menuName}</span>
+                          </div>
+                          
+                          {#if subMenu.children && subMenu.children.length > 0}
+                            <ChevronRight size="12" class="ml-auto opacity-60" />
+                          {/if}
+                        </button>
                         
-                        {#if subMenu.children && subMenu.children.length > 0}
-                          <ChevronRight size="12" class="ml-auto opacity-60" />
+                        <!-- 3레벨 메뉴가 있는 경우 -->
+                        {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
+                          <div class="ml-6 space-y-0.5 border-l border-red-400/50 pl-3">
+                            {#each subMenu.children as subSubMenu}
+                              <button
+                                type="button"
+                                class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200 touch-manipulation"
+                                class:text-white={isActive(subSubMenu.menuPath)}
+                                class:bg-red-500={isActive(subSubMenu.menuPath)}
+                                on:click={() => handleMenuClick(subSubMenu)}
+                              >
+                                • {subSubMenu.menuName}
+                              </button>
+                            {/each}
+                          </div>
                         {/if}
-                      </button>
-                      
-                      <!-- 3레벨 메뉴가 있는 경우 -->
-                      {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
-                        <div class="ml-6 space-y-0.5 border-l border-red-400/50 pl-3">
-                          {#each subMenu.children as subSubMenu}
-                            <button
-                              type="button"
-                              class="w-full text-left px-2 py-1.5 text-xs text-red-100 hover:text-white hover:bg-red-500/30 rounded transition-colors duration-200 touch-manipulation"
-                              class:text-white={isActive(subSubMenu.menuPath)}
-                              class:bg-red-500={isActive(subSubMenu.menuPath)}
-                              on:click={() => handleMenuClick(subSubMenu)}
-                            >
-                              • {subSubMenu.menuName}
-                            </button>
-                          {/each}
-                        </div>
                       {/if}
                     {/each}
                   </div>

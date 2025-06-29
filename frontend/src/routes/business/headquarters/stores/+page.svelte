@@ -81,6 +81,8 @@
 
   async function createStore() {
     try {
+      console.log('매장 생성 요청 데이터:', storeForm);
+      
       const response = await fetch('/api/v1/business/headquarters/stores', {
         method: 'POST',
         headers: {
@@ -90,14 +92,31 @@
         body: JSON.stringify(storeForm)
       });
 
+      console.log('응답 상태:', response.status);
+      console.log('응답 헤더:', response.headers);
+
       if (response.ok) {
+        const result = await response.json();
+        console.log('성공 결과:', result);
         toastStore.success('매장이 성공적으로 생성되었습니다.');
         showCreateModal = false;
         resetForm();
         await loadStores();
       } else {
-        const error = await response.json();
-        throw new Error(error.message || '매장 생성에 실패했습니다.');
+        // 응답 텍스트를 먼저 확인
+        const responseText = await response.text();
+        console.log('오류 응답 텍스트:', responseText);
+        
+        let errorMessage = '매장 생성에 실패했습니다.';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (jsonError) {
+          console.log('JSON 파싱 실패, 원시 응답:', responseText);
+          errorMessage = `서버 오류 (${response.status}): ${responseText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Create store error:', error);

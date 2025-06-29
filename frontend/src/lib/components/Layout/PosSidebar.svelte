@@ -103,20 +103,21 @@
     // 활성 탭의 경로를 우선 사용
     const checkPath = effectivePath;
     
+    console.log('🔍 POS isActive 체크:', {
+      menuPath,
+      checkPath,
+      activePosTab: activePosTab?.title,
+      currentPath
+    });
+    
     // 정확한 경로 매칭
     if (checkPath === menuPath) return true;
     
     // 하위 경로 매칭 (더 엄격하게)
     if (checkPath.startsWith(menuPath + '/')) return true;
     
-    // 디버깅용 로그
-    console.log('🔍 POS Active check:', {
-      checkPath,
-      menuPath,
-      isExact: checkPath === menuPath,
-      isChild: checkPath.startsWith(menuPath + '/'),
-      result: checkPath === menuPath || checkPath.startsWith(menuPath + '/')
-    });
+    // 특별 케이스: 루트 경로의 경우
+    if (menuPath === '/pos' && checkPath.startsWith('/pos')) return true;
     
     return false;
   }
@@ -168,6 +169,18 @@
       expandedCategories.add(categoryId);
     }
     expandedCategories = expandedCategories;
+  }
+
+  // 하위 메뉴 확장/축소 상태 관리 (2레벨 메뉴용)
+  let expandedSubMenus = new Set();
+
+  function toggleSubMenu(menuId) {
+    if (expandedSubMenus.has(menuId)) {
+      expandedSubMenus.delete(menuId);
+    } else {
+      expandedSubMenus.add(menuId);
+    }
+    expandedSubMenus = expandedSubMenus;
   }
 
   // 현재 시간 표시
@@ -292,40 +305,88 @@
                 {#if menu.children && menu.children.length > 0 && expandedCategories.has(menu.menuId)}
                   <div class="space-y-0.5 ml-3 border-l-2 border-emerald-400/30 pl-3">
                     {#each menu.children as subMenu}
-                      <button
-                        type="button"
-                        class="pos-sidebar-item group"
-                        class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
-                        on:click={() => handleMenuClick(subMenu)}
-                      >
-                        <div class="flex items-center">
-                          {#if subMenu.iconName && iconMap[subMenu.iconName]}
-                            {@const IconComponent = iconMap[subMenu.iconName]}
-                            <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                      <!-- 2레벨 메뉴 -->
+                      {#if subMenu.menuType === 'CATEGORY'}
+                        <!-- 2레벨 카테고리 -->
+                        <div class="mb-2">
+                          <button
+                            type="button"
+                            class="flex items-center justify-between w-full px-2 py-1.5 text-xs font-medium text-emerald-200 hover:text-emerald-100 transition-colors rounded-lg hover:bg-emerald-500/20"
+                            on:click={() => toggleSubMenu(subMenu.menuId)}
+                          >
+                            <div class="flex items-center">
+                              {#if subMenu.iconName && iconMap[subMenu.iconName]}
+                                {@const IconComponent = iconMap[subMenu.iconName]}
+                                <IconComponent size="14" class="mr-2" />
+                              {/if}
+                              <span>{subMenu.menuName}</span>
+                            </div>
+                            
+                            {#if expandedSubMenus.has(subMenu.menuId)}
+                              <ChevronDown size="12" class="transition-transform" />
+                            {:else}
+                              <ChevronRight size="12" class="transition-transform" />
+                            {/if}
+                          </button>
+                          
+                          {#if subMenu.children && subMenu.children.length > 0 && expandedSubMenus.has(subMenu.menuId)}
+                            <div class="ml-4 space-y-0.5 border-l border-emerald-400/50 pl-3">
+                              {#each subMenu.children as subSubMenu}
+                                <button
+                                  type="button"
+                                  class="pos-sidebar-item group text-xs"
+                                  class:active={isActive(subSubMenu.menuPath)}
+                                  on:click={() => handleMenuClick(subSubMenu)}
+                                >
+                                  <div class="flex items-center">
+                                    {#if subSubMenu.iconName && iconMap[subSubMenu.iconName]}
+                                      {@const IconComponent = iconMap[subSubMenu.iconName]}
+                                      <IconComponent size="14" class="mr-2 group-hover:scale-110 transition-transform" />
+                                    {/if}
+                                    <span class="font-medium">{subSubMenu.menuName}</span>
+                                  </div>
+                                </button>
+                              {/each}
+                            </div>
                           {/if}
-                          <span class="text-sm font-medium">{subMenu.menuName}</span>
                         </div>
+                      {:else}
+                        <!-- 2레벨 일반 메뉴 -->
+                        <button
+                          type="button"
+                          class="pos-sidebar-item group"
+                          class:active={isActive(subMenu.menuPath) || hasActiveChild(subMenu)}
+                          on:click={() => handleMenuClick(subMenu)}
+                        >
+                          <div class="flex items-center">
+                            {#if subMenu.iconName && iconMap[subMenu.iconName]}
+                              {@const IconComponent = iconMap[subMenu.iconName]}
+                              <IconComponent size="16" class="mr-2 group-hover:scale-110 transition-transform" />
+                            {/if}
+                            <span class="text-sm font-medium">{subMenu.menuName}</span>
+                          </div>
+                          
+                          {#if subMenu.children && subMenu.children.length > 0}
+                            <ChevronRight size="12" class="ml-auto opacity-60" />
+                          {/if}
+                        </button>
                         
-                        {#if subMenu.children && subMenu.children.length > 0}
-                          <ChevronRight size="12" class="ml-auto opacity-60" />
+                        <!-- 3레벨 메뉴가 있는 경우 -->
+                        {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
+                          <div class="ml-6 space-y-0.5 border-l border-emerald-400/50 pl-3">
+                            {#each subMenu.children as subSubMenu}
+                              <button
+                                type="button"
+                                class="w-full text-left px-2 py-1.5 text-xs text-emerald-100 hover:text-white hover:bg-emerald-500/30 rounded transition-colors duration-200"
+                                class:text-white={isActive(subSubMenu.menuPath)}
+                                class:bg-emerald-500={isActive(subSubMenu.menuPath)}
+                                on:click={() => handleMenuClick(subSubMenu)}
+                              >
+                                • {subSubMenu.menuName}
+                              </button>
+                            {/each}
+                          </div>
                         {/if}
-                      </button>
-                      
-                      <!-- 3레벨 메뉴가 있는 경우 -->
-                      {#if subMenu.children && subMenu.children.length > 0 && (isActive(subMenu.menuPath) || hasActiveChild(subMenu))}
-                        <div class="ml-6 space-y-0.5 border-l border-emerald-400/50 pl-3">
-                          {#each subMenu.children as subSubMenu}
-                            <button
-                              type="button"
-                              class="w-full text-left px-2 py-1.5 text-xs text-emerald-100 hover:text-white hover:bg-emerald-500/30 rounded transition-colors duration-200"
-                              class:text-white={isActive(subSubMenu.menuPath)}
-                              class:bg-emerald-500={isActive(subSubMenu.menuPath)}
-                              on:click={() => handleMenuClick(subSubMenu)}
-                            >
-                              • {subSubMenu.menuName}
-                            </button>
-                          {/each}
-                        </div>
                       {/if}
                     {/each}
                   </div>

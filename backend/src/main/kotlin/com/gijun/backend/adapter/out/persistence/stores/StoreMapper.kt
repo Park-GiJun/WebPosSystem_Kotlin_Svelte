@@ -5,6 +5,8 @@ import com.gijun.backend.domain.store.vo.StoreId
 import com.gijun.backend.domain.store.vo.HeadquartersId
 import com.gijun.backend.domain.store.vo.BusinessLicense
 import com.gijun.backend.domain.store.vo.PhoneNumber
+import com.gijun.backend.domain.store.enums.StoreType
+import com.gijun.backend.domain.store.enums.OperationType
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
@@ -19,16 +21,16 @@ class StoreMapper {
             storeId = StoreId(entity.storeId),
             storeName = entity.storeName,
             storeType = parseStoreType(entity.storeType),
-            operationType = null, // 현재 테이블에 없음
+            operationType = parseOperationType(entity.operationType),
             hqId = entity.hqId?.let { HeadquartersId(it) },
-            regionCode = entity.storeCode, // store_code를 region_code로 매핑
-            storeNumber = "001", // 기본값
-            businessLicense = null, // 현재 테이블에 없음
-            ownerName = "Unknown", // 현재 테이블에 없음 - store_manager_id로 조회 필요
-            phoneNumber = PhoneNumber.fromStringOrNull(entity.contactPhone),
-            address = entity.storeAddress,
-            postalCode = null, // 현재 테이블에 없음
-            openingDate = entity.registrationDate ?: LocalDate.now(),
+            regionCode = entity.regionCode ?: "000",
+            storeNumber = entity.storeNumber ?: "001",
+            businessLicense = entity.businessLicense?.let { BusinessLicense(it) },
+            ownerName = entity.ownerName ?: "Unknown",
+            phoneNumber = PhoneNumber.fromStringOrNull(entity.phoneNumber ?: entity.contactPhone),
+            address = entity.address ?: entity.storeAddress,
+            postalCode = entity.postalCode,
+            openingDate = entity.openingDate ?: entity.registrationDate ?: LocalDate.now(),
             storeStatus = entity.storeStatus,
             isActive = entity.isActive,
             createdAt = entity.createdAt,
@@ -46,15 +48,24 @@ class StoreMapper {
     fun toEntity(domain: Store): StoreEntity {
         return StoreEntity(
             storeId = domain.storeId.value,
-            storeCode = domain.regionCode, // region_code를 store_code로 매핑
+            storeCode = "${domain.regionCode}${domain.storeNumber}",
             storeName = domain.storeName,
-            hqId = domain.hqId?.value,
-            storeAddress = domain.address,
-            contactPhone = domain.phoneNumber?.value,
-            storeManagerId = null, // 추후 설정
-            registrationDate = domain.openingDate,
-            businessHours = "09:00-22:00", // 기본값
             storeType = domain.storeType.name,
+            operationType = domain.operationType?.name,
+            hqId = domain.hqId?.value,
+            regionCode = domain.regionCode,
+            storeNumber = domain.storeNumber,
+            businessLicense = domain.businessLicense?.value,
+            ownerName = domain.ownerName,
+            phoneNumber = domain.phoneNumber?.value,
+            address = domain.address,
+            postalCode = domain.postalCode,
+            openingDate = domain.openingDate,
+            storeAddress = domain.address, // 호환성을 위해 중복
+            contactPhone = domain.phoneNumber?.value, // 호환성을 위해 중복
+            storeManagerId = null,
+            registrationDate = domain.openingDate, // 호환성을 위해 중복
+            businessHours = "09:00-22:00", // 기본값
             storeStatus = domain.storeStatus,
             isActive = domain.isActive,
             createdAt = domain.createdAt,
@@ -70,11 +81,22 @@ class StoreMapper {
     /**
      * 문자열을 StoreType으로 변환
      */
-    private fun parseStoreType(storeType: String?): com.gijun.backend.domain.store.enums.StoreType {
+    private fun parseStoreType(storeType: String?): StoreType {
         return when (storeType?.uppercase()) {
-            "INDIVIDUAL" -> com.gijun.backend.domain.store.enums.StoreType.INDIVIDUAL
-            "CHAIN" -> com.gijun.backend.domain.store.enums.StoreType.CHAIN
-            else -> com.gijun.backend.domain.store.enums.StoreType.INDIVIDUAL
+            "INDIVIDUAL" -> StoreType.INDIVIDUAL
+            "CHAIN" -> StoreType.CHAIN
+            else -> StoreType.INDIVIDUAL
+        }
+    }
+
+    /**
+     * 문자열을 OperationType으로 변환
+     */
+    private fun parseOperationType(operationType: String?): OperationType? {
+        return when (operationType?.uppercase()) {
+            "DIRECT" -> OperationType.DIRECT
+            "FRANCHISE" -> OperationType.FRANCHISE
+            else -> null
         }
     }
 

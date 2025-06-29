@@ -20,8 +20,38 @@ data class StoreEntity(
     @Column("store_name")
     val storeName: String,
 
+    @Column("store_type")
+    val storeType: String? = null,
+
+    @Column("operation_type")
+    val operationType: String? = null,
+
     @Column("hq_id")
     val hqId: String? = null,
+
+    @Column("region_code")
+    val regionCode: String? = null,
+
+    @Column("store_number")
+    val storeNumber: String? = null,
+
+    @Column("business_license")
+    val businessLicense: String? = null,
+
+    @Column("owner_name")
+    val ownerName: String? = null,
+
+    @Column("phone_number")
+    val phoneNumber: String? = null,
+
+    @Column("address")
+    val address: String? = null,
+
+    @Column("postal_code")
+    val postalCode: String? = null,
+
+    @Column("opening_date")
+    val openingDate: LocalDate? = null,
 
     @Column("store_address")
     val storeAddress: String? = null,
@@ -37,9 +67,6 @@ data class StoreEntity(
 
     @Column("business_hours")
     val businessHours: String? = null,
-
-    @Column("store_type")
-    val storeType: String? = null,
 
     @Column("store_status")
     val storeStatus: StoreStatus = StoreStatus.ACTIVE,

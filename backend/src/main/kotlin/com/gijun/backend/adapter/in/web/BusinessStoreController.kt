@@ -334,7 +334,7 @@ class BusinessStoreController(
                 userRoles.contains("HEADQUARTERS_ADMIN") || userRoles.contains("HQ_MANAGER") -> {
                     if (user.organizationId != null && user.organizationType == "HEADQUARTERS") {
                         try {
-                            val hq = headquartersRepository.findByHqId(HeadquartersId(user.organizationId!!))
+                            val hq = headquartersRepository.findByHqId(HeadquartersId(user.organizationId))
                             if (hq != null) {
                                 listOf(
                                     HeadquartersDto(
@@ -347,14 +347,12 @@ class BusinessStoreController(
                                 emptyList()
                             }
                         } catch (e: Exception) {
-                            // 오류시 본인 조직만 반환
                             listOf(HeadquartersDto("HQSTT", "STT", "내 본사"))
                         }
                     } else {
                         emptyList()
                     }
                 }
-                // 매장 관리자나 일반 직원 - 본사 정보 조회 불가
                 else -> {
                     emptyList()
                 }
