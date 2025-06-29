@@ -51,30 +51,26 @@
 
   function handleMenuClick(event) {
     const menu = event.detail;
-    console.log('🔐 Admin 레이아웃에서 메뉴 클릭 처리:', {
-      fullMenu: menu,
-      menuCode: menu?.menuCode,
-      menuName: menu?.menuName,
-      menuPath: menu?.menuPath,
-      menuType: menu?.menuType,
-      allProperties: Object.keys(menu || {})
-    });
+    console.log('🔐 Admin 레이아웃에서 메뉴 클릭 처리:', menu);
     
-    // 카테고리가 아닌 메뉴만 탭으로 생성
-    if (menu && menu.menuType !== 'CATEGORY') {
+    // 새로운 메뉴 구조에 맞춰 처리
+    if (menu && (menu.menu_type !== 'CATEGORY' || menu.menuType !== 'CATEGORY')) {
       const tabData = {
-        id: `admin-${menu.menuCode || 'unknown'}`,
-        title: menu.menuName || 'Unknown Menu',
-        path: menu.menuPath || '/admin',
+        id: `admin-${menu.tabId || menu.menu_code || menu.menuCode || 'unknown'}`,
+        title: menu.title || menu.menu_name || menu.menuName || 'Unknown Menu',
+        path: menu.path || menu.menu_path || menu.menuPath || '/admin',
         system: 'admin',
         closeable: true,
         secure: true,
-        priority: menu.menuCode?.includes('USERS') ? 'HIGH' : 'MEDIUM'
+        priority: (menu.menu_code || menu.menuCode || '').includes('USERS') ? 'HIGH' : 'MEDIUM'
       };
       
       console.log('🔐 생성될 탭 데이터:', tabData);
       
       tabStore.openTab(tabData);
+      
+      // 페이지 이동
+      goto(tabData.path);
       
       // 모바일에서는 메뉴 클릭 시 사이드바 닫기
       if (isMobile) {

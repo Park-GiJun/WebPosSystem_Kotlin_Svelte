@@ -6,6 +6,7 @@
   import { toastStore } from '$lib/stores/toast.js';
 
   export let open = false;
+  export let userType = 'INTERNAL'; // 'INTERNAL' 또는 'CUSTOMER'
 
   const dispatch = createEventDispatcher();
 
@@ -14,22 +15,36 @@
     email: '',
     password: '',
     confirmPassword: '',
-    roles: ['USER']
+    roles: []
   };
+
+  // userType이 변경될 때 기본 역할 설정
+  $: {
+    if (form.roles.length === 0) {
+      form.roles = [...defaultRoles];
+    }
+  }
 
   let showPassword = false;
   let showConfirmPassword = false;
   let loading = false;
   let errors = {};
 
-  const availableRoles = [
+  // 사용자 타입에 따른 역할 목록
+  $: availableRoles = userType === 'INTERNAL' ? [
     { value: 'USER', label: '일반 사용자', description: '기본 사용자 권한' },
     { value: 'STORE_MANAGER', label: '매장 관리자', description: '매장 운영 및 관리' },
     { value: 'AREA_MANAGER', label: '지역 관리자', description: '지역별 매장 관리' },
     { value: 'HQ_MANAGER', label: '본사 관리자', description: '본사 및 전체 매장 관리' },
     { value: 'SYSTEM_ADMIN', label: '시스템 관리자', description: '시스템 설정 및 관리' },
     { value: 'SUPER_ADMIN', label: '슈퍼 관리자', description: '모든 권한 (주의!)' }
+  ] : [
+    { value: 'CUSTOMER', label: '고객', description: '일반 고객 권한' },
+    { value: 'VIP_CUSTOMER', label: 'VIP 고객', description: '우수 고객 권한' }
   ];
+
+  // 사용자 타입에 따른 기본 역할
+  $: defaultRoles = userType === 'INTERNAL' ? ['USER'] : ['CUSTOMER'];
 
   function validateForm() {
     errors = {};
@@ -99,7 +114,9 @@
       'HQ_MANAGER': 'bg-purple-100 text-purple-800 border-purple-200',
       'AREA_MANAGER': 'bg-blue-100 text-blue-800 border-blue-200',
       'STORE_MANAGER': 'bg-green-100 text-green-800 border-green-200',
-      'USER': 'bg-gray-100 text-gray-800 border-gray-200'
+      'USER': 'bg-gray-100 text-gray-800 border-gray-200',
+      'CUSTOMER': 'bg-purple-100 text-purple-800 border-purple-200',
+      'VIP_CUSTOMER': 'bg-yellow-100 text-yellow-800 border-yellow-200'
     };
     return colors[role] || 'bg-gray-100 text-gray-800 border-gray-200';
   }
@@ -116,7 +133,8 @@
         username: form.username.trim(),
         email: form.email.trim(),
         password: form.password,
-        roles: form.roles
+        roles: form.roles,
+        organizationType: userType === 'INTERNAL' ? 'SYSTEM' : 'CUSTOMER'
       };
 
       const response = await userApi.createUser(userData);
@@ -124,7 +142,7 @@
       if (response.success) {
         dispatch('user-created', response.data);
         handleClose();
-        toastStore.success('사용자가 성공적으로 생성되었습니다.');
+        toastStore.success(`${userType === 'INTERNAL' ? '내부' : '고객'} 사용자가 성공적으로 생성되었습니다.`);
       } else if (response.error === 'API_NOT_FOUND') {
         // API가 없는 경우 더미 데이터로 응답
         const dummyUser = {
@@ -142,7 +160,7 @@
         
         dispatch('user-created', dummyUser);
         handleClose();
-        toastStore.success('사용자가 성공적으로 생성되었습니다. (데모 모드)');
+        toastStore.success(`${userType === 'INTERNAL' ? '내부' : '고객'} 사용자가 성공적으로 생성되었습니다. (데모 모드)`);
       } else {
         errors.submit = response.message || '사용자 생성에 실패했습니다.';
       }
@@ -182,7 +200,7 @@
         email: '',
         password: '',
         confirmPassword: '',
-        roles: ['USER']
+        roles: [...defaultRoles]
       };
       errors = {};
       showPassword = false;
@@ -192,7 +210,7 @@
   }
 </script>
 
-<Modal bind:open title="사용자 생성" size="lg" on:close={handleClose}>
+<Modal bind:open title="{userType === 'INTERNAL' ? '내부' : '고객'} 사용자 생성" size="lg" on:close={handleClose}>
   <form on:submit|preventDefault={handleSubmit} class="space-y-6">
     <!-- 기본 정보 섹션 -->
     <div class="bg-gray-50 p-4 rounded-lg">

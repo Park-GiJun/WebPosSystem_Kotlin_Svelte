@@ -26,17 +26,20 @@
     
     console.log('🎯 Dashboard 메뉴 클릭:', menu);
     
-    // 탭 열기 (addTab -> openTab으로 변경)
+    // 탭 열기 - 새로운 구조에 맞춰 수정
     tabStore.openTab({
-      id: menu.menuCode,
-      title: menu.menuName,
-      path: menu.menuPath,
+      id: menu.tabId || menu.menu_code || menu.menuCode,
+      title: menu.title || menu.menu_name || menu.menuName,
+      path: menu.path || menu.menu_path || menu.menuPath,
       system: 'dashboard',
       closeable: true
     });
 
     // 페이지 이동
-    goto(menu.menuPath);
+    const targetPath = menu.path || menu.menu_path || menu.menuPath;
+    if (targetPath) {
+      goto(targetPath);
+    }
   }
 
   function handleTabSwitch(event) {
