@@ -37,7 +37,10 @@ class R2dbcConfiguration(
 
     @Bean
     fun transactionManager(connectionFactory: ConnectionFactory): ReactiveTransactionManager {
-        return R2dbcTransactionManager(connectionFactory)
+        val transactionManager = R2dbcTransactionManager(connectionFactory)
+        // 기본 트랜잭션 타임아웃 설정 (30초)
+        transactionManager.setDefaultTimeout(30)
+        return transactionManager
     }
 
     @Bean

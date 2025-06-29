@@ -195,7 +195,7 @@ class AdminUserService(
         
         // Optimistic Locking 재시도 로직
         var retryCount = 0
-        val maxRetries = 3
+        val maxRetries = 5  // 3에서 5로 증가
         
         while (retryCount < maxRetries) {
             try {
@@ -286,8 +286,9 @@ class AdminUserService(
                     println("⚠️ Optimistic Lock 충돌 발생, 재시도 중... (${retryCount + 1}/$maxRetries)")
                     retryCount++
                     
-                    // 잠시 대기 후 재시도
-                    kotlinx.coroutines.delay(100L * retryCount)
+                    // 잠시 대기 후 재시도 (지수 백오프)
+                    val delayMs = (100L * (retryCount * retryCount)) + (50L..150L).random()
+                    kotlinx.coroutines.delay(delayMs)
                     continue
                 } else {
                     // 다른 에러이거나 최대 재시도 횟수 초과
@@ -319,43 +320,139 @@ class AdminUserService(
         updatedBy: String
     ): User {
         
-        val existingUser = userRepository.findById(userId)
-            ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+        // Optimistic Locking 재시도 로직
+        var retryCount = 0
+        val maxRetries = 5  // 3에서 5로 증가
         
-        // 역할 변환 및 검증
-        val userRoles = roles.mapNotNull { roleStr ->
+        while (retryCount < maxRetries) {
             try {
-                UserRole.valueOf(roleStr.uppercase())
+                // 최신 사용자 정보를 다시 조회
+                val existingUser = userRepository.findById(userId)
+                    ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+                
+                println("🔍 역할 할당 시도 ${retryCount + 1}/5:")
+                println("  - 사용자 ID: $userId")
+                println("  - 현재 버전: ${existingUser.version}")
+                println("  - 새 역할: $roles")
+                
+                // 역할 변환 및 검증
+                val userRoles = roles.mapNotNull { roleStr ->
+                    try {
+                        UserRole.valueOf(roleStr.uppercase())
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.toSet()
+                
+                if (userRoles.isEmpty()) {
+                    throw IllegalArgumentException("유효한 역할이 최소 하나는 필요합니다.")
+                }
+                
+                // 슈퍼 관리자 역할 검증
+                if (userRoles.contains(UserRole.SUPER_ADMIN) && userRoles.size > 1) {
+                    throw IllegalArgumentException("슈퍼 관리자는 단독으로만 설정할 수 있습니다.")
+                }
+                
+                val updatedUser = existingUser.copy(
+                    roles = userRoles,
+                    updatedAt = LocalDateTime.now(),
+                    updatedBy = updatedBy,
+                    version = existingUser.version + 1
+                )
+                
+                println("✅ 역할 할당 정보:")
+                println("  - 새 버전: ${updatedUser.version}")
+                println("  - 업데이트 시간: ${updatedUser.updatedAt}")
+                
+                return userRepository.save(updatedUser)
+                
             } catch (e: Exception) {
-                null
+                println("❌ 역할 할당 시도 실패 (${retryCount + 1}/5):")
+                println("  - 에러 타입: ${e.javaClass.simpleName}")
+                println("  - 에러 메시지: ${e.message}")
+                
+                // Version mismatch 에러인지 확인
+                val errorText = e.toString() + (e.message ?: "") + (e.cause?.message ?: "")
+                val isVersionConflict = errorText.let { text ->
+                    text.contains("Version does not match", ignoreCase = true) ||
+                    text.contains("Optimistic", ignoreCase = true) ||
+                    text.contains("version", ignoreCase = true) && text.contains("match", ignoreCase = true) ||
+                    text.contains("Failed to update table", ignoreCase = true) && text.contains("version", ignoreCase = true)
+                }
+                
+                if (isVersionConflict && retryCount < maxRetries - 1) {
+                    println("⚠️ Optimistic Lock 충돌 발생, 재시도 중... (${retryCount + 1}/$maxRetries)")
+                    retryCount++
+                    
+                    // 잠시 대기 후 재시도 (지수 백오프)
+                    val delayMs = (100L * (retryCount * retryCount)) + (50L..150L).random()
+                    kotlinx.coroutines.delay(delayMs)
+                    continue
+                } else {
+                    // 다른 에러이거나 최대 재시도 횟수 초과
+                    println("❌ 재시도 불가능한 에러 또는 최대 재시도 횟수 초과")
+                    throw e
+                }
             }
-        }.toSet()
-        
-        if (userRoles.isEmpty()) {
-            throw IllegalArgumentException("유효한 역할이 최소 하나는 필요합니다.")
         }
         
-        // 슈퍼 관리자 역할 검증
-        if (userRoles.contains(UserRole.SUPER_ADMIN) && userRoles.size > 1) {
-            throw IllegalArgumentException("슈퍼 관리자는 단독으로만 설정할 수 있습니다.")
-        }
-        
-        val updatedUser = existingUser.copy(
-            roles = userRoles,
-            updatedAt = LocalDateTime.now(),
-            updatedBy = updatedBy,
-            version = existingUser.version + 1
-        )
-        
-        return userRepository.save(updatedUser)
+        throw IllegalStateException("역할 할당에 실패했습니다. 동시 수정 충돌이 발생했습니다.")
     }
 
     suspend fun unlockUser(userId: String, updatedBy: String): User {
-        val existingUser = userRepository.findById(userId)
-            ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+        // Optimistic Locking 재시도 로직
+        var retryCount = 0
+        val maxRetries = 5  // 3에서 5로 증가
         
-        val unlockedUser = existingUser.unlock(updatedBy)
-        return userRepository.save(unlockedUser)
+        while (retryCount < maxRetries) {
+            try {
+                // 최신 사용자 정보를 다시 조회
+                val existingUser = userRepository.findById(userId)
+                    ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+                
+                println("🔍 사용자 잠금 해제 시도 ${retryCount + 1}/5:")
+                println("  - 사용자 ID: $userId")
+                println("  - 현재 버전: ${existingUser.version}")
+                
+                val unlockedUser = existingUser.unlock(updatedBy)
+                
+                println("✅ 잠금 해제 정보:")
+                println("  - 새 버전: ${unlockedUser.version}")
+                println("  - 업데이트 시간: ${unlockedUser.updatedAt}")
+                
+                return userRepository.save(unlockedUser)
+                
+            } catch (e: Exception) {
+                println("❌ 잠금 해제 시도 실패 (${retryCount + 1}/5):")
+                println("  - 에러 타입: ${e.javaClass.simpleName}")
+                println("  - 에러 메시지: ${e.message}")
+                
+                // Version mismatch 에러인지 확인
+                val errorText = e.toString() + (e.message ?: "") + (e.cause?.message ?: "")
+                val isVersionConflict = errorText.let { text ->
+                    text.contains("Version does not match", ignoreCase = true) ||
+                    text.contains("Optimistic", ignoreCase = true) ||
+                    text.contains("version", ignoreCase = true) && text.contains("match", ignoreCase = true) ||
+                    text.contains("Failed to update table", ignoreCase = true) && text.contains("version", ignoreCase = true)
+                }
+                
+                if (isVersionConflict && retryCount < maxRetries - 1) {
+                    println("⚠️ Optimistic Lock 충돌 발생, 재시도 중... (${retryCount + 1}/$maxRetries)")
+                    retryCount++
+                    
+                    // 잠시 대기 후 재시도 (지수 백오프)
+                    val delayMs = (100L * (retryCount * retryCount)) + (50L..150L).random()
+                    kotlinx.coroutines.delay(delayMs)
+                    continue
+                } else {
+                    // 다른 에러이거나 최대 재시도 횟수 초과
+                    println("❌ 재시도 불가능한 에러 또는 최대 재시도 횟수 초과")
+                    throw e
+                }
+            }
+        }
+        
+        throw IllegalStateException("사용자 잠금 해제에 실패했습니다. 동시 수정 충돌이 발생했습니다.")
     }
 
     suspend fun getUserById(userId: String): User? {

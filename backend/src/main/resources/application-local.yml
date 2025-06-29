@@ -1,13 +1,15 @@
 # Local Development Configuration (Docker 환경)
 spring:
   r2dbc:
-    url: r2dbc:mysql://localhost:3306/webpos?ssl=false&allowPublicKeyRetrieval=true
+    url: r2dbc:mysql://localhost:3306/webpos?ssl=false&allowPublicKeyRetrieval=true&useServerPrepStmts=true&cachePrepStmts=true
     username: root
     password: password
     pool:
       initial-size: 5
-      max-size: 10
+      max-size: 20
       max-idle-time: 30m
+      max-acquire-time: 10s
+      validation-query: SELECT 1
 
   # Flyway Configuration for Local
   flyway:
