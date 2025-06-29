@@ -1,618 +1,438 @@
 <script>
-	import { onMount } from 'svelte';
-	import { ChevronLeft, Plus, Search, Edit, Trash, Building, MapPin, Phone, Mail, Calendar } from 'lucide-svelte';
+  import { onMount } from 'svelte';
+  import { authStore } from '$lib/stores/auth.js';
+  import { tabStore } from '$lib/stores/tabs.js';
+  import { toastStore } from '$lib/stores/toast.js';
+  import { organizationApi } from '$lib/api/admin.js';
+  import { Plus, Building2, Edit, Trash2 } from 'lucide-svelte';
+  import Modal from '$lib/components/Common/Modal.svelte';
 
-	let headquarters = [];
-	let filteredHeadquarters = [];
-	let searchTerm = '';
-	let showAddModal = false;
-	let showEditModal = false;
-	let selectedHQ = null;
-	let newHQ = {
-		name: '',
-		code: '',
-		address: '',
-		phone: '',
-		email: '',
-		managerName: '',
-		managerPhone: '',
-		establishedDate: '',
-		businessType: '',
-		isActive: true
-	};
+  let loading = false;
+  let headquarters = [];
+  let showCreateModal = false;
 
-	const businessTypes = [
-		{ value: 'RETAIL', label: '소매업' },
-		{ value: 'WHOLESALE', label: '도매업' },
-		{ value: 'FRANCHISE', label: '프랜차이즈' },
-		{ value: 'MANUFACTURING', label: '제조업' },
-		{ value: 'SERVICE', label: '서비스업' },
-		{ value: 'OTHER', label: '기타' }
-	];
+  // 인증 상태 구독
+  let authToken = '';
+  authStore.subscribe(state => {
+    authToken = state.token || '';
+  });
 
-	onMount(() => {
-		loadHeadquarters();
-	});
+  // 본사 생성 폼
+  let hqForm = {
+    type: 'HEADQUARTERS',
+    name: '',
+    code: '',
+    businessLicense: '',
+    ceoName: '',
+    address: '',
+    contactPhone: '',
+    website: '',
+    description: '',
+    adminUsername: '',
+    adminEmail: '',
+    adminPassword: ''
+  };
 
-	async function loadHeadquarters() {
-		try {
-			// API 호출 시뮬레이션
-			headquarters = [
-				{
-					id: 1,
-					name: '메인 본사',
-					code: 'HQ001',
-					address: '서울시 강남구 테헤란로 123, 본사빌딩 10-15층',
-					phone: '02-1234-5678',
-					email: 'main@company.com',
-					managerName: '김본사',
-					managerPhone: '010-1111-2222',
-					establishedDate: '2010-01-15',
-					businessType: 'RETAIL',
-					isActive: true,
-					totalStores: 25,
-					totalEmployees: 150,
-					createdAt: '2024-01-01'
-				},
-				{
-					id: 2,
-					name: '부산 지역본부',
-					code: 'HQ002',
-					address: '부산시 해운대구 센텀중앙로 456, 센텀빌딩 8층',
-					phone: '051-2345-6789',
-					email: 'busan@company.com',
-					managerName: '이지역',
-					managerPhone: '010-2222-3333',
-					establishedDate: '2015-03-20',
-					businessType: 'RETAIL',
-					isActive: true,
-					totalStores: 12,
-					totalEmployees: 75,
-					createdAt: '2024-02-15'
-				},
-				{
-					id: 3,
-					name: '대구 지사',
-					code: 'HQ003',
-					address: '대구시 중구 달구벌대로 789, 대구타워 5층',
-					phone: '053-3456-7890',
-					email: 'daegu@company.com',
-					managerName: '박지사',
-					managerPhone: '010-3333-4444',
-					establishedDate: '2018-06-10',
-					businessType: 'RETAIL',
-					isActive: false,
-					totalStores: 8,
-					totalEmployees: 45,
-					createdAt: '2024-03-10'
-				}
-			];
-			filteredHeadquarters = [...headquarters];
-		} catch (error) {
-			console.error('본사 로딩 실패:', error);
-		}
-	}
+  onMount(() => {
+    tabStore.setActiveTab('ADMIN_ORG_HQ');
+    loadHeadquarters();
+  });
 
-	function filterHeadquarters() {
-		if (!searchTerm.trim()) {
-			filteredHeadquarters = [...headquarters];
-		} else {
-			filteredHeadquarters = headquarters.filter(hq => 
-				hq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				hq.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				hq.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				hq.managerName.toLowerCase().includes(searchTerm.toLowerCase())
-			);
-		}
-	}
+  async function loadHeadquarters() {
+    if (!authToken) {
+      console.warn('인증 토큰이 없습니다.');
+      return;
+    }
 
-	function openAddModal() {
-		newHQ = {
-			name: '',
-			code: '',
-			address: '',
-			phone: '',
-			email: '',
-			managerName: '',
-			managerPhone: '',
-			establishedDate: '',
-			businessType: 'RETAIL',
-			isActive: true
-		};
-		showAddModal = true;
-	}
+    try {
+      loading = true;
+      console.log('🏢 본사 목록 조회 중...');
+      
+      const response = await organizationApi.getOrganizations({}, authToken);
+      
+      if (response) {
+        headquarters = response.headquarters.map(hq => ({
+          ...hq,
+          type: 'HEADQUARTERS'
+        }));
+        console.log('✅ 본사 목록 로드 완료:', headquarters.length, '개');
+      } else {
+        console.warn('⚠️ 응답이 비어있습니다:', response);
+        headquarters = [];
+      }
+    } catch (error) {
+      console.error('❌ 본사 목록 로드 실패:', error);
+      toastStore.error('본사 목록을 불러오는데 실패했습니다: ' + error.message);
+      headquarters = [];
+    } finally {
+      loading = false;
+    }
+  }
 
-	function openEditModal(hq) {
-		selectedHQ = { ...hq };
-		showEditModal = true;
-	}
+  async function createHeadquarters() {
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-	function closeModals() {
-		showAddModal = false;
-		showEditModal = false;
-		selectedHQ = null;
-	}
+    try {
+      console.log('🏢 체인본부 생성 중:', hqForm.name);
+      
+      // 백엔드 API에 맞는 요청 구조로 변경
+      const request = {
+        name: hqForm.name,
+        businessNumber: hqForm.businessLicense, // businessLicense -> businessNumber 변경
+        address: hqForm.address,
+        phoneNumber: hqForm.contactPhone,
+        email: hqForm.adminEmail,
+        adminUsername: hqForm.adminUsername
+      };
+      
+      console.log('📤 요청 데이터:', request);
+      
+      const response = await fetch('/api/v1/admin/organizations/headquarters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(request)
+      });
+      
+      console.log('📥 응답 상태:', response.status);
+      
+      if (response.ok) {
+        const newHq = await response.json();
+        console.log('✅ 생성된 본사:', newHq);
+        
+        headquarters = [...headquarters, {
+          ...newHq,
+          type: 'HEADQUARTERS'
+        }];
+        toastStore.success('체인본부가 성공적으로 생성되었습니다.');
+        showCreateModal = false;
+        resetForm();
+        console.log('✅ 체인본부 생성 완료');
+      } else {
+        const errorText = await response.text();
+        console.error('❌ 응답 오류:', errorText);
+        let errorMessage = '체인본부 생성에 실패했습니다.';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('❌ 체인본부 생성 실패:', error);
+      toastStore.error('체인본부 생성에 실패했습니다: ' + error.message);
+    }
+  }
 
-	async function saveHeadquarter() {
-		try {
-			// API 호출 시뮬레이션
-			const newId = Math.max(...headquarters.map(h => h.id)) + 1;
-			const hqToAdd = {
-				...newHQ,
-				id: newId,
-				totalStores: 0,
-				totalEmployees: 0,
-				createdAt: new Date().toISOString().split('T')[0]
-			};
-			
-			headquarters = [...headquarters, hqToAdd];
-			filterHeadquarters();
-			closeModals();
-			alert('본사가 추가되었습니다.');
-		} catch (error) {
-			console.error('본사 저장 실패:', error);
-			alert('본사 저장에 실패했습니다.');
-		}
-	}
+  async function editOrganization(org) {
+    console.log('Edit organization:', org);
+    toastStore.info('조직 편집 기능은 준비 중입니다.');
+  }
 
-	async function updateHeadquarter() {
-		try {
-			// API 호출 시뮬레이션
-			headquarters = headquarters.map(hq => 
-				hq.id === selectedHQ.id ? { ...selectedHQ } : hq
-			);
-			filterHeadquarters();
-			closeModals();
-			alert('본사 정보가 수정되었습니다.');
-		} catch (error) {
-			console.error('본사 수정 실패:', error);
-			alert('본사 수정에 실패했습니다.');
-		}
-	}
+  async function deleteOrganization(org) {
+    if (!confirm(`정말로 "${org.name}" 조직을 삭제하시겠습니까?`)) {
+      return;
+    }
 
-	async function deleteHeadquarter(hqId) {
-		if (!confirm('정말로 이 본사를 삭제하시겠습니까?\n연결된 모든 매장 정보도 함께 삭제됩니다.')) return;
-		
-		try {
-			// API 호출 시뮬레이션
-			headquarters = headquarters.filter(hq => hq.id !== hqId);
-			filterHeadquarters();
-			alert('본사가 삭제되었습니다.');
-		} catch (error) {
-			console.error('본사 삭제 실패:', error);
-			alert('본사 삭제에 실패했습니다.');
-		}
-	}
+    if (!authToken) {
+      toastStore.error('인증이 필요합니다.');
+      return;
+    }
 
-	function getBusinessTypeName(type) {
-		const found = businessTypes.find(t => t.value === type);
-		return found ? found.label : type;
-	}
+    try {
+      console.log('🗑️ 조직 삭제 중:', org.name);
+      
+      await organizationApi.deleteOrganization(org.id, authToken);
+      
+      headquarters = headquarters.filter(o => o.id !== org.id);
+      toastStore.success('조직이 삭제되었습니다.');
+      console.log('✅ 조직 삭제 완료');
+    } catch (error) {
+      console.error('❌ 조직 삭제 실패:', error);
+      toastStore.error('조직 삭제에 실패했습니다: ' + error.message);
+    }
+  }
 
-	$: searchTerm, filterHeadquarters();
+  function resetForm() {
+    hqForm = {
+      type: 'HEADQUARTERS',
+      name: '',
+      code: '',
+      businessLicense: '',
+      ceoName: '',
+      address: '',
+      contactPhone: '',
+      website: '',
+      description: '',
+      adminUsername: '',
+      adminEmail: '',
+      adminPassword: ''
+    };
+  }
 </script>
 
 <svelte:head>
-	<title>본사 관리 - WebPOS</title>
+  <title>본사 관리 - WebPos</title>
 </svelte:head>
 
 <div class="p-6">
-	<!-- 헤더 -->
-	<div class="flex items-center justify-between mb-6">
-		<div class="flex items-center gap-4">
-			<button 
-				class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-				on:click={() => history.back()}
-			>
-				<ChevronLeft class="w-5 h-5" />
-			</button>
-			<div>
-				<h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-					<Building class="w-6 h-6" />
-					본사 관리
-				</h1>
-				<p class="text-gray-600 mt-1">본사 및 지역본부 조직을 관리합니다</p>
-			</div>
-		</div>
-		<button 
-			class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-			on:click={openAddModal}
-		>
-			<Plus class="w-4 h-4" />
-			본사 추가
-		</button>
-	</div>
+  <!-- 헤더 -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">본사 관리</h1>
+      <p class="text-gray-600 mt-1">체인본부를 생성하고 관리합니다.</p>
+    </div>
+    <button 
+      type="button" 
+      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+      on:click={() => showCreateModal = true}
+    >
+      <Plus size="16" class="mr-2" />
+      체인본부 생성
+    </button>
+  </div>
 
-	<!-- 검색 -->
-	<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-		<div class="flex items-center gap-4">
-			<div class="flex-1">
-				<div class="relative">
-					<Search class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-					<input
-						type="text"
-						placeholder="본사명, 코드, 주소, 담당자로 검색..."
-						class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={searchTerm}
-					/>
-				</div>
-			</div>
-		</div>
-	</div>
+  {#if loading}
+    <div class="text-center py-12">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+      <p class="mt-4 text-gray-600">로딩 중...</p>
+    </div>
+  {:else if headquarters.length === 0}
+    <div class="text-center py-12">
+      <Building2 class="mx-auto h-12 w-12 text-gray-400" />
+      <p class="mt-4 text-gray-500">등록된 체인본부가 없습니다.</p>
+      <button 
+        type="button" 
+        class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center mx-auto"
+        on:click={() => showCreateModal = true}
+      >
+        <Plus size="16" class="mr-2" />
+        첫 번째 체인본부 생성
+      </button>
+    </div>
+  {:else}
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      {#each headquarters as hq}
+        <div class="bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-900">{hq.name}</h3>
+              <p class="text-sm text-gray-600">{hq.code || 'N/A'}</p>
+            </div>
+            <div class="flex space-x-2">
+              <button
+                type="button"
+                class="text-indigo-600 hover:text-indigo-900"
+                on:click={() => editOrganization(hq)}
+                title="편집"
+              >
+                <Edit size="16" />
+              </button>
+              <button
+                type="button"
+                class="text-red-600 hover:text-red-900"
+                on:click={() => deleteOrganization(hq)}
+                title="삭제"
+              >
+                <Trash2 size="16" />
+              </button>
+            </div>
+          </div>
 
-	<!-- 본사 통계 -->
-	<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-		<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-sm text-gray-600">전체 본사</p>
-					<p class="text-2xl font-bold text-gray-900">{headquarters.length}</p>
-				</div>
-				<div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-					<Building class="w-6 h-6 text-blue-600" />
-				</div>
-			</div>
-		</div>
-		<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-sm text-gray-600">활성 본사</p>
-					<p class="text-2xl font-bold text-green-600">{headquarters.filter(h => h.isActive).length}</p>
-				</div>
-				<div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-					<Building class="w-6 h-6 text-green-600" />
-				</div>
-			</div>
-		</div>
-		<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-sm text-gray-600">총 매장 수</p>
-					<p class="text-2xl font-bold text-purple-600">{headquarters.reduce((sum, h) => sum + h.totalStores, 0)}</p>
-				</div>
-				<div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-					<Building class="w-6 h-6 text-purple-600" />
-				</div>
-			</div>
-		</div>
-		<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="text-sm text-gray-600">총 직원 수</p>
-					<p class="text-2xl font-bold text-indigo-600">{headquarters.reduce((sum, h) => sum + h.totalEmployees, 0)}</p>
-				</div>
-				<div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-					<Building class="w-6 h-6 text-indigo-600" />
-				</div>
-			</div>
-		</div>
-	</div>
+          <div class="space-y-2 text-sm text-gray-600">
+            {#if hq.businessLicense}
+              <p><span class="font-medium">사업자번호:</span> {hq.businessLicense}</p>
+            {/if}
+            {#if hq.contactPhone}
+              <p><span class="font-medium">연락처:</span> {hq.contactPhone}</p>
+            {/if}
+            {#if hq.address}
+              <p><span class="font-medium">주소:</span> {hq.address}</p>
+            {/if}
+            {#if hq.description}
+              <p class="text-gray-500 line-clamp-2">{hq.description}</p>
+            {/if}
+          </div>
 
-	<!-- 본사 목록 -->
-	<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-		<div class="overflow-x-auto">
-			<table class="w-full">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">본사정보</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연락처</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">담당자</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">업종</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매장/직원</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
-					</tr>
-				</thead>
-				<tbody class="bg-white divide-y divide-gray-200">
-					{#each filteredHeadquarters as hq}
-						<tr class="hover:bg-gray-50">
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div>
-									<div class="text-sm font-medium text-gray-900">{hq.name}</div>
-									<div class="text-sm text-gray-500">코드: {hq.code}</div>
-									<div class="text-sm text-gray-500 flex items-center gap-1">
-										<Calendar class="w-3 h-3" />
-										설립: {new Date(hq.establishedDate).toLocaleDateString('ko-KR')}
-									</div>
-								</div>
-							</td>
-							<td class="px-6 py-4">
-								<div class="flex items-start gap-1 text-sm text-gray-900">
-									<MapPin class="w-3 h-3 mt-1 flex-shrink-0" />
-									<span class="break-words">{hq.address}</span>
-								</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="flex flex-col gap-1">
-									<div class="flex items-center gap-1 text-sm text-gray-900">
-										<Phone class="w-3 h-3" />
-										{hq.phone}
-									</div>
-									<div class="flex items-center gap-1 text-sm text-gray-500">
-										<Mail class="w-3 h-3" />
-										{hq.email}
-									</div>
-								</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm text-gray-900">
-									<div class="font-medium">{hq.managerName}</div>
-									<div class="text-gray-500">{hq.managerPhone}</div>
-								</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-									{getBusinessTypeName(hq.businessType)}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-								<div>매장: {hq.totalStores}개</div>
-								<div>직원: {hq.totalEmployees}명</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {hq.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-									{hq.isActive ? '활성' : '비활성'}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-								<div class="flex items-center gap-2">
-									<button 
-										class="text-blue-600 hover:text-blue-900 p-1 rounded"
-										on:click={() => openEditModal(hq)}
-									>
-										<Edit class="w-4 h-4" />
-									</button>
-									<button 
-										class="text-red-600 hover:text-red-900 p-1 rounded"
-										on:click={() => deleteHeadquarter(hq.id)}
-									>
-										<Trash class="w-4 h-4" />
-									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
+          <div class="mt-4 pt-4 border-t border-gray-200">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-500">생성일</span>
+              <span class="font-medium text-gray-900">
+                {hq.createdAt ? new Date(hq.createdAt).toLocaleDateString('ko-KR') : 'N/A'}
+              </span>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
-<!-- 본사 추가 모달 -->
-{#if showAddModal}
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-		<div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-96 overflow-y-auto">
-			<div class="px-6 py-4 border-b border-gray-200">
-				<h2 class="text-xl font-semibold text-gray-900">새 본사 추가</h2>
-			</div>
-			<div class="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">본사명</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.name}
-						placeholder="본사명을 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">본사 코드</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.code}
-						placeholder="HQ001"
-					/>
-				</div>
-				<div class="md:col-span-2">
-					<label class="block text-sm font-medium text-gray-700 mb-1">주소</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.address}
-						placeholder="주소를 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
-					<input
-						type="tel"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.phone}
-						placeholder="02-0000-0000"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-					<input
-						type="email"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.email}
-						placeholder="email@company.com"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">담당자명</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.managerName}
-						placeholder="담당자명을 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">담당자 연락처</label>
-					<input
-						type="tel"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.managerPhone}
-						placeholder="010-0000-0000"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">설립일</label>
-					<input
-						type="date"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.establishedDate}
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">업종</label>
-					<select
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={newHQ.businessType}
-					>
-						{#each businessTypes as type}
-							<option value={type.value}>{type.label}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="md:col-span-2">
-					<label class="flex items-center">
-						<input
-							type="checkbox"
-							class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-							bind:checked={newHQ.isActive}
-						/>
-						<span class="ml-2 text-sm text-gray-700">활성 상태</span>
-					</label>
-				</div>
-			</div>
-			<div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-				<button
-					class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-					on:click={closeModals}
-				>
-					취소
-				</button>
-				<button
-					class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					on:click={saveHeadquarter}
-				>
-					저장
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<!-- 체인본부 생성 모달 -->
+<Modal bind:open={showCreateModal} title="체인본부 생성" size="lg">
+  <div class="max-h-[60vh] overflow-y-auto">
+    <form id="hq-form" on:submit|preventDefault={createHeadquarters} class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="hqCode" class="block text-sm font-medium text-gray-700">본사 코드 *</label>
+          <input
+            id="hqCode"
+            type="text"
+            required
+            bind:value={hqForm.code}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="예: ABC"
+          />
+        </div>
+        <div>
+          <label for="hqName" class="block text-sm font-medium text-gray-700">본사명 *</label>
+          <input
+            id="hqName"
+            type="text"
+            required
+            bind:value={hqForm.name}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="본사명을 입력하세요"
+          />
+        </div>
+      </div>
 
-<!-- 본사 수정 모달 -->
-{#if showEditModal && selectedHQ}
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-		<div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-96 overflow-y-auto">
-			<div class="px-6 py-4 border-b border-gray-200">
-				<h2 class="text-xl font-semibold text-gray-900">본사 정보 수정</h2>
-			</div>
-			<div class="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">본사명</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.name}
-						placeholder="본사명을 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">본사 코드</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.code}
-						placeholder="HQ001"
-					/>
-				</div>
-				<div class="md:col-span-2">
-					<label class="block text-sm font-medium text-gray-700 mb-1">주소</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.address}
-						placeholder="주소를 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
-					<input
-						type="tel"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.phone}
-						placeholder="02-0000-0000"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-					<input
-						type="email"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.email}
-						placeholder="email@company.com"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">담당자명</label>
-					<input
-						type="text"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.managerName}
-						placeholder="담당자명을 입력하세요"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">담당자 연락처</label>
-					<input
-						type="tel"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.managerPhone}
-						placeholder="010-0000-0000"
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">설립일</label>
-					<input
-						type="date"
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.establishedDate}
-					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">업종</label>
-					<select
-						class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						bind:value={selectedHQ.businessType}
-					>
-						{#each businessTypes as type}
-							<option value={type.value}>{type.label}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="md:col-span-2">
-					<label class="flex items-center">
-						<input
-							type="checkbox"
-							class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-							bind:checked={selectedHQ.isActive}
-						/>
-						<span class="ml-2 text-sm text-gray-700">활성 상태</span>
-					</label>
-				</div>
-			</div>
-			<div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-				<button
-					class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-					on:click={closeModals}
-				>
-					취소
-				</button>
-				<button
-					class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					on:click={updateHeadquarter}
-				>
-					수정
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="businessLicense" class="block text-sm font-medium text-gray-700">사업자등록번호</label>
+          <input
+            id="businessLicense"
+            type="text"
+            bind:value={hqForm.businessLicense}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="000-00-00000"
+          />
+        </div>
+        <div>
+          <label for="ceoName" class="block text-sm font-medium text-gray-700">대표자명</label>
+          <input
+            id="ceoName"
+            type="text"
+            bind:value={hqForm.ceoName}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="대표자명을 입력하세요"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="address" class="block text-sm font-medium text-gray-700">주소</label>
+        <input
+          id="address"
+          type="text"
+          bind:value={hqForm.address}
+          class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          placeholder="본사 주소를 입력하세요"
+        />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="contactPhone" class="block text-sm font-medium text-gray-700">연락처</label>
+          <input
+            id="contactPhone"
+            type="tel"
+            bind:value={hqForm.contactPhone}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="02-000-0000"
+          />
+        </div>
+        <div>
+          <label for="website" class="block text-sm font-medium text-gray-700">웹사이트</label>
+          <input
+            id="website"
+            type="url"
+            bind:value={hqForm.website}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="https://www.example.com"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
+        <textarea
+          id="description"
+          bind:value={hqForm.description}
+          class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          rows="3"
+          placeholder="본사에 대한 설명"
+        ></textarea>
+      </div>
+
+      <hr class="border-gray-200" />
+
+      <h4 class="text-lg font-medium text-gray-900">관리자 계정 정보</h4>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="adminUsername" class="block text-sm font-medium text-gray-700">관리자 아이디 *</label>
+          <input
+            id="adminUsername"
+            type="text"
+            required
+            bind:value={hqForm.adminUsername}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="관리자 아이디"
+          />
+        </div>
+        <div>
+          <label for="adminEmail" class="block text-sm font-medium text-gray-700">관리자 이메일 *</label>
+          <input
+            id="adminEmail"
+            type="email"
+            required
+            bind:value={hqForm.adminEmail}
+            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="admin@example.com"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="adminPassword" class="block text-sm font-medium text-gray-700">관리자 비밀번호 *</label>
+        <input
+          id="adminPassword"
+          type="password"
+          required
+          bind:value={hqForm.adminPassword}
+          class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          placeholder="비밀번호"
+        />
+      </div>
+    </form>
+  </div>
+  
+  <div slot="footer" class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+    <div class="flex justify-end space-x-3">
+      <button
+        type="button"
+        class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg"
+        on:click={() => showCreateModal = false}
+      >
+        취소
+      </button>
+      <button 
+        type="submit" 
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+        form="hq-form"
+      >
+        체인본부 생성
+      </button>
+    </div>
+  </div>
+</Modal>

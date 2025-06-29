@@ -1,7 +1,7 @@
 // 비즈니스 관련 API 클라이언트
 import { browser } from '$app/environment';
 
-const API_BASE = browser ? '' : 'http://localhost:9832';
+const API_BASE = browser ? '' : 'http://localhost:8080';
 
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE}/api/v1${endpoint}`;

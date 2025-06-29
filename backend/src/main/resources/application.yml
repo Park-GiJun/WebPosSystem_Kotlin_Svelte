@@ -9,7 +9,7 @@ spring:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://gijun.net,https://www.gijun.net,http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173}
-    production-origins: https://gijun.net,https://www.gijun.net
+    production-origins: https://gijun.net,https://www.gijun.net,http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173
     development-origins: http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173
 
 # Server Configuration

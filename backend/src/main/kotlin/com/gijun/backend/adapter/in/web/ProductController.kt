@@ -30,7 +30,7 @@ class ProductController(
         @PathVariable storeId: String,
         @RequestBody request: CreateProductRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<ProductResponse>> {
+    ): ApiResponse<ProductResponse> {
         val username = authentication.name
         
         val product = productService.createProduct(
@@ -51,7 +51,7 @@ class ProductController(
             createdBy = username
         )
 
-        return Mono.just(ApiResponse.success(ProductResponse.from(product)))
+        return ApiResponse.success(ProductResponse.from(product))
     }
 
     /**
@@ -63,7 +63,7 @@ class ProductController(
         @PathVariable productId: String,
         @RequestBody request: UpdateProductRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<ProductResponse>> {
+    ): ApiResponse<ProductResponse> {
         val username = authentication.name
         
         val product = productService.updateProduct(
@@ -83,7 +83,7 @@ class ProductController(
             updatedBy = username
         )
 
-        return Mono.just(ApiResponse.success(ProductResponse.from(product)))
+        return ApiResponse.success(ProductResponse.from(product))
     }
 
     /**
@@ -95,7 +95,7 @@ class ProductController(
         @PathVariable productId: String,
         @RequestBody request: UpdateProductStatusRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<ProductResponse>> {
+    ): ApiResponse<ProductResponse> {
         val username = authentication.name
         
         val product = productService.updateProductStatus(
@@ -104,7 +104,7 @@ class ProductController(
             updatedBy = username
         )
 
-        return Mono.just(ApiResponse.success(ProductResponse.from(product)))
+        return ApiResponse.success(ProductResponse.from(product))
     }
 
     /**
@@ -116,7 +116,7 @@ class ProductController(
         @PathVariable productId: String,
         @RequestBody request: UpdateProductActiveStatusRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<ProductResponse>> {
+    ): ApiResponse<ProductResponse> {
         val username = authentication.name
         
         val product = productService.updateProductActiveStatus(
@@ -125,7 +125,7 @@ class ProductController(
             updatedBy = username
         )
 
-        return Mono.just(ApiResponse.success(ProductResponse.from(product)))
+        return ApiResponse.success(ProductResponse.from(product))
     }
 
     /**
@@ -137,7 +137,7 @@ class ProductController(
         @PathVariable productId: String,
         @RequestBody request: AdjustStockRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<ProductResponse>> {
+    ): ApiResponse<ProductResponse> {
         val username = authentication.name
         
         val product = productService.adjustStock(
@@ -146,7 +146,7 @@ class ProductController(
             updatedBy = username
         )
 
-        return Mono.just(ApiResponse.success(ProductResponse.from(product)))
+        return ApiResponse.success(ProductResponse.from(product))
     }
 
     /**
@@ -157,10 +157,10 @@ class ProductController(
     suspend fun deleteProduct(
         @PathVariable productId: String,
         authentication: Authentication
-    ): Mono<ApiResponse<Unit>> {
+    ): ApiResponse<Unit> {
         val username = authentication.name
         productService.deleteProduct(ProductId.from(productId), username)
-        return Mono.just(ApiResponse.success())
+        return ApiResponse.success()
     }
 
     /**
@@ -170,10 +170,10 @@ class ProductController(
     @RequiresPermission("PRODUCT_READ")
     suspend fun getProduct(
         @PathVariable productId: String
-    ): Mono<ApiResponse<ProductResponse?>> {
+    ): ApiResponse<ProductResponse?> {
         val product = productService.getProduct(ProductId.from(productId))
         val response = product?.let { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -185,15 +185,20 @@ class ProductController(
         @PathVariable storeId: String,
         @RequestParam(defaultValue = "false") activeOnly: Boolean,
         @RequestParam(defaultValue = "false") availableOnly: Boolean
-    ): Mono<ApiResponse<List<ProductResponse>>> {
-        val products = when {
-            availableOnly -> productService.getAvailableProductsByStore(StoreId.from(storeId))
-            activeOnly -> productService.getActiveProductsByStore(StoreId.from(storeId))
-            else -> productService.getProductsByStore(StoreId.from(storeId))
-        }.toList()
+    ): ApiResponse<List<ProductResponse>> {
+        return try {
+            val products = when {
+                availableOnly -> productService.getAvailableProductsByStore(StoreId.from(storeId))
+                activeOnly -> productService.getActiveProductsByStore(StoreId.from(storeId))
+                else -> productService.getProductsByStore(StoreId.from(storeId))
+            }.toList()
 
-        val response = products.map { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+            val response = products.map { ProductResponse.from(it) }
+            ApiResponse.success(response)
+        } catch (e: Exception) {
+            println("상품 조회 중 오류 발생: ${e.message}")
+            ApiResponse.success(emptyList<ProductResponse>())
+        }
     }
 
     /**
@@ -207,17 +212,23 @@ class ProductController(
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "displayOrder") sortBy: String,
         @RequestParam(defaultValue = "ASC") sortDirection: String
-    ): Mono<ApiResponse<ProductPageResponse>> {
-        val (products, totalCount) = productService.getProductsWithPaging(
-            storeId = StoreId.from(storeId),
-            page = page,
-            size = size,
-            sortBy = sortBy,
-            sortDirection = sortDirection
-        )
+    ): ApiResponse<ProductPageResponse> {
+        return try {
+            val (products, totalCount) = productService.getProductsWithPaging(
+                storeId = StoreId.from(storeId),
+                page = page,
+                size = size,
+                sortBy = sortBy,
+                sortDirection = sortDirection
+            )
 
-        val response = ProductPageResponse.from(products, totalCount, page, size)
-        return Mono.just(ApiResponse.success(response))
+            val response = ProductPageResponse.from(products, totalCount, page, size)
+            ApiResponse.success(response)
+        } catch (e: Exception) {
+            println("페이징된 상품 조회 중 오류 발생: ${e.message}")
+            val emptyResponse = ProductPageResponse.from(emptyList(), 0, page, size)
+            ApiResponse.success(emptyResponse)
+        }
     }
 
     /**
@@ -228,14 +239,14 @@ class ProductController(
     suspend fun getProductsByCategory(
         @PathVariable storeId: String,
         @PathVariable category: String
-    ): Mono<ApiResponse<List<ProductResponse>>> {
+    ): ApiResponse<List<ProductResponse>> {
         val products = productService.getProductsByCategory(
             StoreId.from(storeId), 
             category
         ).toList()
 
         val response = products.map { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -246,14 +257,14 @@ class ProductController(
     suspend fun searchProducts(
         @PathVariable storeId: String,
         @RequestParam searchTerm: String
-    ): Mono<ApiResponse<List<ProductResponse>>> {
+    ): ApiResponse<List<ProductResponse>> {
         val products = productService.searchProducts(
             StoreId.from(storeId), 
             searchTerm
         ).toList()
 
         val response = products.map { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -264,10 +275,10 @@ class ProductController(
     suspend fun getProductByBarcode(
         @PathVariable storeId: String,
         @PathVariable barcode: String
-    ): Mono<ApiResponse<ProductResponse?>> {
+    ): ApiResponse<ProductResponse?> {
         val product = productService.getProductByBarcode(StoreId.from(storeId), barcode)
         val response = product?.let { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -278,10 +289,10 @@ class ProductController(
     suspend fun getProductBySku(
         @PathVariable storeId: String,
         @PathVariable sku: String
-    ): Mono<ApiResponse<ProductResponse?>> {
+    ): ApiResponse<ProductResponse?> {
         val product = productService.getProductBySku(StoreId.from(storeId), sku)
         val response = product?.let { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -291,10 +302,10 @@ class ProductController(
     @RequiresPermission("PRODUCT_READ")
     suspend fun getLowStockProducts(
         @PathVariable storeId: String
-    ): Mono<ApiResponse<List<ProductResponse>>> {
+    ): ApiResponse<List<ProductResponse>> {
         val products = productService.getLowStockProducts(StoreId.from(storeId)).toList()
         val response = products.map { ProductResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -305,14 +316,14 @@ class ProductController(
     suspend fun bulkUpdateStock(
         @RequestBody request: BulkStockUpdateRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<List<ProductResponse>>> {
+    ): ApiResponse<List<ProductResponse>> {
         val username = authentication.name
         
         val stockUpdates = request.stockUpdates.mapKeys { ProductId.from(it.key) }
         val products = productService.bulkUpdateStock(stockUpdates, username)
         val response = products.map { ProductResponse.from(it) }
         
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -323,14 +334,14 @@ class ProductController(
     suspend fun sellProducts(
         @RequestBody request: SellProductsRequest,
         authentication: Authentication
-    ): Mono<ApiResponse<List<ProductResponse>>> {
+    ): ApiResponse<List<ProductResponse>> {
         val username = authentication.name
         
         val salesItems = request.salesItems.mapKeys { ProductId.from(it.key) }
         val products = productService.sellProducts(salesItems, username)
         val response = products.map { ProductResponse.from(it) }
         
-        return Mono.just(ApiResponse.success(response))
+        return ApiResponse.success(response)
     }
 
     /**
@@ -340,9 +351,14 @@ class ProductController(
     @RequiresPermission("POS_SALES")
     suspend fun getProductsForPos(
         @PathVariable storeId: String
-    ): Mono<ApiResponse<List<ProductSummaryResponse>>> {
-        val products = productService.getAvailableProductsByStore(StoreId.from(storeId)).toList()
-        val response = products.map { ProductSummaryResponse.from(it) }
-        return Mono.just(ApiResponse.success(response))
+    ): ApiResponse<List<ProductSummaryResponse>> {
+        return try {
+            val products = productService.getAvailableProductsByStore(StoreId.from(storeId)).toList()
+            val response = products.map { ProductSummaryResponse.from(it) }
+            ApiResponse.success(response)
+        } catch (e: Exception) {
+            println("POS용 상품 조회 중 오류 발생: ${e.message}")
+            ApiResponse.success(emptyList<ProductSummaryResponse>())
+        }
     }
 }

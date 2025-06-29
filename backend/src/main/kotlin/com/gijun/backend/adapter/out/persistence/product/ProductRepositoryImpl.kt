@@ -9,6 +9,9 @@ import com.gijun.backend.domain.store.vo.StoreId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.context.annotation.Primary
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate
+import org.springframework.data.relational.core.query.Criteria
+import org.springframework.data.relational.core.query.Query
 import org.springframework.stereotype.Repository
 
 /**
@@ -18,10 +21,29 @@ import org.springframework.stereotype.Repository
 @Primary
 class ProductRepositoryImpl(
     private val productR2dbcRepository: ProductR2dbcRepository,
-    private val productMapper: ProductMapper
+    private val productMapper: ProductMapper,
+    private val r2dbcEntityTemplate: R2dbcEntityTemplate
 ) : ProductRepository {
 
     override suspend fun save(product: Product): Product {
+        val entity = productMapper.toEntity(product)
+        val savedEntity = productR2dbcRepository.save(entity)
+        return productMapper.toDomain(savedEntity)
+    }
+
+    /**
+     * 새로운 상품 삽입
+     */
+    suspend fun insert(product: Product): Product {
+        val entity = productMapper.toNewEntity(product)
+        val savedEntity = productR2dbcRepository.save(entity)
+        return productMapper.toDomain(savedEntity)
+    }
+
+    /**
+     * 기존 상품 업데이트
+     */
+    suspend fun update(product: Product): Product {
         val entity = productMapper.toEntity(product)
         val savedEntity = productR2dbcRepository.save(entity)
         return productMapper.toDomain(savedEntity)

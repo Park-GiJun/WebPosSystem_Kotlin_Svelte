@@ -74,11 +74,11 @@ logging:
     org.springframework.web.cors: DEBUG
     com.gijun.backend: DEBUG
     # R2DBC 연결 디버깅
-    io.r2dbc: INFO
-    io.r2dbc.mysql: INFO
-    io.r2dbc.pool: INFO
-    org.springframework.data.r2dbc: INFO
-    org.springframework.r2dbc: INFO
+    io.r2dbc: DEBUG
+    io.r2dbc.mysql: DEBUG
+    io.r2dbc.pool: DEBUG
+    org.springframework.data.r2dbc: DEBUG
+    org.springframework.r2dbc: DEBUG
 
 # SpringDoc Configuration - Disabled for Production (보안)
 springdoc:

@@ -45,6 +45,13 @@ class ProductMapper {
     }
 
     /**
+     * 새로운 상품을 엔티티로 변환 (새로운 엔티티로 표시)
+     */
+    fun toNewEntity(product: Product): ProductEntity {
+        return toEntity(product).markAsNew()
+    }
+
+    /**
      * 엔티티를 도메인으로 변환
      */
     fun toDomain(entity: ProductEntity): Product {

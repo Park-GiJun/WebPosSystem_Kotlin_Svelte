@@ -1,6 +1,7 @@
 package com.gijun.backend.application.service
 
 import com.gijun.backend.application.port.out.ProductRepository
+import com.gijun.backend.adapter.out.persistence.product.ProductRepositoryImpl
 import com.gijun.backend.domain.product.entities.Product
 import com.gijun.backend.domain.product.enums.ProductStatus
 import com.gijun.backend.domain.product.enums.ProductType
@@ -71,7 +72,12 @@ class ProductService(
             createdBy = createdBy
         )
 
-        return productRepository.save(product)
+        // ProductRepositoryImpl을 타입 캐스팅해서 insert 메서드 사용
+        return if (productRepository is ProductRepositoryImpl) {
+            productRepository.insert(product)
+        } else {
+            productRepository.save(product)
+        }
     }
 
     /**
@@ -126,7 +132,12 @@ class ProductService(
             updatedBy = updatedBy
         )
 
-        return productRepository.save(updatedProduct)
+        // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+        return if (productRepository is ProductRepositoryImpl) {
+            productRepository.update(updatedProduct)
+        } else {
+            productRepository.save(updatedProduct)
+        }
     }
 
     /**
@@ -141,7 +152,12 @@ class ProductService(
             ?: throw IllegalArgumentException("상품을 찾을 수 없습니다: ${productId.value}")
 
         val updatedProduct = existingProduct.updateStatus(status, updatedBy)
-        return productRepository.save(updatedProduct)
+        // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+        return if (productRepository is ProductRepositoryImpl) {
+            productRepository.update(updatedProduct)
+        } else {
+            productRepository.save(updatedProduct)
+        }
     }
 
     /**
@@ -156,7 +172,12 @@ class ProductService(
             ?: throw IllegalArgumentException("상품을 찾을 수 없습니다: ${productId.value}")
 
         val updatedProduct = existingProduct.updateActiveStatus(isActive, updatedBy)
-        return productRepository.save(updatedProduct)
+        // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+        return if (productRepository is ProductRepositoryImpl) {
+            productRepository.update(updatedProduct)
+        } else {
+            productRepository.save(updatedProduct)
+        }
     }
 
     /**
@@ -176,7 +197,14 @@ class ProductService(
             existingProduct.decreaseStock(-quantity)
         }
 
-        return productRepository.save(updatedProduct.copy(updatedBy = updatedBy))
+        val finalProduct = updatedProduct.copy(updatedBy = updatedBy)
+        
+        // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+        return if (productRepository is ProductRepositoryImpl) {
+            productRepository.update(finalProduct)
+        } else {
+            productRepository.save(finalProduct)
+        }
     }
 
     /**
@@ -187,7 +215,13 @@ class ProductService(
             ?: throw IllegalArgumentException("상품을 찾을 수 없습니다: ${productId.value}")
         
         val deletedProduct = existingProduct.delete(deletedBy)
-        productRepository.save(deletedProduct)
+        
+        // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+        if (productRepository is ProductRepositoryImpl) {
+            productRepository.update(deletedProduct)
+        } else {
+            productRepository.save(deletedProduct)
+        }
     }
 
     /**
@@ -293,7 +327,14 @@ class ProductService(
                 updatedBy = updatedBy
             )
             
-            updatedProducts.add(productRepository.save(updatedProduct))
+            // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+            val savedProduct = if (productRepository is ProductRepositoryImpl) {
+                productRepository.update(updatedProduct)
+            } else {
+                productRepository.save(updatedProduct)
+            }
+            
+            updatedProducts.add(savedProduct)
         }
         
         return updatedProducts
@@ -323,7 +364,15 @@ class ProductService(
         for ((productId, quantity) in salesItems) {
             val product = productRepository.findById(productId)!!
             val updatedProduct = product.decreaseStock(quantity).copy(updatedBy = updatedBy)
-            updatedProducts.add(productRepository.save(updatedProduct))
+            
+            // ProductRepositoryImpl을 타입 캐스팅해서 update 메서드 사용
+            val savedProduct = if (productRepository is ProductRepositoryImpl) {
+                productRepository.update(updatedProduct)
+            } else {
+                productRepository.save(updatedProduct)
+            }
+            
+            updatedProducts.add(savedProduct)
         }
         
         return updatedProducts

@@ -4,7 +4,8 @@
   import { tabStore } from '$lib/stores/tabs.js';
   import { toastStore } from '$lib/stores/toast.js';
   import { ProductApi } from '$lib/api/product.js';
-  import { Package, Plus, Search, Edit, Trash2, Eye, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-svelte';
+  import { SampleApi } from '$lib/api/sample.js';
+  import { Package, Plus, Search, Edit, Trash2, Eye, AlertTriangle, TrendingUp, TrendingDown, TestTube } from 'lucide-svelte';
   import CreateProductModal from '$lib/components/Business/CreateProductModal.svelte';
   import EditProductModal from '$lib/components/Business/EditProductModal.svelte';
   import ProductDetailModal from '$lib/components/Business/ProductDetailModal.svelte';
@@ -47,7 +48,7 @@
     { id: 'PREPARING', name: '준비중' }
   ];
 
-  // 현재 사용자의 매장 ID
+  // 현재 사용자의 매장 ID (샘플 데이터 생성 후 업데이트됨)
   $: currentStoreId = $authStore.user?.organizationId || 'IN001001';
 
   // 탭 활성화 및 데이터 로드
@@ -60,6 +61,8 @@
   async function loadProducts() {
     try {
       loading = true;
+      console.log('상품 조회 시작, 매장 ID:', currentStoreId);
+      
       const result = await ProductApi.getProductsWithPaging(
         currentStoreId,
         currentPage,
@@ -68,13 +71,17 @@
         sortDirection
       );
       
+      console.log('상품 조회 결과:', result);
+      
       products = result.products || [];
       totalCount = result.totalCount || 0;
       totalPages = result.totalPages || 0;
 
+      console.log(`${products.length}개 상품 로드 완료`);
+
     } catch (error) {
       console.error('상품 로드 실패:', error);
-      toastStore.add('상품을 불러오는데 실패했습니다.', 'error');
+      toastStore.add(`상품을 불러오는데 실패했습니다: ${error.message}`, 'error');
       products = [];
     } finally {
       loading = false;
@@ -160,6 +167,36 @@
     }
   }
 
+  // 샘플 데이터 생성
+  async function handleCreateSampleData() {
+    if (!confirm('테스트용 샘플 데이터를 생성하시겠습니까?\n(매장과 상품 데이터가 생성됩니다)')) {
+      return;
+    }
+
+    try {
+      loading = true;
+      toastStore.add('샘플 데이터를 생성하는 중...', 'info');
+      
+      const result = await SampleApi.createAllSampleData();
+      
+      if (result.error) {
+        toastStore.add(result.error, 'error');
+      } else {
+        toastStore.add(result.message || '샘플 데이터가 생성되었습니다.', 'success');
+        // 매장 ID 업데이트
+        if (result.storeId) {
+          currentStoreId = result.storeId;
+        }
+        await loadProducts();
+      }
+    } catch (error) {
+      console.error('샘플 데이터 생성 실패:', error);
+      toastStore.add('샘플 데이터 생성에 실패했습니다: ' + error.message, 'error');
+    } finally {
+      loading = false;
+    }
+  }
+
   // 모달 닫기 후 새로고침
   function handleModalClose() {
     showCreateModal = false;
@@ -225,16 +262,28 @@
         <Package class="mr-3" size="28" />
         상품 관리
       </h1>
-      <p class="text-gray-600 mt-1">매장의 상품을 등록하고 관리합니다</p>
+      <p class="text-gray-600 mt-1">매장의 상품을 등록하고 관리합니다 (매장 ID: {currentStoreId})</p>
     </div>
-    <button
-      type="button"
-      class="btn btn-primary"
-      on:click={handleCreateProduct}
-    >
-      <Plus size="20" class="mr-2" />
-      상품 등록
-    </button>
+    <div class="flex space-x-2">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        on:click={handleCreateSampleData}
+        disabled={loading}
+        title="테스트용 샘플 데이터 생성"
+      >
+        <TestTube size="20" class="mr-2" />
+        샘플 데이터
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        on:click={handleCreateProduct}
+      >
+        <Plus size="20" class="mr-2" />
+        상품 등록
+      </button>
+    </div>
   </div>
 
   <!-- 통계 카드 -->
@@ -350,15 +399,26 @@
       <div class="p-12 text-center">
         <Package class="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 class="text-lg font-medium text-gray-900 mb-2">상품이 없습니다</h3>
-        <p class="text-gray-500 mb-4">새로운 상품을 등록해보세요.</p>
-        <button
-          type="button"
-          class="btn btn-primary"
-          on:click={handleCreateProduct}
-        >
-          <Plus size="20" class="mr-2" />
-          상품 등록
-        </button>
+        <p class="text-gray-500 mb-4">새로운 상품을 등록하거나 샘플 데이터를 생성해보세요.</p>
+        <div class="flex justify-center space-x-3">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            on:click={handleCreateSampleData}
+            disabled={loading}
+          >
+            <TestTube size="20" class="mr-2" />
+            샘플 데이터 생성
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            on:click={handleCreateProduct}
+          >
+            <Plus size="20" class="mr-2" />
+            상품 등록
+          </button>
+        </div>
       </div>
     {:else}
       <div class="overflow-x-auto">

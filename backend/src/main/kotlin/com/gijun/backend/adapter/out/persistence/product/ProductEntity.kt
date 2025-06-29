@@ -3,6 +3,8 @@ package com.gijun.backend.adapter.out.persistence.product
 import com.gijun.backend.domain.product.enums.ProductStatus
 import com.gijun.backend.domain.product.enums.ProductType
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.Transient
+import org.springframework.data.domain.Persistable
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
 import java.math.BigDecimal
@@ -81,5 +83,23 @@ data class ProductEntity(
     val deletedAt: LocalDateTime? = null,
     
     @Column("deleted_by")
-    val deletedBy: String? = null
-)
+    val deletedBy: String? = null,
+    
+    @Transient
+    private val isNewEntity: Boolean = false
+) : Persistable<String> {
+    
+    override fun getId(): String = productId
+    
+    override fun isNew(): Boolean {
+        // created_at과 updated_at이 같으면 새로운 엔티티로 간주
+        return createdAt == updatedAt || isNewEntity
+    }
+    
+    /**
+     * 새로운 엔티티로 표시하는 메서드
+     */
+    fun markAsNew(): ProductEntity {
+        return this.copy(isNewEntity = true)
+    }
+}
